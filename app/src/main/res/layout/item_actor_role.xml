@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:id="@+id/role_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@+id/view_all_button"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Актер" />
+
+    <TextView
+        android:id="@+id/view_all_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="8dp"
+        android:layout_marginEnd="8dp"
+        android:text="Все"
+        android:textColor="?attr/colorPrimary"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/role_title"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/role_info"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="14sp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/role_title"
+        tools:text="Статистика ролей" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/films_recycler_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:clipToPadding="false"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/role_info" />
+
+    <View
+        android:id="@+id/gradient_left"
+        android:layout_width="60dp"
+        android:layout_height="0dp"
+        android:background="@drawable/actors_list_gradient_left"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/films_recycler_view"
+        app:layout_constraintStart_toStartOf="@+id/films_recycler_view"
+        app:layout_constraintTop_toTopOf="@+id/films_recycler_view" />
+
+    <View
+        android:id="@+id/gradient_right"
+        android:layout_width="60dp"
+        android:layout_height="0dp"
+        android:background="@drawable/actors_list_gradient_right"
+        app:layout_constraintBottom_toBottomOf="@+id/films_recycler_view"
+        app:layout_constraintEnd_toEndOf="@+id/films_recycler_view"
+        app:layout_constraintTop_toTopOf="@+id/films_recycler_view" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

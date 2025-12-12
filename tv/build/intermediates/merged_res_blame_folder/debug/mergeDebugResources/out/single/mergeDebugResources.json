@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.slooshfilm.tv-debug-26:/navigation_nav_graph.xml.flat",
+        "source": "com.slooshfilm.tv-main-28:/navigation/nav_graph.xml"
+    },
+    {
+        "merged": "com.slooshfilm.tv-debug-26:/layout_activity_main.xml.flat",
+        "source": "com.slooshfilm.tv-main-28:/layout/activity_main.xml"
+    }
+]

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base colors, available in both themes -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="brand_yellow_green">#D4E022</color>
+    <color name="brand_yellow_green_dark">#A8B01A</color>
+    <color name="brand_yellow_green_ripple">#33D4E022</color>
+    <color name="brand_yellow_dark">#4A4A25</color>
+    <color name="gray_400">#BDBDBD</color>
+    <color name="gray_500">#9E9E9E</color>
+    <color name="gray_600">#757575</color>
+    <color name="green_400">#81C784</color>
+    <color name="light_blue_400">#29B6F6</color>
+    <color name="light_blue_600">#03A9F4</color>
+    <color name="teal_200">#80CBC4</color>
+    <color name="teal_700">#00796B</color>
+    <color name="red_500">#F44336</color>
+    <color name="red_600">#D32F2F</color>
+    <color name="red_ripple">#33D32F2F</color>
+
+    <!-- Rating colors -->
+    <color name="kinopoisk_orange">#FF6600</color>
+    <color name="kinopoisk_yellow">#FF9900</color>
+    <color name="imdb_yellow">#F5C518</color>
+    <color name="rating_high">#66BB6A</color> <!-- Light Green -->
+    <color name="rating_medium_high">#9CCC65</color> <!-- Lighter Green -->
+    <color name="rating_medium">#D4E157</color> <!-- Lime -->
+    <color name="rating_medium_low">#FFEE58</color> <!-- Yellow -->
+    <color name="rating_low">#FF7043</color> <!-- Orange -->
+    <color name="rating_very_low">#EF5350</color> <!-- Red -->
+
+    <!-- LIGHT THEME semantic colors -->
+    <color name="app_background">#FFFFFF</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_blur">#E6F7F7F7</color>
+    <color name="surface_blur_dark">#F21E1E1E</color>
+    <color name="text_primary">#DE000000</color>
+    <color name="text_secondary">#8A000000</color>
+    <color name="icon_active">@color/brand_yellow_green</color>
+    <color name="icon_inactive">@color/gray_600</color>
+    <color name="chip_background_inactive_light">#F0F0F0</color>
+    <color name="chip_background_active_light">#33D4E022</color>
+    <color name="toggle_background">#F0F0F0</color>
+    <color name="toggle_button_background_unselected">#00000000</color>
+    <color name="scrim_color">#B3FFFFFF</color>
+    <color name="poster_scrim">@color/poster_scrim_light</color>
+    <color name="stroke_color">#1F000000</color> <!-- 12% Black -->
+    <color name="poster_scrim_light">#B3FFFFFF</color>
+    <color name="poster_scrim_dark">#B3000000</color>
+
+    <!-- Settings Screen -->
+    <color name="setting_accent_color">@color/brand_yellow_green</color>
+
+    <!-- Fallbacks for dark-specific colors to prevent crashes -->
+    <color name="app_background_amoled">#FFFFFF</color>
+    <color name="surface_blur_amoled">#E6F7F7F7</color>
+    <color name="surface_dark">@color/surface</color>
+    <color name="background_dark">@color/app_background</color>
+    <color name="scrim_color_dark">#99000000</color>
+
+    <!-- Widget colors -->
+    <color name="widget_background">#CC000000</color>
+    <color name="widget_text_color">@color/white</color>
+
+    <!-- Material 3 Overrides -->
+    <color name="m3_sys_color_light_primary_container">@color/white</color>
+    <color name="m3_sys_color_light_on_primary_container">@color/black</color>
+    <color name="m3_sys_color_light_secondary_container">@color/white</color>
+    <color name="m3_sys_color_light_on_secondary_container">@color/black</color>
+    <color name="m3_sys_color_light_tertiary_container">@color/white</color>
+    <color name="m3_sys_color_light_on_tertiary_container">@color/black</color>
+    <color name="m3_sys_color_light_surface_variant">@color/white</color>
+    <color name="m3_sys_color_light_on_surface_variant">@color/text_secondary</color>
+</resources>

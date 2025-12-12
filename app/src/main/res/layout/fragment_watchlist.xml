@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/appBackground"
+    tools:context=".ui.watchlist.WatchlistFragment">
+
+    <eightbitlab.com.blurview.BlurTarget
+        android:id="@+id/main_blur_target"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+            
+    </eightbitlab.com.blurview.BlurTarget>
+
+    <View
+        android:id="@+id/top_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="@drawable/top_gradient_scrim" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/toggle_container"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="@android:color/transparent"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="8dp"
+        android:clipToOutline="true"
+        tools:cardBackgroundColor="@color/black_80_alpha">
+
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/top_blur_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="4dp">
+
+            <View
+                android:id="@+id/slider_view"
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_toggle_slider" />
+
+            <LinearLayout
+                android:id="@+id/tabs_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+                <!-- Tabs will be added programmatically -->
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:indeterminate="true"
+        app:indicatorColor="?attr/colorPrimary"
+        app:indicatorSize="48dp"
+        app:trackThickness="5dp"
+        app:trackCornerRadius="5dp"
+        app:indeterminateAnimationType="disjoint"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/empty_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Список пуст"
+        android:visibility="gone" />
+
+</FrameLayout>

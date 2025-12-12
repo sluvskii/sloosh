@@ -1,0 +1,41 @@
+
+<resources>
+    <string name="app_name">sloosh</string>
+
+    <!-- Playback notification -->
+    <string name="playback_running">Воспроизведение</string>
+
+    <!-- Network Error Screen -->
+    <string name="network_error_title">Ошибка сети</string>
+    <string name="network_error_description">Уверены, что подключены? Попробуйте включить или выключить VPN.</string>
+    <string name="network_error_secondary_description">Если ошибка не уходит - возможно, у HDrezka проблемы. Попробуйте позже.</string>
+    <string name="network_error_try_again">Попробовать снова</string>
+
+    <!-- New Releases Widget -->
+    <string name="new_releases_widget_title">Новинки</string>
+    <string name="new_releases_widget_description">Виджет для отображения новинок</string>
+    <string name="category_watching_now">Сейчас смотрят</string>
+    <string name="category_new">Новинки</string>
+    <string name="category_popular">Популярные</string>
+    <string name="widget_loading">Нет данных</string>
+
+    <!-- Actions -->
+    <string name="add">Добавить</string>
+    <string name="cancel">Отмена</string>
+    <string name="logout">Выйти</string>
+    <string name="logout_confirmation_title">Выход из аккаунта</string>
+    <string name="logout_confirmation_message">Вы уверены, что хотите выйти?</string>
+
+    <!-- Player -->
+    <string name="pip_button_content_description">Режим "Картинка в картинке"</string>
+    
+    <!-- Episodes -->
+    <string name="episode_default_title">Серия %1$d</string>
+    <string name="episode_date_unknown">Дата неизвестна</string>
+    <string name="episode_status_released">Вышла</string>
+    <string name="episode_status_current">Выходит</string>
+    <string name="episode_status_upcoming">Ждёт</string>
+
+    <!-- Content Descriptions -->
+    <string name="scroll_to_top">Наверх</string>
+</resources>

@@ -1,0 +1,22 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "i18n/*": ["./src/util/Translation/*"],
+      "Api/*": ["./src/api/*"],
+      "Component/*": ["./src/component/*"],
+      "Context/*": ["./src/context/*"],
+      "Hooks/*": ["./src/hooks/*"],
+      "Navigation/*": ["./src/navigation/*"],
+      "Route/*": ["./src/route/*"],
+      "Style/*": ["./src/style/*"],
+      "Service/*": ["./src/service/*"],
+      "Store/*": ["./src/store/*"],
+      "Type/*": ["./src/type/*"],
+      "Util/*": ["./src/util/*"],
+      "react-tv-space-navigation": ["./src/libs/react-tv-space-navigation"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}

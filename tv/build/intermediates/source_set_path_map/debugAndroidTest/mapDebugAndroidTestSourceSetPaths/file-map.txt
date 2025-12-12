@@ -1,0 +1,4 @@
+com.slooshfilm.tv.test.tv-androidTest-0 W:\sloosh\tv\build\generated\res\resValues\androidTest\debug
+com.slooshfilm.tv.test.tv-mergeDebugAndroidTestResources-1 W:\sloosh\tv\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.slooshfilm.tv.test.tv-mergeDebugAndroidTestResources-2 W:\sloosh\tv\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.slooshfilm.tv.test.tv-debugAndroidTest-3 W:\sloosh\tv\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <View
+        android:id="@+id/actor_photo_placeholder"
+        android:layout_width="140dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="56dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/actor_name_placeholder"
+        android:layout_width="0dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/actor_photo_placeholder"
+        app:layout_constraintTop_toTopOf="@id/actor_photo_placeholder" />
+
+    <View
+        android:id="@+id/actor_original_name_placeholder"
+        android:layout_width="0dp"
+        android:layout_height="18dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/actor_photo_placeholder"
+        app:layout_constraintTop_toBottomOf="@id/actor_name_placeholder" />
+
+    <View
+        android:id="@+id/actor_info_placeholder"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/actor_photo_placeholder"
+        app:layout_constraintTop_toBottomOf="@id/actor_original_name_placeholder" />
+
+    <View
+        android:id="@+id/biography_label_placeholder"
+        android:layout_width="120dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/actor_photo_placeholder" />
+
+    <View
+        android:id="@+id/description_line_1"
+        android:layout_width="0dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/biography_label_placeholder" />
+
+    <View
+        android:id="@+id/description_line_2"
+        android:layout_width="0dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="40dp"
+        android:background="@drawable/rounded_placeholder"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/description_line_1" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

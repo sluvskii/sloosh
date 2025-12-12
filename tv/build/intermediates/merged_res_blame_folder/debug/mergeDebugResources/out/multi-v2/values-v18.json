@@ -1,0 +1,38 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.slooshfilm.tv-mergeDebugResources-24:/values-v18/values-v18.xml",
+            "map": [
+                {
+                    "source": "W:\\.gradle\\caches\\8.13\\transforms\\813374d447c3ff1edf09bbac536deb48\\transformed\\leanback-1.0.0\\res\\values-v18\\values-v18.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "10",
+                        "endColumns": "12",
+                        "endOffsets": "642"
+                    },
+                    "to": {
+                        "startLines": "3",
+                        "startColumns": "4",
+                        "startOffsets": "104",
+                        "endLines": "11",
+                        "endColumns": "12",
+                        "endOffsets": "691"
+                    }
+                },
+                {
+                    "source": "W:\\.gradle\\caches\\8.13\\transforms\\bdc26f4a7cc4cd6cdbee661f0f1dce3c\\transformed\\appcompat-1.6.1\\res\\values-v18\\values-v18.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "48",
+                        "endOffsets": "99"
+                    }
+                }
+            ]
+        }
+    ]
+}

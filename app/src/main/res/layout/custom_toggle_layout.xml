@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/toggle_container"
+    android:layout_width="280dp"
+    android:layout_height="52dp"
+    android:layout_gravity="center"
+    app:cardCornerRadius="26dp"
+    app:cardBackgroundColor="#33FFFFFF"
+    app:cardElevation="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:weightSum="2">
+
+        <!-- Кнопка "Фильмы" -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/button_films_container"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            app:cardCornerRadius="22dp"
+            app:cardBackgroundColor="@color/brand_yellow_green"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:id="@+id/button_films"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Фильмы"
+                android:textSize="15sp"
+                android:textColor="@android:color/black"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground"/>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Кнопка "Сериалы" -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/button_series_container"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="2dp"
+            app:cardCornerRadius="22dp"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:id="@+id/button_series"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Сериалы"
+                android:textSize="15sp"
+                android:textColor="#B3FFFFFF"
+                android:fontFamily="sans-serif"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground"/>
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

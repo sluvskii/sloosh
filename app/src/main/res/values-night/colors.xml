@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DARK THEME semantic colors -->
+    <color name="app_background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="surface_blur">#F2121212</color>
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    <color name="icon_active">@color/brand_yellow_green</color>
+    <color name="icon_inactive">#9E9E9E</color>
+    <color name="chip_background">#33FFFFFF</color>
+    <color name="toggle_background">#2A2A2A</color>
+    <color name="toggle_button_background_unselected">#00000000</color>
+    <color name="scrim_color">#CC121212</color>
+    <color name="poster_scrim">@color/poster_scrim_dark</color>
+    <color name="scrim_color_dark">#CC000000</color>
+    <color name="stroke_color">#33FFFFFF</color> <!-- 20% White -->
+    <color name="poster_scrim_light">#B3FFFFFF</color>
+    <color name="poster_scrim_dark">#B3000000</color>
+
+    <!-- AMOLED specific colors -->
+    <color name="app_background_amoled">#000000</color>
+    <color name="surface_amoled">#121212</color>
+    <color name="surface_blur_amoled">#F2000000</color>
+    <!-- Bottom navigation card color for normal dark theme (slightly lighter than surface) -->
+    <color name="bottom_nav_card_dark">#2B2B2B</color>
+</resources>

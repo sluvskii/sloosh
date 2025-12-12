@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="GradientBlurView">
+        <!-- Drawable used as alpha mask for the blurred content -->
+        <attr name="maskDrawable" format="reference" />
+        <!-- Blur radius in pixels -->
+        <attr name="blurRadius" format="float" />
+        <!-- Downscale factor applied to snapshot before blur (0.1 - 1.0) -->
+        <attr name="scaleFactor" format="float" />
+        <!-- Apply blue noise overlay like existing BlurView -->
+        <attr name="applyNoise" format="boolean" />
+        <!-- Overlay color drawn above blurred content -->
+        <attr name="overlayColor" format="color" />
+    </declare-styleable>
+</resources>

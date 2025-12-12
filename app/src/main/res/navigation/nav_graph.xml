@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph">
+
+    <!-- Global actions with new animations -->
+    <action
+        android:id="@+id/action_global_to_movie_details"
+        app:destination="@id/movie_details_destination"
+        app:enterAnim="@anim/fade_grow_enter"
+        app:exitAnim="@anim/fade_shrink_exit"
+        app:popEnterAnim="@anim/fade_grow_pop_enter"
+        app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    <action
+        android:id="@+id/action_global_to_login"
+        app:destination="@id/login_fragment"
+        app:enterAnim="@anim/fade_grow_enter"
+        app:exitAnim="@anim/fade_shrink_exit"
+        app:popEnterAnim="@anim/fade_grow_pop_enter"
+        app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    <action
+        android:id="@+id/action_global_to_register"
+        app:destination="@id/register_fragment"
+        app:enterAnim="@anim/fade_grow_enter"
+        app:exitAnim="@anim/fade_shrink_exit"
+        app:popEnterAnim="@anim/fade_grow_pop_enter"
+        app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    <action
+        android:id="@+id/action_global_to_actor_details"
+        app:destination="@id/actor_details_destination"
+        app:enterAnim="@anim/fade_grow_enter"
+        app:exitAnim="@anim/fade_shrink_exit"
+        app:popEnterAnim="@anim/fade_grow_pop_enter"
+        app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    <action
+        android:id="@+id/action_global_to_filmography"
+        app:destination="@id/filmography_destination"
+        app:enterAnim="@anim/fade_grow_enter"
+        app:exitAnim="@anim/fade_shrink_exit"
+        app:popEnterAnim="@anim/fade_grow_pop_enter"
+        app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    <action
+        android:id="@+id/action_global_to_comments"
+        app:destination="@id/comments_destination"
+        app:enterAnim="@anim/fade_grow_enter"
+        app:exitAnim="@anim/fade_shrink_exit"
+        app:popEnterAnim="@anim/fade_grow_pop_enter"
+        app:popExitAnim="@anim/fade_shrink_pop_exit" />
+
+    <fragment
+        android:id="@+id/navigation_home"
+        android:name="com.slooshfilm.app.ui.home.HomeFragment"
+        android:label="fragment_home"
+        tools:layout="@layout/fragment_home" />
+
+    <fragment
+        android:id="@+id/navigation_search"
+        android:name="com.slooshfilm.app.ui.search.SearchFragment"
+        android:label="fragment_search"
+        tools:layout="@layout/fragment_search" />
+
+    <fragment
+        android:id="@+id/navigation_library"
+        android:name="com.slooshfilm.app.ui.watchlist.WatchlistFragment"
+        android:label="fragment_watchlist"
+        tools:layout="@layout/fragment_watchlist" />
+
+    <fragment
+        android:id="@+id/navigation_profile"
+        android:name="com.slooshfilm.app.ui.profile.ProfileFragment"
+        android:label="fragment_user_profile"
+        tools:layout="@layout/fragment_user_profile">
+        <action
+            android:id="@+id/action_profileFragment_to_settingsFragment"
+            app:destination="@id/settings_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+        <action
+            android:id="@+id/action_profileFragment_to_updatesFragment"
+            app:destination="@id/updates_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/login_fragment"
+        android:name="com.slooshfilm.app.ui.profile.LoginFragment"
+        android:label="fragment_login"
+        tools:layout="@layout/fragment_login">
+        <action
+            android:id="@+id/action_loginFragment_to_registerFragment"
+            app:destination="@id/register_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+        <action
+            android:id="@+id/action_loginFragment_to_forgotPasswordFragment"
+            app:destination="@id/forgot_password_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/register_fragment"
+        android:name="com.slooshfilm.app.ui.profile.RegisterFragment"
+        android:label="fragment_register"
+        tools:layout="@layout/fragment_register" />
+
+    <fragment
+        android:id="@+id/forgot_password_fragment"
+        android:name="com.slooshfilm.app.ui.profile.ForgotPasswordFragment"
+        android:label="fragment_forgot_password" />
+
+    <fragment
+        android:id="@+id/updates_fragment"
+        android:name="com.slooshfilm.app.ui.profile.UpdatesFragment"
+        android:label="fragment_updates"
+        tools:layout="@layout/fragment_updates" />
+
+    <fragment
+        android:id="@+id/settings_fragment"
+        android:name="com.slooshfilm.app.ui.settings.SettingsFragment"
+        android:label="fragment_settings"
+        tools:layout="@layout/fragment_settings">
+        <action
+            android:id="@+id/action_settingsFragment_to_settingsAppearanceFragment"
+            app:destination="@id/settings_appearance_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+        <action
+            android:id="@+id/action_settingsFragment_to_settingsGeneralFragment"
+            app:destination="@id/settings_general_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+        <action
+            android:id="@+id/action_settingsFragment_to_settingsPlayerFragment"
+            app:destination="@id/settings_player_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+        <action
+            android:id="@+id/action_settingsFragment_to_settingsAboutFragment"
+            app:destination="@id/settings_about_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settings_appearance_fragment"
+        android:name="com.slooshfilm.app.ui.settings.SettingsAppearanceFragment"
+        android:label="fragment_settings_appearance"
+        tools:layout="@layout/fragment_settings_appearance" />
+
+    <fragment
+        android:id="@+id/settings_general_fragment"
+        android:name="com.slooshfilm.app.ui.settings.SettingsGeneralFragment"
+        android:label="fragment_settings_general"
+        tools:layout="@layout/fragment_settings_general" />
+
+    <fragment
+        android:id="@+id/settings_player_fragment"
+        android:name="com.slooshfilm.app.ui.settings.SettingsPlayerFragment"
+        android:label="fragment_settings_player"
+        tools:layout="@layout/fragment_settings_player" />
+
+    <fragment
+        android:id="@+id/settings_about_fragment"
+        android:name="com.slooshfilm.app.ui.settings.SettingsAboutFragment"
+        android:label="fragment_settings_about"
+        tools:layout="@layout/fragment_settings_about">
+        <action
+            android:id="@+id/action_settingsAboutFragment_to_settingsLicensesFragment"
+            app:destination="@id/settings_licenses_fragment"
+            app:enterAnim="@anim/fade_grow_enter"
+            app:exitAnim="@anim/fade_shrink_exit"
+            app:popEnterAnim="@anim/fade_grow_pop_enter"
+            app:popExitAnim="@anim/fade_shrink_pop_exit" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settings_licenses_fragment"
+        android:name="com.slooshfilm.app.ui.settings.SettingsLicensesFragment"
+        android:label="fragment_settings_licenses"
+        tools:layout="@layout/fragment_settings_licenses" />
+
+    <fragment
+        android:id="@+id/movie_details_destination"
+        android:name="com.slooshfilm.app.ui.moviedetails.MovieDetailsFragment"
+        android:label="fragment_movie_details"
+        tools:layout="@layout/fragment_movie_details">
+        <argument
+            android:name="movie_url"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/player_destination"
+        android:name="com.slooshfilm.app.ui.player.PlayerFragment"
+        android:label="fragment_player"
+        tools:layout="@layout/fragment_player" />
+
+    <fragment
+        android:id="@+id/actor_details_destination"
+        android:name="com.slooshfilm.app.ui.actordetails.ActorDetailsFragment"
+        android:label="fragment_actor_details"
+        tools:layout="@layout/fragment_actor_details">
+        <argument
+            android:name="actor_link"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/filmography_destination"
+        android:name="com.slooshfilm.app.ui.filmography.FilmographyFragment"
+        android:label="fragment_filmography"
+        tools:layout="@layout/fragment_filmography">
+        <argument
+            android:name="role_title"
+            app:argType="string" />
+        <argument
+            android:name="films"
+            app:argType="com.slooshfilm.app.data.model.MovieParcelable[]" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/comments_destination"
+        android:name="com.slooshfilm.app.ui.comments.CommentsFragment"
+        android:label="fragment_comments"
+        tools:layout="@layout/fragment_comments">
+        <argument
+            android:name="post_id"
+            app:argType="string" />
+    </fragment>
+
+</navigation>

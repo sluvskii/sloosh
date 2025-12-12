@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Качество" />
+
+    <RadioGroup
+        android:id="@+id/rg_quality"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/q_auto"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Авто"
+            android:checked="true"/>
+
+        <RadioButton
+            android:id="@+id/q_1080"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1080p"/>
+
+        <RadioButton
+            android:id="@+id/q_720"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="720p"/>
+
+        <RadioButton
+            android:id="@+id/q_480"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="480p"/>
+    </RadioGroup>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?android:attr/listDivider"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Скорость"
+        android:layout_marginTop="8dp"/>
+
+    <RadioGroup
+        android:id="@+id/rg_speed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/s_0_5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.5x"/>
+
+        <RadioButton
+            android:id="@+id/s_1_0"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1x"
+            android:checked="true"/>
+
+        <RadioButton
+            android:id="@+id/s_1_5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1.5x"/>
+
+        <RadioButton
+            android:id="@+id/s_2_0"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2x"/>
+    </RadioGroup>
+</LinearLayout>

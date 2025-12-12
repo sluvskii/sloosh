@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- This is an example of using GradientBlurView under a floating panel. -->
+    <eightbitlab.com.blurview.BlurTarget
+        android:id="@+id/mainBlurTarget"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- content goes here (images, lists, etc) -->
+
+    </eightbitlab.com.blurview.BlurTarget>
+
+    <eightbitlab.com.blurview.GradientBlurView
+        android:id="@+id/gradientBlur"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_gravity="top"
+        app:maskDrawable="@drawable/gradient_shape"
+        app:scaleFactor="0.35"
+        app:applyNoise="true" />
+
+    <!-- Example floating panel drawn over the blur -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="100dp"
+        android:background="#ccffffff">
+
+        <!-- floating panel content -->
+
+    </FrameLayout>
+
+</FrameLayout>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="appBackground" format="color" />
+    <attr name="textPrimaryColor" format="color" />
+    <attr name="scrimColor" format="color" />
+    <attr name="strokeColor" format="color" />
+    <attr name="surfaceBlur" format="color" />
+    <attr name="iconColor" format="color" />
+    <attr name="posterScrim" format="color" />
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/sloosh_background_icon_beta" />
+    <foreground>
+        <inset
+            android:drawable="@drawable/sloosh_foreground_icon_beta"
+            android:inset="10%" />
+    </foreground>
+</adaptive-icon>

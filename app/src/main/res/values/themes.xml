@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ===================================================================
+         BASE THEME
+         =================================================================== -->
+    <style name="Theme.Sloosh" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Font -->
+        <item name="android:fontFamily">@font/sf_pro_family</item>
+        <item name="android:letterSpacing">-0.02</item> <!-- Default letter spacing -->
+
+        <!-- Text Appearances -->
+        <item name="textAppearanceBody2">@style/TextAppearance.Sloosh.Body2</item>
+
+        <!-- ... other attributes ... -->
+        <item name="colorPrimary">@color/brand_yellow_green</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/brand_yellow_green</item>
+        <item name="colorOnSecondary">@color/black</item>
+
+        <item name="android:colorBackground">@color/app_background</item>
+        <item name="colorSurface">@color/surface</item>
+
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+
+        <item name="colorPrimaryContainer">@color/m3_sys_color_light_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/m3_sys_color_light_on_primary_container</item>
+        <item name="colorSecondaryContainer">@color/m3_sys_color_light_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/m3_sys_color_light_on_secondary_container</item>
+        <item name="colorTertiaryContainer">@color/m3_sys_color_light_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/m3_sys_color_light_on_tertiary_container</item>
+        <item name="colorSurfaceVariant">@color/m3_sys_color_light_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/m3_sys_color_light_on_surface_variant</item>
+
+        <item name="appBackground">@color/app_background</item>
+        <item name="textPrimaryColor">@color/text_primary</item>
+        <item name="surfaceBlur">@color/surface_blur</item>
+        <item name="scrimColor">@color/scrim_color</item>
+        <item name="strokeColor">@color/stroke_color</item>
+        <item name="iconColor">@color/brand_yellow_green</item>
+        <item name="posterScrim">@color/poster_scrim</item>
+
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
+        
+        <item name="bottomSheetDialogTheme">@style/AppBottomSheetDialogTheme</item>
+    </style>
+
+    <!-- ===================================================================
+         TEXT APPEARANCES
+         =================================================================== -->
+    <style name="TextAppearance.Sloosh.Body2" parent="TextAppearance.AppCompat.Body2">
+        <item name="android:fontFamily">@font/sf_pro_family</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="TextAppearance.Sloosh.Title" parent="TextAppearance.AppCompat.Title">
+        <item name="android:fontFamily">@font/sf_pro_family</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="TextAppearance.Sloosh.Headline" parent="TextAppearance.AppCompat.Headline">
+        <item name="android:fontFamily">@font/sf_pro_family</item>
+        <item name="android:letterSpacing">-0.03</item>
+    </style>
+
+    <!-- ===================================================================
+         WIDGET STYLES
+         =================================================================== -->
+
+    <style name="AppBottomSheetDialogTheme" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/AppModalStyle</item>
+    </style>
+
+    <style name="AppModalStyle" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="shapeAppearance">@style/ShapeAppearance.App.CornerSize28</item> <!-- INCREASED CORNER RADIUS -->
+        <item name="android:background">@color/surface</item>
+    </style>
+
+    <style name="AppTheme.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:background">@drawable/dialog_background</item>
+    </style>
+
+    <style name="Theme.Sloosh.Splash" parent="Theme.Sloosh">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+
+    <style name="Theme.Sloosh.Amoled" parent="Theme.Sloosh">
+        <item name="appBackground">@color/app_background_amoled</item>
+        <item name="android:colorBackground">@color/app_background_amoled</item>
+        <item name="colorSurface">@color/surface_amoled</item>
+        <item name="surfaceBlur">@color/surface_blur_amoled</item>
+        <item name="scrimColor">@color/scrim_color_dark</item>
+        <item name="posterScrim">@color/poster_scrim_dark</item>
+    </style>
+    
+    <style name="Theme.Sloosh.Player" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <!-- Selection Dialog Specific Styles -->
+    <style name="Widget.App.SelectionDialog.Chip" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/selection_chip_background</item>
+        <item name="android:textColor">@color/selection_chip_text</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.Pill</item> <!-- FULLY ROUNDED -->
+        <item name="chipMinHeight">40dp</item>
+        <item name="checkedIconVisible">false</item> <!-- REMOVED CHECK ICON -->
+        <item name="chipStrokeWidth">0dp</item>
+    </style>
+
+    <style name="Widget.App.SelectionDialog.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+        <item name="shapeAppearance">@style/ShapeAppearance.App.Pill</item> <!-- FULLY ROUNDED -->
+        <item name="boxStrokeColor">?attr/colorPrimary</item>
+    </style>
+
+    <!-- Generic Widget Styles -->
+    <style name="Widget.App.Button.Toggle" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/toggle_button_text_color</item>
+        <item name="backgroundTint">@color/toggle_button_background_color</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.CornerSize16</item>
+    </style>
+
+    <style name="Widget.Sloosh.Chip" parent="Widget.Material3.Chip.Filter">
+        <item name="android:padding">16dp</item>
+        <item name="android:textSize">18sp</item>
+        <item name="chipBackgroundColor">@color/chip_background_color</item>
+        <item name="android:textColor">@color/chip_text_color</item>
+        <item name="chipStrokeColor">@color/chip_stroke_color</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="checkedIconVisible">false</item>
+    </style>
+
+    <style name="Widget.Sloosh.BookmarkChip" parent="Widget.Material3.Chip.Filter">
+        <item name="chipMinHeight">40dp</item>
+        <item name="chipStartPadding">16dp</item>
+        <item name="chipEndPadding">16dp</item>
+        <item name="android:textAppearance">@style/TextAppearance.Sloosh.Body2</item>
+        <item name="android:textSize">14sp</item>
+        <item name="chipBackgroundColor">@color/profile_bookmark_chip_background_color</item>
+        <item name="android:textColor">@color/profile_bookmark_chip_text_color</item>
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="checkedIconVisible">false</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Pill</item>
+    </style>
+
+    <style name="Widget.App.CircularProgressIndicator.Disjoint" parent="Widget.Material3.CircularProgressIndicator">
+        <item name="indeterminateAnimationType">disjoint</item>
+    </style>
+    
+    <style name="ShapeAppearance.App.Pill" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="ShapeAppearance.App.CornerSize28" parent="">
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <style name="ShapeAppearance.App.CornerSize16" parent="">
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearance.App.CornerSize12" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+</resources>

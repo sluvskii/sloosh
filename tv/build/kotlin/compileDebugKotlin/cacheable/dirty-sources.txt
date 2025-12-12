@@ -1,0 +1,5 @@
+W:\sloosh\tv\src\main\java\com\slooshfilm\tv\MainActivity.kt
+W:\sloosh\tv\src\main\java\com\slooshfilm\tv\ui\search\SearchFragment.kt
+W:\sloosh\tv\src\main\java\com\slooshfilm\tv\ui\moviedetails\MovieDetailsFragment.kt
+W:\sloosh\tv\src\main\java\com\slooshfilm\tv\ui\presenters\DetailsDescriptionPresenter.kt
+W:\sloosh\tv\src\main\java\com\slooshfilm\tv\ui\presenters\CardPresenter.kt

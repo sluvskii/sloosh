@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="340dp"
+    android:layout_height="56dp"
+    android:background="@drawable/bg_toggle_container"
+    android:padding="4dp">
+
+    <View
+        android:id="@+id/slider_view"
+        android:layout_width="164dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_toggle_slider" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/films_text"
+            android:layout_width="164dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Фильмы"
+            android:textColor="@android:color/black"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"/>
+
+        <Space
+            android:layout_width="4dp"
+            android:layout_height="0dp"/>
+
+        <TextView
+            android:id="@+id/series_text"
+            android:layout_width="164dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Сериалы"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"/>
+    </LinearLayout>
+
+</FrameLayout>

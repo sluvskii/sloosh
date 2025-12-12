@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ShapeAppearance.App.Circle" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="Widget.App.CircularProgressIndicator" parent="Widget.Material3.CircularProgressIndicator">
+        <item name="indicatorColor">@android:color/white</item>
+        <item name="trackCornerRadius">10dp</item>
+    </style>
+    
+    <style name="TextAppearance.App.HeadlineMedium.Bold" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:fontFamily">@font/ys_music_headline_bold</item>
+    </style>
+</resources>

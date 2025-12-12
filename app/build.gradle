@@ -1,0 +1,95 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    // Use KSP for annotation processing (replace kotlin-kapt)
+    id("com.google.devtools.ksp")
+    // Enable the Kotlin-integrated Compose compiler plugin (required for newer Kotlin versions)
+    id("org.jetbrains.kotlin.plugin.compose")
+    // id("com.google.gms.google-services")
+    // id("com.google.firebase.crashlytics")
+}
+
+android {
+    compileSdkVersion 35
+    // buildToolsVersion "30.0.3" // Removed as it's ignored
+
+    defaultConfig {
+        applicationId 'com.slooshfilm.app'
+        minSdk 33
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.9.3 β'
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+    buildFeatures {
+        viewBinding = true
+        compose = true
+    }
+    namespace = "com.slooshfilm.app"
+    // composeOptions can be managed by the Kotlin Compose Gradle plugin
+    // composeOptions {
+    //     kotlinCompilerExtensionVersion = "2.2.0"
+    // }
+}
+
+dependencies {
+    // Align kotlin-stdlib with the upgraded Kotlin plugin (2.2.0)
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.activity:activity-ktx:1.9.0")
+    implementation("androidx.fragment:fragment-ktx:1.7.0")
+    implementation("androidx.media3:media3-common:1.8.0")
+    implementation("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.media3:media3-ui:1.8.0")
+    implementation("androidx.media3:media3-session:1.8.0")
+    implementation("androidx.room:room-runtime:2.7.0")
+    implementation("androidx.room:room-ktx:2.7.0")
+    // Backdrop library removed — keep UI simple and stable
+    // KSP for Room
+    ksp("androidx.room:room-compiler:2.7.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("jp.wasabeef:glide-transformations:4.3.0")
+    implementation("com.github.bumptech.glide:okhttp3-integration:4.16.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation(project(":library"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jsoup:jsoup:1.16.1")
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.okhttp3:okhttp-urlconnection:4.11.0")
+    // This dependency was causing issues, let's use a stable one
+    implementation("androidx.core:core-ktx:1.9.0")
+    implementation("com.facebook.shimmer:shimmer:0.5.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Compose: align with backdrop AAR which targets Compose 1.9.4
+    implementation("androidx.compose.ui:ui:1.9.4")
+    implementation("androidx.compose.ui:ui-graphics:1.9.4")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.9.4")
+    implementation("androidx.compose.material3:material3:1.1.0")
+    // material-icons-extended follows the Material (material) artifact versioning (1.4.x for Compose 1.9.x UI)
+    implementation("androidx.compose.material:material-icons-extended:1.4.1")
+
+    // ИНТЕГРАЦИЯ СО СТАРЫМИ КОМПОНЕНТАМИ
+    // Эта зависимость позволяет использовать Compose внутри Activity/Fragment
+    implementation("androidx.activity:activity-compose:1.9.0")
+    // Эта зависимость позволяет использовать ViewModel в Compose
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+
+    // Include explicit version to avoid ambiguous resolution
+    debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+}
