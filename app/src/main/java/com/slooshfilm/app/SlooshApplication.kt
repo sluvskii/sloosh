@@ -1,108 +1,54 @@
 package com.slooshfilm.app
 
 import android.app.Application
-import androidx.room.Room
-import com.slooshfilm.app.data.AppDatabase
-import com.slooshfilm.app.data.LocalStorage
-import com.slooshfilm.app.data.hdrezka.UserData
-import com.slooshfilm.app.data.hdrezka.UserModel
-import com.slooshfilm.app.data.repository.HdRezkaRepository
-import com.slooshfilm.app.data.repository.WatchHistoryRepository
-import com.slooshfilm.app.ui.AppViewModelFactory
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
+import com.slooshfilm.app.data.api.MoviesApi
+import coil.intercept.Interceptor
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.ExistingPeriodicWorkPolicy
-import com.slooshfilm.app.workers.NewEpisodesWorker
-import com.slooshfilm.app.workers.AppUpdateWorker
-import java.util.concurrent.TimeUnit
 
-class SlooshApplication : Application() {
-
-    lateinit var hdRezkaRepository: HdRezkaRepository
-        private set
-
-    lateinit var watchHistoryRepository: WatchHistoryRepository
-        private set
-
-    lateinit var viewModelFactory: AppViewModelFactory
-        private set
-
-    lateinit var localStorage: LocalStorage
-        private set
+class SlooshApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
         setupGlobalCrashHandler()
+        MoviesApi.init(this)
+    }
 
-        localStorage = LocalStorage(applicationContext)
-        hdRezkaRepository = HdRezkaRepository(localStorage)
-
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java, "sloosh-db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
-
-        watchHistoryRepository = WatchHistoryRepository(db.watchHistoryDao(), db.movieDao())
-
-        viewModelFactory = AppViewModelFactory(hdRezkaRepository, watchHistoryRepository)
-
-        // Initialize UserData from storage
-        UserData.init(applicationContext)
-
-        // If cookies indicate logged-in but we don't have saved username/avatar, try fetching them in background
-        if (localStorage.getAllCookies().any { it.name == "dle_user_id" }) {
-            val savedName = localStorage.getString("user_name", null)
-            val savedAvatar = localStorage.getString("user_avatar", null)
-
-            if (savedName.isNullOrEmpty() || savedAvatar.isNullOrEmpty()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val name = UserModel.getUserName(applicationContext)
-                        val avatar = UserModel.getUserAvatarLink(applicationContext)
-
-                                // Do not persist auto-fetched profile data to prefs — avoid accidental "ghost" login.
-                                // Only keep it in-memory (UserData) so UI can optionally show avatar/name when explicitly queried,
-                                // but saved username (used to decide logged-in UI) remains authoritative.
-                                if (!name.isNullOrEmpty()) {
-                                    UserData.userName = name
-                                }
-                                if (!avatar.isNullOrEmpty()) {
-                                    UserData.avatarLink = avatar
-                                }
-                    } catch (_: Exception) {
-                        // ignore background fetch errors
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .components {
+                add(Interceptor { chain ->
+                    val request = chain.request
+                    val data = request.data
+                    if (data is String) {
+                        val resolved = MoviesApi.resolveEffectiveImageUrl(data)
+                        if (resolved != null && resolved != data) {
+                            return@Interceptor chain.proceed(request.newBuilder().data(resolved).build())
+                        }
                     }
-                }
+                    chain.proceed(request)
+                })
             }
-        }
-        
-        val workRequest = PeriodicWorkRequestBuilder<NewEpisodesWorker>(
-            1, TimeUnit.HOURS
-        ).build()
-
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-            "NewEpisodesCheck",
-            ExistingPeriodicWorkPolicy.KEEP,
-            workRequest
-        )
-
-        val updateWork = PeriodicWorkRequestBuilder<AppUpdateWorker>(
-            1, TimeUnit.DAYS
-        ).build()
-
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-            "AppUpdateCheck",
-            ExistingPeriodicWorkPolicy.KEEP,
-            updateWork
-        )
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizePercent(0.05)
+                    .build()
+            }
+            .crossfade(true)
+            .build()
     }
 
     private fun setupGlobalCrashHandler() {
@@ -110,10 +56,8 @@ class SlooshApplication : Application() {
             val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
                 try {
-                    // Log to logcat
                     Log.e("SlooshAppCrash", "Uncaught exception in thread ${thread.name}", throwable)
 
-                    // Write a crash file to internal storage for later inspection
                     val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
                     val timestamp = sdf.format(Date())
                     val crashFile = File(filesDir, "crash_$timestamp.txt")
@@ -124,14 +68,11 @@ class SlooshApplication : Application() {
                     content.append(throwable.stackTraceToString())
                     crashFile.writeText(content.toString())
                 } catch (t: Throwable) {
-                    // Best-effort: if logging fails, avoid masking original throwable
                     Log.e("SlooshAppCrash", "Failed to write crash file", t)
                 } finally {
-                    // Delegate to previous handler (this may show system dialog / crash UI)
                     try {
                         previousHandler?.uncaughtException(thread, throwable)
                     } catch (_: Throwable) {
-                        // ignore delegate errors
                     }
                 }
             }
