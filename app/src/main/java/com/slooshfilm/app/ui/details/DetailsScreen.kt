@@ -472,11 +472,21 @@ fun DetailsScreen(
         drawRect(effectiveBg)
         drawContent()
     }
+    val descriptionBackdrop = rememberLayerBackdrop {
+        drawRect(effectiveBg)
+        drawContent()
+    }
     // Flat page background behind the content-level glass elements (genres, studios,
     // seasons, download button). They live inside the content capture layer, so they
     // must sample a backdrop that does not contain themselves.
     val glassBackdrop = rememberCanvasBackdrop {
         drawRect(effectiveBg)
+    }
+    // Hero backdrop poster captured in its own layer so the pagination indicator pill
+    // refracts the real backdrop image behind it instead of an empty backdrop.
+    val heroBackdrop = rememberLayerBackdrop {
+        drawRect(effectiveBg)
+        drawContent()
     }
 
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -551,6 +561,7 @@ fun DetailsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(heroHeight)
+                            .then(if (isGlassEnabled) Modifier.layerBackdrop(heroBackdrop) else Modifier)
                             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithContent {
                                 drawContent()
@@ -654,7 +665,7 @@ fun DetailsScreen(
                                     }
                                 },
                                 modifier = Modifier.padding(bottom = 12.dp),
-                                backdrop = contentBackdrop
+                                backdrop = heroBackdrop
                             )
                         }
 
@@ -985,6 +996,7 @@ fun DetailsScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .animateContentSize()
+                                        .then(if (isGlassEnabled) Modifier.layerBackdrop(descriptionBackdrop) else Modifier)
                                 ) {
                                     Text(
                                         text = item.description,
@@ -1035,7 +1047,7 @@ fun DetailsScreen(
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             isDescriptionExpanded = !isDescriptionExpanded
                                         },
-                                        backdrop = contentBackdrop,
+                                        backdrop = descriptionBackdrop,
                                         blurRadius = 8.dp,
                                         shape = Capsule(),
                                         tint = LiquidGlassSurfaceDark,
@@ -1336,8 +1348,16 @@ fun DetailsScreen(
                                             .background(Color.White.copy(alpha = 0.08f))
                                             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedRectangle(14.dp))
                                     ) {
+                                        // Thumbnail captured in its own layer so the play badge
+                                        // refracts the real poster behind it instead of an empty backdrop.
+                                        val thumbBackdrop = rememberLayerBackdrop {
+                                            drawRect(effectiveBg)
+                                            drawContent()
+                                        }
                                         Box(
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .then(if (isGlassEnabled) Modifier.layerBackdrop(thumbBackdrop) else Modifier)
                                         ) {
                                             val thumb = trailer.thumbnailUrl
                                             if (!thumb.isNullOrBlank()) {
@@ -1382,7 +1402,7 @@ fun DetailsScreen(
                                                     style = LiquidGlassTokens.Button,
                                                     shape = CircleShape,
                                                     containerColor = Color.Black.copy(alpha = 0.40f),
-                                                    backdrop = contentBackdrop
+                                                    backdrop = thumbBackdrop
                                                 ),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -1532,8 +1552,17 @@ fun DetailsScreen(
                                                     .clip(RoundedRectangle(12.dp))
                                                     .background(SurfaceDark)
                                             ) {
+                                                // Still frame captured in its own layer so the play badge
+                                                // refracts the real preview behind it instead of an empty backdrop.
+                                                val stillBase = SurfaceDark
+                                                val stillBackdrop = rememberLayerBackdrop {
+                                                    drawRect(stillBase)
+                                                    drawContent()
+                                                }
                                                 Box(
-                                                    modifier = Modifier.fillMaxSize()
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .then(if (isGlassEnabled) Modifier.layerBackdrop(stillBackdrop) else Modifier)
                                                 ) {
                                                     if (!stillUrl.isNullOrBlank()) {
                                                         AsyncImage(
@@ -1553,7 +1582,7 @@ fun DetailsScreen(
                                                             style = LiquidGlassTokens.Button,
                                                             shape = CircleShape,
                                                             containerColor = Color.Black.copy(alpha = 0.50f),
-                                                            backdrop = contentBackdrop
+                                                            backdrop = stillBackdrop
                                                         ),
                                                     contentAlignment = Alignment.Center
                                                 ) {
