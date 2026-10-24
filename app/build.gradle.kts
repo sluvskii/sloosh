@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -34,7 +35,7 @@ android {
         // is still installable, it just can't update over release-signed installs.
         val props = rootProject.file("local.properties")
         val signingProps = if (props.exists()) {
-            java.util.Properties().apply { props.inputStream().use { load(it) } }
+            Properties().apply { props.inputStream().use { load(it) } }
         } else null
         val storeFile = signingProps?.getProperty("SLOOSH_STORE_FILE")
         val storePass = signingProps?.getProperty("SLOOSH_STORE_PASSWORD")
