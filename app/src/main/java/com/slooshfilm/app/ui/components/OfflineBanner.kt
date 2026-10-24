@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.shapes.Capsule
-import com.slooshfilm.app.ui.backdrop.backdrops.Backdrop
+import com.slooshfilm.app.ui.backdrop.Backdrop
 import com.slooshfilm.app.ui.theme.SlooshFontFamily
 import com.slooshfilm.app.utils.NetworkMonitor
 
