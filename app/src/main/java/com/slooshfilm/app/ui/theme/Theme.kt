@@ -1,184 +1,158 @@
 package com.slooshfilm.app.ui.theme
 
+import android.app.Activity
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import com.slooshfilm.app.R
+import androidx.core.view.WindowCompat
 
-// 1. Define the font family
-private val sfProFamily = FontFamily(
-    Font(R.font.sf_pro_display_semibold, FontWeight.Normal),
-    Font(R.font.sf_pro_display_semibold, FontWeight.Medium),
-    Font(R.font.sf_pro_display_semibold, FontWeight.SemiBold),
-    Font(R.font.sf_pro_display_bold, FontWeight.Bold)
+@Immutable
+data class SlooshColors(
+    val primary: Color,
+    val onPrimary: Color,
+    val background: Color,
+    val onBackground: Color,
+    val surface: Color,
+    val onSurface: Color,
+    val surfaceVariant: Color,
+    val onSurfaceVariant: Color,
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val textTertiary: Color,
+    val textMuted: Color,
+    val textPlaceholder: Color,
+    val liquidGlassSurface: Color,
+    val liquidGlassBorder: Color,
+    val outline: Color,
+    val outlineVariant: Color,
+    val isDark: Boolean
 )
 
-// 2. Create the Typography object with the new font family and adjusted letter spacing
-private val AppTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 57.sp,
-        lineHeight = 64.sp,
-        letterSpacing = (-0.5).sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 45.sp,
-        lineHeight = 52.sp,
-        letterSpacing = (-0.5).sp
-    ),
-    displaySmall = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 36.sp,
-        lineHeight = 44.sp,
-        letterSpacing = (-0.5).sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
-        letterSpacing = (-0.4).sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.3).sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = (-0.2).sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = (-0.2).sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = (-0.1).sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = (-0.1).sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = (-0.1).sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = sfProFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.sp
-    )
+val DarkSlooshColors = SlooshColors(
+    primary = SlooshAccentDark,
+    onPrimary = Color.Black,
+    background = RawBackgroundDark,
+    onBackground = RawTextPrimaryDark,
+    surface = RawSurfaceDark,
+    onSurface = RawTextPrimaryDark,
+    surfaceVariant = RawSurfaceVariantDark,
+    onSurfaceVariant = RawTextSecondaryDark,
+    textPrimary = RawTextPrimaryDark,
+    textSecondary = RawTextSecondaryDark,
+    textTertiary = RawTextTertiaryDark,
+    textMuted = RawTextMutedDark,
+    textPlaceholder = RawTextPlaceholderDark,
+    liquidGlassSurface = LiquidGlassSurfaceDark,
+    liquidGlassBorder = GlassBorderDark,
+    outline = Color(0x26FFFFFF),
+    outlineVariant = Color(0x14FFFFFF),
+    isDark = true
 )
+
+val LightSlooshColors = SlooshColors(
+    primary = SlooshAccentLight,
+    onPrimary = Color.White,
+    background = RawBackgroundLight,
+    onBackground = RawTextPrimaryLight,
+    surface = RawSurfaceLight,
+    onSurface = RawTextPrimaryLight,
+    surfaceVariant = RawSurfaceVariantLight,
+    onSurfaceVariant = RawTextSecondaryLight,
+    textPrimary = RawTextPrimaryLight,
+    textSecondary = RawTextSecondaryLight,
+    textTertiary = RawTextTertiaryLight,
+    textMuted = RawTextMutedLight,
+    textPlaceholder = RawTextPlaceholderLight,
+    liquidGlassSurface = LiquidGlassSurfaceLight,
+    liquidGlassBorder = Color.Black.copy(alpha = 0.35f),
+    outline = Color(0x1F000000),
+    outlineVariant = Color(0x0F000000),
+    isDark = false
+)
+
+val LocalSlooshColors = staticCompositionLocalOf { DarkSlooshColors }
+
+object SlooshTheme {
+    val colors: SlooshColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalSlooshColors.current
+}
 
 private val DarkColorScheme = darkColorScheme(
-    primary = BrandYellowGreen,
-    secondary = BrandYellowGreen,
-    background = AppBackgroundDark,
-    surface = SurfaceDark,
-    surfaceVariant = SurfaceVariantDark,
-    surfaceTint = Color.Transparent,
-    onPrimary = Black,
-    onSecondary = Black,
-    onBackground = TextPrimaryDark,
-    onSurface = TextPrimaryDark,
-    onSurfaceVariant = TextSecondaryDark
+    primary = SlooshAccentDark,
+    onPrimary = Color.Black,
+    background = RawBackgroundDark,
+    onBackground = RawTextPrimaryDark,
+    surface = RawSurfaceDark,
+    onSurface = RawTextPrimaryDark,
+    surfaceVariant = RawSurfaceVariantDark,
+    onSurfaceVariant = RawTextSecondaryDark,
+    outline = Color(0x26FFFFFF),
+    outlineVariant = Color(0x14FFFFFF)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = BrandYellowGreen,
-    secondary = BrandYellowGreen,
-    background = AppBackgroundLight,
-    surface = SurfaceLight,
-    surfaceVariant = SurfaceVariantLight,
-    surfaceTint = Color.Transparent,
-    onPrimary = Black,
-    onSecondary = Black,
-    onBackground = TextPrimaryLight,
-    onSurface = TextPrimaryLight,
-    onSurfaceVariant = TextSecondaryLight
+    primary = SlooshAccentLight,
+    onPrimary = Color.White,
+    background = RawBackgroundLight,
+    onBackground = RawTextPrimaryLight,
+    surface = RawSurfaceLight,
+    onSurface = RawTextPrimaryLight,
+    surfaceVariant = RawSurfaceVariantLight,
+    onSurfaceVariant = RawTextSecondaryLight,
+    outline = Color(0x1F000000),
+    outlineVariant = Color(0x0F000000)
 )
 
 @Composable
 fun SlooshTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    isAmoled: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val baseColorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val slooshColors = if (darkTheme) DarkSlooshColors else LightSlooshColors
 
-    val finalColorScheme = if (isAmoled && darkTheme) {
-        baseColorScheme.copy(
-            background = AppBackgroundAmoled,
-            surface = AppBackgroundAmoled
-        )
-    } else {
-        baseColorScheme
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                WindowCompat.setDecorFitsSystemWindows(window, false)
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = !darkTheme
+                insetsController.isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
     }
 
-    MaterialTheme(
-        colorScheme = finalColorScheme,
-        typography = AppTypography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalIndication provides ripple(),
+        LocalSlooshColors provides slooshColors
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = SlooshTypography
+        ) {
+            CompositionLocalProvider(
+                LocalTextStyle provides TextStyle(fontFamily = SlooshFontFamily),
+                content = content
+            )
+        }
+    }
 }

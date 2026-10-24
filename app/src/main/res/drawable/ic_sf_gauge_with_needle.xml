@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="56"
+    android:viewportHeight="56">
+    <!-- Дуга спидометра с разрывом снизу -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M 9.81,40.50 A 21,21 0 1 1 46.19,40.50" />
+    <!-- Стрелка -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M 28,30 L 35.46,19.35" />
+    <!-- Ось стрелки -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 30.8,30 A 2.8,2.8 0 1 1 25.2,30 A 2.8,2.8 0 1 1 30.8,30 Z" />
+</vector>

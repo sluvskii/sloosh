@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing keys — never commit
+/key/
+
+# iOS reference app is its own repository
+/iOS-sloosh/
+.kotlin/

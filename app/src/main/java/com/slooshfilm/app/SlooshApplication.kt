@@ -8,6 +8,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.slooshfilm.app.data.api.MoviesApi
 import coil.intercept.Interceptor
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -19,17 +20,53 @@ class SlooshApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         setupGlobalCrashHandler()
         MoviesApi.init(this)
+        com.slooshfilm.app.utils.NetworkMonitor.start(this)
+        checkForUpdatesOnStart()
+    }
+
+    /**
+     * Тихая проверка обновлений при запуске (GitHub Releases, как в настройках).
+     * Если есть новая версия — один тост с подсказкой, где обновиться.
+     */
+    private fun checkForUpdatesOnStart() {
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: return
+        } catch (_: Exception) {
+            return
+        }
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main).launch {
+            val update = try {
+                com.slooshfilm.app.utils.AppUpdater(this@SlooshApplication).checkGithubLatest(
+                    com.slooshfilm.app.utils.UpdateConfig.GITHUB_OWNER,
+                    com.slooshfilm.app.utils.UpdateConfig.GITHUB_REPO,
+                    versionName
+                )
+            } catch (_: Exception) {
+                null
+            }
+            if (update != null) {
+                try {
+                    android.widget.Toast.makeText(
+                        this@SlooshApplication,
+                        "Доступна новая версия sloosh. Обновить: Настройки → О приложении",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
+            .allowHardware(true) // Native GPU HardwareBuffer textures for buttery smooth 120 FPS rendering
             .components {
                 add(Interceptor { chain ->
                     val request = chain.request
                     val data = request.data
                     if (data is String) {
                         val resolved = MoviesApi.resolveEffectiveImageUrl(data)
-                        if (resolved != null && resolved != data) {
+                        if (!resolved.isNullOrBlank() && resolved != data) {
                             return@Interceptor chain.proceed(request.newBuilder().data(resolved).build())
                         }
                     }
@@ -42,9 +79,11 @@ class SlooshApplication : Application(), ImageLoaderFactory {
                     .build()
             }
             .diskCache {
+                val dir = cacheDir.resolve("image_cache")
+                dir.mkdirs()
                 DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.05)
+                    .directory(dir)
+                    .maxSizeBytes(100L * 1024 * 1024)
                     .build()
             }
             .crossfade(true)

@@ -31,6 +31,7 @@
     <color name="rating_very_low">#EF5350</color> <!-- Red -->
 
     <!-- LIGHT THEME semantic colors -->
+    <color name="splash_background">#FFFFFFFF</color>
     <color name="app_background">#FFFFFF</color>
     <color name="surface">#FFFFFFFF</color>
     <color name="surface_blur">#E6F7F7F7</color>
@@ -39,6 +40,7 @@
     <color name="text_secondary">#8A000000</color>
     <color name="icon_active">@color/brand_yellow_green</color>
     <color name="icon_inactive">@color/gray_600</color>
+    <color name="chip_background">#F0F0F0</color>
     <color name="chip_background_inactive_light">#F0F0F0</color>
     <color name="chip_background_active_light">#33D4E022</color>
     <color name="toggle_background">#F0F0F0</color>
@@ -54,10 +56,12 @@
 
     <!-- Fallbacks for dark-specific colors to prevent crashes -->
     <color name="app_background_amoled">#FFFFFF</color>
+    <color name="surface_amoled">@color/surface</color>
     <color name="surface_blur_amoled">#E6F7F7F7</color>
     <color name="surface_dark">@color/surface</color>
     <color name="background_dark">@color/app_background</color>
     <color name="scrim_color_dark">#99000000</color>
+    <color name="bottom_nav_card_dark">#2B2B2B</color>
 
     <!-- Widget colors -->
     <color name="widget_background">#CC000000</color>

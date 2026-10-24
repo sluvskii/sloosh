@@ -8,7 +8,7 @@
     <!-- Network Error Screen -->
     <string name="network_error_title">Ошибка сети</string>
     <string name="network_error_description">Уверены, что подключены? Попробуйте включить или выключить VPN.</string>
-    <string name="network_error_secondary_description">Если ошибка не уходит - возможно, у HDrezka проблемы. Попробуйте позже.</string>
+    <string name="network_error_secondary_description">Если ошибка не уходит - возможно, проблемы на сервере. Попробуйте позже.</string>
     <string name="network_error_try_again">Попробовать снова</string>
 
     <!-- New Releases Widget -->

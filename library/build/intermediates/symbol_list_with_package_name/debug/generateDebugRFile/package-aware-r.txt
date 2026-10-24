@@ -1,0 +1,10 @@
+com.eightbitlab.blurview
+attr applyNoise
+attr blurOverlayColor
+attr blurRadius
+attr maskDrawable
+attr overlayColor
+attr scaleFactor
+drawable blue_noise
+styleable BlurView blurOverlayColor
+styleable GradientBlurView applyNoise blurRadius maskDrawable overlayColor scaleFactor

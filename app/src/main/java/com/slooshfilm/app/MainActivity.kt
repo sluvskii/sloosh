@@ -1,180 +1,112 @@
 package com.slooshfilm.app
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.util.TypedValue
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.forEach
-import androidx.core.view.updatePadding
-import android.content.res.Configuration
-import androidx.navigation.NavController
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.NavOptions
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.ui.NavigationUI
-import com.google.android.material.bottomnavigation.LabelVisibilityMode
-import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.slooshfilm.app.data.LocalStorage
-import com.slooshfilm.app.databinding.ActivityMainBinding
-import com.slooshfilm.app.navigation.KeepStateNavigator
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import com.slooshfilm.app.ui.navigation.SlooshApp
+import com.slooshfilm.app.ui.splash.LaunchSplashView
+import com.slooshfilm.app.ui.theme.SlooshTheme
 
-class MainActivity : AppCompatActivity() {
+import androidx.appcompat.app.AppCompatDelegate
+import com.slooshfilm.app.data.storage.LocalStorage
 
-    internal lateinit var binding: ActivityMainBinding
-
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        // We don't need to do anything here, just ask for permission.
-    }
+class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val localStorage = LocalStorage(this)
-        // Apply the selected theme.
-        applyCurrentTheme(localStorage)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        val localStorage = LocalStorage(this)
+        AppCompatDelegate.setDefaultNightMode(localStorage.getThemeMode())
 
-        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
-
-        navController.navigatorProvider.addNavigator(
-            KeepStateNavigator(this, navHostFragment.childFragmentManager, R.id.nav_host_fragment)
+        val isSystemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isInitialDark = when (localStorage.getThemeMode()) {
+            AppCompatDelegate.MODE_NIGHT_YES, LocalStorage.THEME_MODE_AMOLED -> true
+            AppCompatDelegate.MODE_NIGHT_NO -> false
+            else -> isSystemDark
+        }
+        enableEdgeToEdge(
+            statusBarStyle = if (isInitialDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = if (isInitialDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         )
+        enableHighRefreshRate()
 
-        val navGraph = navController.navInflater.inflate(R.navigation.nav_graph)
-        navGraph.setStartDestination(R.id.navigation_home)
-        navController.graph = navGraph
+        setContent {
+            val localStorage = androidx.compose.runtime.remember { LocalStorage(this) }
+            var currentThemeMode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(localStorage.getThemeMode()) }
 
-        val bottomNavView: BottomNavigationView = binding.bottomNavView
-        bottomNavView.labelVisibilityMode = LabelVisibilityMode.LABEL_VISIBILITY_SELECTED
-        setupCustomBottomNav(bottomNavView, navController)
-
-        // Apply insets to the container and DO NOT consume them
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(left = systemBars.left, right = systemBars.right)
-
-            val navInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val extra = (12 * resources.displayMetrics.density).toInt()
-            val shift = (navInset - extra).coerceAtLeast(0)
-            binding.bottomNavCardContainer.translationY = -shift.toFloat()
-            
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavView) { v, insets ->
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, 0)
-            insets
-        }
-
-        // Setup BlurView
-        val radius = 16f
-        val decorView = window.decorView
-        val windowBackground = decorView.background
-
-        binding.blurView.setupWith(binding.blurTarget)
-            .setFrameClearDrawable(windowBackground)
-            .setBlurRadius(radius)
-            .setOverlayColor(ContextCompat.getColor(this, com.slooshfilm.app.R.color.scrim_color))
-            .setBlurAutoUpdate(true)
-
-        binding.bottomNavCardContainer.clipToOutline = true
-
-        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        if (isNight) {
-            val themeMode = localStorage.getThemeMode()
-            if (themeMode == LocalStorage.THEME_MODE_AMOLED) {
-                binding.bottomNavCardContainer.setCardBackgroundColor(
-                    ContextCompat.getColor(this, R.color.app_background_amoled)
-                )
-            } else {
-                binding.bottomNavCardContainer.setCardBackgroundColor(
-                    ContextCompat.getColor(this, R.color.bottom_nav_card_dark)
-                )
+            androidx.compose.runtime.DisposableEffect(localStorage) {
+                val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                    if (key == LocalStorage.THEME_MODE_KEY) {
+                        currentThemeMode = localStorage.getThemeMode()
+                    }
+                }
+                localStorage.prefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose {
+                    localStorage.prefs.unregisterOnSharedPreferenceChangeListener(listener)
+                }
             }
-        } else {
-            binding.bottomNavCardContainer.setCardBackgroundColor(Color.TRANSPARENT)
-        }
 
-        val tintList = ContextCompat.getColorStateList(this, com.slooshfilm.app.R.color.bottom_nav_item_color)
-        binding.bottomNavView.itemIconTintList = tintList
-        binding.bottomNavView.itemTextColor = tintList
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = when (currentThemeMode) {
+                AppCompatDelegate.MODE_NIGHT_YES, LocalStorage.THEME_MODE_AMOLED -> true
+                AppCompatDelegate.MODE_NIGHT_NO -> false
+                else -> isSystemDark
+            }
 
-        askForNotificationPermission()
+            SlooshTheme(darkTheme = isDark) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    SlooshApp()
 
-        intent.getStringExtra("UPDATE_URL")?.let { url ->
-            try {
-                com.slooshfilm.app.utils.AppUpdater(this).downloadAndInstall(url)
-            } catch (_: Exception) {}
-        }
-    }
-
-    private fun setupCustomBottomNav(bottomNav: BottomNavigationView, navController: NavController) {
-        // This listener handles the visual state of the bottom navigation bar (which item is selected).
-        navController.addOnDestinationChangedListener { _, destination, _ ->
-            bottomNav.menu.forEach { item ->
-                if (destination.hierarchy.any { it.id == item.itemId }) {
-                    item.isChecked = true
+                    var isSplashActive by rememberSaveable { mutableStateOf(true) }
+                    if (isSplashActive) {
+                        LaunchSplashView(
+                            onDismiss = { isSplashActive = false }
+                        )
+                    }
                 }
             }
         }
-
-        // This listener handles the navigation actions when a menu item is tapped.
-        bottomNav.setOnItemSelectedListener { item ->
-            val navOptions = NavOptions.Builder()
-                .setLaunchSingleTop(true)
-                .setRestoreState(true)
-
-                .setEnterAnim(R.anim.fade_in)
-                .setExitAnim(R.anim.fade_out)
-                .setPopEnterAnim(R.anim.fade_in)
-                .setPopExitAnim(R.anim.fade_out)
-                .build()
-
-            if (navController.currentDestination?.id == item.itemId) {
-                return@setOnItemSelectedListener true
-            }
-
-            try {
-                navController.navigate(item.itemId, null, navOptions)
-                true
-            } catch (_: Exception) {
-                false
-            }
-        }
-
-        bottomNav.setOnItemReselectedListener { }
     }
 
-    private fun applyCurrentTheme(localStorage: LocalStorage) {
-        val themeMode = localStorage.getThemeMode()
-
-        if (themeMode == LocalStorage.THEME_MODE_AMOLED) {
-            setTheme(R.style.Theme_Sloosh_Amoled)
-        } else {
-            AppCompatDelegate.setDefaultNightMode(themeMode)
-        }
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        enableHighRefreshRate()
     }
 
-    private fun askForNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    override fun onResume() {
+        super.onResume()
+        enableHighRefreshRate()
+    }
+
+    private fun enableHighRefreshRate() {
+        try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay
             }
+            val modes = display?.supportedModes
+            val highestMode = modes?.maxByOrNull { it.refreshRate }
+            if (highestMode != null && highestMode.refreshRate >= 80f) {
+                val params = window.attributes
+                params.preferredDisplayModeId = highestMode.modeId
+                @Suppress("DEPRECATION")
+                params.preferredRefreshRate = highestMode.refreshRate
+                window.attributes = params
+            }
+        } catch (_: Exception) {
         }
     }
 }

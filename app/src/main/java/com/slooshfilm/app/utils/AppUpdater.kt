@@ -22,8 +22,8 @@ import java.io.File
 import java.net.URL
 
 object UpdateConfig {
-    const val GITHUB_OWNER: String = "your_github_owner"
-    const val GITHUB_REPO: String = "your_repo"
+    const val GITHUB_OWNER: String = "sluvskii"
+    const val GITHUB_REPO: String = "sloosh"
 }
 
 data class AppUpdateInfo(
@@ -141,8 +141,8 @@ class AppUpdater(private val context: Context) {
         if (destination.exists()) destination.delete()
 
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("Downloading Update")
-            .setDescription("Please wait...")
+            .setTitle("Обновление sloosh")
+            .setDescription("Загрузка…")
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setMimeType("application/vnd.android.package-archive")

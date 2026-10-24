@@ -15,6 +15,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "sloosh"
 include(":app")
-include(":library")
 // Using prebuilt AAR for backdrop to avoid source-compile compatibility issues
 // include(":backdrop")

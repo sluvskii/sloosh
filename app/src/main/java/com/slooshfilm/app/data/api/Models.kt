@@ -1,13 +1,39 @@
 package com.slooshfilm.app.data.api
 
+import androidx.compose.runtime.Immutable
 import com.google.gson.annotations.SerializedName
+import java.util.Locale
 import java.net.URLEncoder
 
+private val cartoonGenreIds = setOf("16", "мультфильм", "аниме")
+private val cartoonGenreNames = setOf("мультфильм", "аниме", "animation")
+private val animeGenreAliases = setOf("anime", "аниме")
+private val talkShowGenreIds = setOf("10767", "10763", "10764")
+private val talkShowGenreNameParts = listOf(
+    "ток-шоу", "talk", "реалити", "reality", "новости", "news", "телешоу",
+    "тв-шоу", "тв шоу", "интервью", "interview"
+)
+private val talkShowTitleParts = listOf(
+    "the tonight show", "jimmy kimmel live", "the late late show", "the late show with",
+    "late night with", "the graham norton show", "the daily show", "the ellen degeneres show",
+    "the kelly clarkson show", "the drew barrymore show", "last week tonight",
+    "saturday night live", "good morning america", "entertainment tonight",
+    "inside the actors studio", "hot ones", "73 questions", "actors on actors",
+    "вечерний ургант", "шоу воли", "вдудь", "осторожно: собчак", "алена, блин",
+    "алёна, блин", "что было дальше", "comedy club", "камеди клаб", "голубой огонёк",
+    "голубой огонек", "песня года", "пусть говорят", "прямой эфир", "мужское / женское",
+    "давай поженимся", "битва экстрасенсов", "пацанки", "выжить в дубае", "звёзды в африке",
+    "academy awards", "golden globe awards", "emmy awards", "grammy awards", "премия муз-тв",
+    "премия muz-tv"
+)
+
+@Immutable
 data class ApiEnvelope<T>(
     @SerializedName("success") val success: Boolean?,
     @SerializedName("data") val data: T?
 )
 
+@Immutable
 data class MediaResponse(
     @SerializedName("page") val page: Int?,
     @SerializedName("results") val results: List<MediaDto>?,
@@ -22,6 +48,7 @@ data class MediaResponse(
     val effectiveTotalResults: Int get() = total ?: totalResults ?: allItems.size
 }
 
+@Immutable
 data class MediaDto(
     @SerializedName("id") val originalId: String?,
     @SerializedName("title") val title: String?,
@@ -38,7 +65,8 @@ data class MediaDto(
     @SerializedName("name") val name: String? = null,
     @SerializedName("poster_path") val posterPath: String? = null,
     @SerializedName("backdrop") val backdrop: String? = null,
-    @SerializedName("backdrop_path") val backdropPath: String? = null
+    @SerializedName("backdrop_path") val backdropPath: String? = null,
+    @SerializedName("countries") val countries: List<String>? = null
 ) {
     val identifier: String
         get() {
@@ -70,17 +98,45 @@ data class MediaDto(
     val isTvSeries: Boolean
         get() {
             val typeLower = type?.lowercase()?.trim() ?: ""
-            return typeLower in listOf("tv", "series", "serial", "show")
+            if (typeLower in tvTypeAliases) return true
+            if (typeLower in movieTypeAliases) return false
+            return originalId?.startsWith("tv_", ignoreCase = true) == true
         }
 
     val isCartoon: Boolean
         get() {
-            val typeLower = type?.lowercase()?.trim() ?: ""
-            if (typeLower in listOf("cartoon", "animated", "anime")) return true
-            return genres?.any { g ->
-                val name = (g.name ?: g.id ?: "").lowercase()
-                name.contains("мульт") || name.contains("аним")
+            val genreIds = genres?.mapNotNull { it.id?.lowercase() }.orEmpty()
+            val genreNames = genres?.mapNotNull { it.name?.lowercase() }.orEmpty()
+            return genreIds.any { it in cartoonGenreIds } || genreNames.any { it in cartoonGenreNames }
+        }
+
+    val isAnime: Boolean
+        get() {
+            val genreIds = genres?.mapNotNull { it.id?.lowercase() }.orEmpty()
+            val genreNames = genres?.mapNotNull { it.name?.lowercase() }.orEmpty()
+            if (genreIds.any { it in animeGenreAliases } ||
+                genreNames.any { it in animeGenreAliases }
+            ) return true
+
+            val isJapan = countries.orEmpty().any {
+                val country = it.lowercase()
+                country.contains("япония") || country.contains("japan") || country == "jp"
+            }
+            val hasAnimationGenre = genreIds.any { it == "16" || it == "мультфильм" } ||
+                genreNames.any { it == "мультфильм" || it == "animation" }
+            return isJapan && hasAnimationGenre
+        }
+
+    val isTalkShowOrReality: Boolean
+        get() {
+            val genreIds = genres?.mapNotNull { it.id?.lowercase() }.orEmpty()
+            if (genreIds.any { it in talkShowGenreIds }) return true
+            val hasTalkGenre = genres?.mapNotNull { it.name?.lowercase() }?.any { name ->
+                talkShowGenreNameParts.any { name.contains(it) }
             } == true
+            if (hasTalkGenre) return true
+            val normalizedTitle = (title ?: name ?: originalTitle).orEmpty().lowercase()
+            return talkShowTitleParts.any { normalizedTitle.contains(it) }
         }
 
     val isMovie: Boolean
@@ -88,8 +144,73 @@ data class MediaDto(
 
     val id: String get() = originalId ?: identifier
     val cleanId: String get() = id.replace("tv_", "").replace("movie_", "")
+    val favoriteIdentity: String get() = "${canonicalMediaType(type, originalId)}:$cleanId"
 }
 
+private val tvTypeAliases = setOf("tv", "tv_series", "series", "mini_series", "serial", "show")
+private val movieTypeAliases = setOf("movie", "film", "cinema")
+
+fun canonicalMediaType(type: String?, id: String? = null): String {
+    val normalizedType = type?.trim()?.lowercase()
+    return when {
+        normalizedType != null && normalizedType in tvTypeAliases -> "tv"
+        normalizedType != null && normalizedType in movieTypeAliases -> "movie"
+        id?.startsWith("tv_", ignoreCase = true) == true -> "tv"
+        else -> "movie"
+    }
+}
+
+private val countryCodeToRussian = mapOf(
+    "US" to "США", "USA" to "США", "GB" to "Великобритания", "UK" to "Великобритания",
+    "RU" to "Россия", "SU" to "СССР", "FR" to "Франция", "DE" to "Германия",
+    "IT" to "Италия", "ES" to "Испания", "JP" to "Япония", "KR" to "Южная Корея",
+    "CN" to "Китай", "HK" to "Гонконг", "TW" to "Тайвань", "CA" to "Канада",
+    "AU" to "Австралия", "IN" to "Индия", "TR" to "Турция", "SE" to "Швеция",
+    "NO" to "Норвегия", "DK" to "Дания", "FI" to "Финляндия", "NL" to "Нидерланды",
+    "BE" to "Бельгия", "PL" to "Польша", "CZ" to "Чехия", "AT" to "Австрия",
+    "CH" to "Швейцария", "IE" to "Ирландия", "NZ" to "Новая Зеландия", "ZA" to "ЮАР",
+    "IL" to "Израиль", "UA" to "Украина", "BY" to "Беларусь", "KZ" to "Казахстан",
+    "TH" to "Таиланд", "ID" to "Индонезия", "IS" to "Исландия", "GR" to "Греция",
+    "PT" to "Португалия", "MX" to "Мексика", "BR" to "Бразилия", "AR" to "Аргентина",
+    "AE" to "ОАЭ", "EG" to "Египет", "GE" to "Грузия", "AM" to "Армения"
+)
+
+private val englishCountryNameToRussian = mapOf(
+    "united states of america" to "США", "united states" to "США", "usa" to "США",
+    "united kingdom" to "Великобритания", "great britain" to "Великобритания", "uk" to "Великобритания",
+    "england" to "Великобритания", "russia" to "Россия", "russian federation" to "Россия",
+    "soviet union" to "СССР", "ussr" to "СССР", "france" to "Франция", "germany" to "Германия",
+    "italy" to "Италия", "spain" to "Испания", "japan" to "Япония", "south korea" to "Южная Корея",
+    "korea, republic of" to "Южная Корея", "republic of korea" to "Южная Корея", "korea" to "Южная Корея",
+    "china" to "Китай", "hong kong" to "Гонконг", "taiwan" to "Тайвань", "canada" to "Канада",
+    "australia" to "Австралия", "india" to "Индия", "turkey" to "Турция", "türkiye" to "Турция",
+    "sweden" to "Швеция", "norway" to "Норвегия", "denmark" to "Дания", "finland" to "Финляндия",
+    "netherlands" to "Нидерланды", "belgium" to "Бельгия", "poland" to "Польша",
+    "czech republic" to "Чехия", "czechia" to "Чехия", "austria" to "Австрия", "switzerland" to "Швейцария",
+    "ireland" to "Ирландия", "new zealand" to "Новая Зеландия", "south africa" to "ЮАР",
+    "israel" to "Израиль", "ukraine" to "Украина", "belarus" to "Беларусь", "kazakhstan" to "Казахстан",
+    "thailand" to "Таиланд", "indonesia" to "Индонезия", "philippines" to "Филиппины",
+    "iceland" to "Исландия", "greece" to "Греция", "portugal" to "Португалия",
+    "united arab emirates" to "ОАЭ", "uae" to "ОАЭ", "egypt" to "Египет", "georgia" to "Грузия",
+    "armenia" to "Армения", "mexico" to "Мексика", "brazil" to "Бразилия", "argentina" to "Аргентина"
+)
+
+fun formatCountryName(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return ""
+
+    val upper = trimmed.uppercase(Locale.ROOT)
+    countryCodeToRussian[upper]?.let { return it }
+    englishCountryNameToRussian[trimmed.lowercase(Locale.ROOT)]?.let { return it }
+
+    if (upper.length == 2) {
+        val localized = Locale("", upper).getDisplayCountry(Locale("ru", "RU"))
+        if (localized.isNotEmpty()) return localized
+    }
+    return trimmed
+}
+
+@Immutable
 data class MediaDetailsDto(
     @SerializedName("id") val id: String?,
     @SerializedName("title") val title: String?,
@@ -157,10 +278,12 @@ data class MediaDetailsDto(
     val isTvSeries: Boolean
         get() {
             val typeLower = type?.lowercase()?.trim() ?: ""
-            return typeLower in listOf("tv", "series", "serial", "show") || (seasons != null && seasons.isNotEmpty())
+            return typeLower in tvTypeAliases ||
+                id?.startsWith("tv_", ignoreCase = true) == true ||
+                (seasons != null && seasons.isNotEmpty())
         }
 
-    val displayRating: Double get() = rating ?: ratings?.kp ?: ratings?.imdb ?: 0.0
+    val displayRating: Double get() = ratings?.kp ?: ratings?.imdb ?: ratings?.tmdb ?: 0.0
     val cleanId: String get() = (id ?: "").replace("tv_", "").replace("movie_", "")
 
     val primaryTrailerKey: String?
@@ -204,7 +327,8 @@ data class MediaDetailsDto(
 
 data class RatingsV2Dto(
     @SerializedName("kp") val kp: Double?,
-    @SerializedName("imdb") val imdb: Double?
+    @SerializedName("imdb") val imdb: Double?,
+    @SerializedName("tmdb") val tmdb: Double? = null
 )
 
 data class GenreDto(
@@ -232,19 +356,39 @@ data class CrewMemberDto(
     @SerializedName("name") val name: String?,
     @SerializedName("role") val role: String?,
     @SerializedName("photo") val photo: String?
-)
+) {
+    fun getDisplayPhotoUrl(): String? = normalizeImageUrl(path = photo, id = id, isLowQuality = true)
+}
 
 data class TrailerDto(
     @SerializedName("id") val id: String?,
     @SerializedName("name") val name: String?,
     @SerializedName("url") val url: String?,
     @SerializedName("site") val site: String?
-)
+) {
+    val youtubeKey: String?
+        get() {
+            val u = url ?: ""
+            return when {
+                u.contains("v=") -> u.substringAfter("v=").substringBefore("&")
+                u.contains("youtu.be/") -> u.substringAfter("youtu.be/").substringBefore("?")
+                u.contains("embed/") -> u.substringAfter("embed/").substringBefore("?")
+                !id.isNullOrBlank() && (site?.contains("youtube", ignoreCase = true) == true || site == null) -> id
+                else -> null
+            }
+        }
+
+    val thumbnailUrl: String?
+        get() = youtubeKey?.let { "https://img.youtube.com/vi/$it/mqdefault.jpg" }
+}
 
 data class TvSeasonDto(
     @SerializedName("seasonNumber") val seasonNumber: Int?,
     @SerializedName("name") val name: String?,
-    @SerializedName("episodes") val episodes: List<TvEpisodeDetailsDto>?
+    @SerializedName("episodes") val episodes: List<TvEpisodeDetailsDto>? = null,
+    @SerializedName("episodeCount") val episodeCount: Int? = null,
+    @SerializedName("airDate") val airDate: String? = null,
+    @SerializedName("poster") val poster: String? = null
 )
 
 data class TvEpisodeDetailsDto(
@@ -262,8 +406,21 @@ data class MovieCollectionDto(
     @SerializedName("id") val id: String?,
     @SerializedName("name") val name: String?,
     @SerializedName("poster") val poster: String?,
-    @SerializedName("items") val items: List<MediaDto>?
-)
+    @SerializedName("items") val items: List<MediaDto>? = null,
+    @SerializedName("parts") val parts: List<MediaDto>? = null
+) {
+    val allParts: List<MediaDto> get() = parts ?: items ?: emptyList()
+}
+
+data class RelatedStudioResponseDto(
+    @SerializedName("items") val items: List<MediaDto>? = null,
+    @SerializedName("results") val results: List<MediaDto>? = null,
+    @SerializedName("label") val label: String? = null,
+    @SerializedName("page") val page: Int? = null,
+    @SerializedName("totalPages") val totalPages: Int? = null
+) {
+    val allItems: List<MediaDto> get() = items ?: results ?: emptyList()
+}
 
 data class StudioDto(
     @SerializedName("id") val id: String?,

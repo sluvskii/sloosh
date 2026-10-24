@@ -34,6 +34,11 @@ interface MoviesApiService {
         @Query("page") page: Int = 1
     ): ApiEnvelope<MediaResponse>
 
+    @GET("api/v1/tv/popular")
+    suspend fun getPopularTv(
+        @Query("page") page: Int = 1
+    ): ApiEnvelope<MediaResponse>
+
     @GET("api/v1/cartoons")
     suspend fun getCartoons(
         @Query("page") page: Int = 1
@@ -90,7 +95,7 @@ interface MoviesApiService {
         @Path("type") type: String,
         @Path("id") id: String,
         @Query("page") page: Int = 1
-    ): ApiEnvelope<List<MediaDto>>
+    ): ApiEnvelope<RelatedStudioResponseDto>
 
     @GET("api/v1/tv/{id}/season/{season}")
     suspend fun getSeason(
@@ -192,6 +197,23 @@ object MoviesApi {
                         if (imagesBase.isNotBlank() && !imagesBase.contains("vercel.app")) {
                             activeImagesBaseUrl = imagesBase.trimEnd('/')
                             updated = true
+                        }
+
+                        val balancerBase = json.optString("balancerBaseUrl", "").trim()
+                        if (balancerBase.isNotBlank() && context != null) {
+                            com.slooshfilm.app.data.alloha.AllohaRepository.setBalancerBaseURL(context, balancerBase)
+                        }
+
+                        val streamTokensArr = json.optJSONArray("streamTokens")
+                        if (streamTokensArr != null && context != null) {
+                            val tokens = mutableListOf<String>()
+                            for (i in 0 until streamTokensArr.length()) {
+                                val t = streamTokensArr.optString(i).trim()
+                                if (t.isNotBlank()) tokens.add(t)
+                            }
+                            if (tokens.isNotEmpty()) {
+                                com.slooshfilm.app.data.alloha.AllohaRepository.getInstance(context).updateFallbackTokens(tokens)
+                            }
                         }
 
                         if (updated && context != null) {

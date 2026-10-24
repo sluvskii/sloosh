@@ -2,141 +2,330 @@ package com.slooshfilm.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.slooshfilm.app.data.model.Movie
-import com.slooshfilm.app.data.repository.ContentCategory
-import com.slooshfilm.app.data.repository.ContentType
-import com.slooshfilm.app.data.repository.HdRezkaRepository
-import com.slooshfilm.app.data.repository.WatchHistoryRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import com.slooshfilm.app.data.api.MediaDto
+import com.slooshfilm.app.data.repository.MoviesRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-enum class UiContentType { FILMS, SERIES }
+enum class HomeCategory(val title: String) {
+    ALL("Все"),
+    MOVIES("Фильмы"),
+    SERIES("Сериалы"),
+    CARTOONS("Мульты"),
+    ANIME("Аниме")
+}
 
-data class HomeViewState(
+enum class HomeFilter(val title: String) {
+    POPULAR("Смотрят сейчас"),
+    TOP_RATED("По рейтингу")
+}
+
+private data class CacheKey(
+    val category: HomeCategory,
+    val filter: HomeFilter
+)
+
+data class HomeUiState(
+    val selectedCategory: HomeCategory = HomeCategory.ALL,
+    val selectedFilter: HomeFilter = HomeFilter.POPULAR,
+    val items: List<MediaDto> = emptyList(),
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
-    val contentType: UiContentType = UiContentType.FILMS,
-    val category: ContentCategory = ContentCategory.WATCHING_NOW,
-    val filmsList: List<Movie> = emptyList(),
-    val seriesList: List<Movie> = emptyList(),
-    val watchHistory: List<Movie> = emptyList(),
-    val error: String? = null,
-    val filmsCurrentPage: Int = 1,
-    val seriesCurrentPage: Int = 1,
-    val canLoadMoreFilms: Boolean = true,
-    val canLoadMoreSeries: Boolean = true,
-    val topInset: Int = 0,
-    val bottomInset: Int = 0
+    val errorMessage: String? = null
 )
 
 class HomeViewModel(
-    private val hdRezkaRepository: HdRezkaRepository,
-    private val watchHistoryRepository: WatchHistoryRepository
+    private val repository: MoviesRepository = MoviesRepository.getInstance()
 ) : ViewModel() {
 
-    private val _viewState = MutableStateFlow(HomeViewState())
-    val viewState = _viewState.asStateFlow()
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val cache = mutableMapOf<CacheKey, MutableList<MediaDto>>()
+    private val pageMap = mutableMapOf<CacheKey, Int>()
+    private val canLoadMoreMap = mutableMapOf<CacheKey, Boolean>()
+
+    private var currentLoadJob: Job? = null
 
     init {
-        viewModelScope.launch {
-            combine(
-                watchHistoryRepository.getWatchHistoryWithDetails(),
-                _viewState
-            ) { watchHistory, viewState ->
-                val movies = watchHistory.mapNotNull { it.movie }
-                _viewState.value = viewState.copy(watchHistory = movies)
-            }.collect { }
-        }
-        loadContent(isRefresh = true)
+        loadData(HomeCategory.ALL, HomeFilter.POPULAR)
     }
 
-    fun setContentType(contentType: UiContentType) {
-        if (contentType != _viewState.value.contentType) {
-            _viewState.value = _viewState.value.copy(contentType = contentType)
-            // Load content only if the list for the new type is empty
-            val list = if (contentType == UiContentType.FILMS) _viewState.value.filmsList else _viewState.value.seriesList
-            if (list.isEmpty()) {
-                loadContent(isRefresh = true)
-            }
-        }
+    fun selectCategory(category: HomeCategory) {
+        if (_uiState.value.selectedCategory == category) return
+        _uiState.value = _uiState.value.copy(selectedCategory = category)
+        displayCachedOrLoad(category, _uiState.value.selectedFilter)
     }
 
-    fun setCategory(category: ContentCategory) {
-        if (category != _viewState.value.category) {
-            // When category changes, we need to refresh both lists
-            _viewState.value = _viewState.value.copy(
-                category = category,
-                filmsList = emptyList(),
-                seriesList = emptyList(),
-                filmsCurrentPage = 1,
-                seriesCurrentPage = 1
-            )
-            loadContent(isRefresh = true)
-        }
+    fun selectFilter(filter: HomeFilter) {
+        if (_uiState.value.selectedFilter == filter) return
+        _uiState.value = _uiState.value.copy(selectedFilter = filter)
+        displayCachedOrLoad(_uiState.value.selectedCategory, filter)
+    }
+
+    fun refresh() {
+        val cat = _uiState.value.selectedCategory
+        val flt = _uiState.value.selectedFilter
+        val key = CacheKey(cat, flt)
+        cache.remove(key)
+        pageMap.remove(key)
+        canLoadMoreMap[key] = true
+        loadData(cat, flt, page = 1, forceRefresh = true)
     }
 
     fun loadMore() {
-        val state = _viewState.value
-        val isLoading = state.isLoading || state.isLoadingMore
-        val canLoadMore = if (state.contentType == UiContentType.FILMS) state.canLoadMoreFilms else state.canLoadMoreSeries
+        val state = _uiState.value
+        if (state.isLoading || state.isLoadingMore) return
+        val key = CacheKey(state.selectedCategory, state.selectedFilter)
+        if (canLoadMoreMap[key] == false) return
 
-        if (isLoading || !canLoadMore) return
-
-        loadContent(isRefresh = false)
+        val nextPage = (pageMap[key] ?: 1) + 1
+        loadData(state.selectedCategory, state.selectedFilter, page = nextPage, isLoadMore = true)
     }
 
-    fun loadContent(isRefresh: Boolean = true) {
-        val state = _viewState.value
-        val contentType = state.contentType
-        val pageToLoad = when {
-            isRefresh && contentType == UiContentType.FILMS -> 1
-            isRefresh && contentType == UiContentType.SERIES -> 1
-            contentType == UiContentType.FILMS -> state.filmsCurrentPage + 1
-            else -> state.seriesCurrentPage + 1
+    private fun displayCachedOrLoad(category: HomeCategory, filter: HomeFilter) {
+        val key = CacheKey(category, filter)
+        val cached = cache[key]
+        if (!cached.isNullOrEmpty()) {
+            currentLoadJob?.cancel()
+            _uiState.value = _uiState.value.copy(
+                items = cached.toList(),
+                isLoading = false,
+                isLoadingMore = false,
+                errorMessage = null
+            )
+        } else {
+            loadData(category, filter, page = 1)
         }
+    }
 
-        _viewState.value = state.copy(
-            isLoading = if (isRefresh && getListForType(contentType).isEmpty()) true else false,
-            isLoadingMore = !isRefresh,
-            error = null
-        )
+    private fun loadData(
+        category: HomeCategory,
+        filter: HomeFilter,
+        page: Int = 1,
+        forceRefresh: Boolean = false,
+        isLoadMore: Boolean = false
+    ) {
+        val key = CacheKey(category, filter)
+        currentLoadJob?.cancel()
 
-        viewModelScope.launch {
+        currentLoadJob = viewModelScope.launch {
+            if (isLoadMore) {
+                _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            }
+
             try {
-                val repoContentType = if (contentType == UiContentType.FILMS) ContentType.FILMS else ContentType.SERIES
-                val (newContent, totalPages) = hdRezkaRepository.getContent(repoContentType, state.category, pageToLoad)
+                val fetched = fetchForCategory(category, filter, page, forceRefresh)
+                currentCoroutineContext().ensureActive()
+                val validItems = filterValid(fetched)
+                currentCoroutineContext().ensureActive()
 
-                if (contentType == UiContentType.FILMS) {
-                    val currentList = if (isRefresh) newContent else state.filmsList + newContent
-                    _viewState.value = _viewState.value.copy(
-                        filmsList = currentList.distinctBy { it.url },
-                        filmsCurrentPage = pageToLoad,
-                        canLoadMoreFilms = newContent.isNotEmpty() && pageToLoad < totalPages
-                    )
-                } else {
-                    val currentList = if (isRefresh) newContent else state.seriesList + newContent
-                    _viewState.value = _viewState.value.copy(
-                        seriesList = currentList.distinctBy { it.url },
-                        seriesCurrentPage = pageToLoad,
-                        canLoadMoreSeries = newContent.isNotEmpty() && pageToLoad < totalPages
-                    )
+                val list = cache.getOrPut(key) { mutableListOf() }
+                if (page == 1) {
+                    list.clear()
                 }
 
+                val existingIds = list.map { it.identifier }.toSet()
+                val newUnique = validItems.filter { it.identifier !in existingIds }
+                list.addAll(newUnique)
+
+                pageMap[key] = page
+                canLoadMoreMap[key] = validItems.isNotEmpty()
+
+                if (_uiState.value.selectedCategory == category && _uiState.value.selectedFilter == filter) {
+                    _uiState.value = _uiState.value.copy(
+                        items = list.toList(),
+                        isLoading = false,
+                        isLoadingMore = false,
+                        errorMessage = null
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _viewState.value = _viewState.value.copy(error = e.message)
-            } finally {
-                _viewState.value = _viewState.value.copy(isLoading = false, isLoadingMore = false)
+                if (_uiState.value.selectedCategory == category && _uiState.value.selectedFilter == filter) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isLoadingMore = false,
+                        errorMessage = if (isLoadMore) null else (e.localizedMessage ?: "Ошибка загрузки")
+                    )
+                }
             }
         }
     }
-    
-    private fun getListForType(contentType: UiContentType): List<Movie> {
-        return if (contentType == UiContentType.FILMS) _viewState.value.filmsList else _viewState.value.seriesList
+
+    private suspend fun fetchForCategory(
+        category: HomeCategory,
+        filter: HomeFilter,
+        page: Int,
+        forceRefresh: Boolean
+    ): List<MediaDto> {
+        return when (category) {
+            HomeCategory.ALL -> {
+                when (filter) {
+                    HomeFilter.POPULAR -> {
+                        val (trending, movies, tv, cartoons, anime) = coroutineScope {
+                            val trendingRequest = async { fetchOrEmpty { repository.getTrending(page, forceRefresh = forceRefresh) } }
+                            val moviesRequest = async { fetchOrEmpty { repository.getPopularMovies(page, forceRefresh) } }
+                            val tvRequest = async { fetchOrEmpty { repository.getPopularTv(page, forceRefresh) } }
+                            val cartoonsRequest = async { fetchOrEmpty { repository.getCartoons(page, forceRefresh) } }
+                            val animeRequest = async { fetchOrEmpty { repository.getAnime(page, forceRefresh, order = "popular") } }
+                            listOf(
+                                trendingRequest.await(),
+                                moviesRequest.await(),
+                                tvRequest.await(),
+                                cartoonsRequest.await(),
+                                animeRequest.await()
+                            )
+                        }
+                        val trendingMovies = trending.filter { it.isMovie }
+                        val trendingTv = trending.filter { it.isTvSeries && !it.isCartoon && !it.isTalkShowOrReality }
+                        val trendingCartoons = trending.filter { it.isCartoon && !it.isAnime }
+                        val trendingAnime = trending.filter { it.isAnime }
+                        interleaveBalancedMedia(
+                            movies = interleaveLists(trendingMovies, movies.filter { it.isMovie }),
+                            tv = interleaveLists(trendingTv, tv.filter { it.isTvSeries && !it.isCartoon && !it.isTalkShowOrReality }),
+                            cartoons = interleaveLists(trendingCartoons, cartoons.filter { it.isCartoon && !it.isAnime }),
+                            anime = interleaveLists(trendingAnime, anime.filter { it.isAnime })
+                        ).ifEmpty {
+                            repository.getPopularMovies(page, forceRefresh)
+                        }
+                    }
+                    HomeFilter.TOP_RATED -> {
+                        val (movies, tv, cartoons, anime) = coroutineScope {
+                            val moviesRequest = async { fetchOrEmpty { repository.getTopMovies(page, forceRefresh) } }
+                            val tvRequest = async { fetchOrEmpty { repository.getTopTv(page, forceRefresh) } }
+                            val cartoonsRequest = async { fetchOrEmpty { repository.getCartoons(page, forceRefresh) } }
+                            val animeRequest = async { fetchOrEmpty { repository.getAnime(page, forceRefresh, order = "top") } }
+                            listOf(moviesRequest.await(), tvRequest.await(), cartoonsRequest.await(), animeRequest.await())
+                        }
+                        interleaveBalancedMedia(
+                            movies = movies.filter { it.isMovie && !it.isCartoon },
+                            tv = tv.filter { it.isTvSeries && !it.isCartoon && !it.isTalkShowOrReality },
+                            cartoons = cartoons.filter { it.isCartoon && !it.isAnime },
+                            anime = anime.filter { it.isAnime }
+                        ).ifEmpty {
+                            repository.getTopMovies(page, forceRefresh)
+                        }
+                    }
+                }
+            }
+            HomeCategory.MOVIES -> {
+                when (filter) {
+                    HomeFilter.POPULAR -> repository.getPopularMovies(page, forceRefresh)
+                    HomeFilter.TOP_RATED -> repository.getTopMovies(page, forceRefresh)
+                }
+            }
+            HomeCategory.SERIES -> {
+                when (filter) {
+                    HomeFilter.POPULAR -> repository.getPopularTv(page, forceRefresh)
+                    HomeFilter.TOP_RATED -> repository.getTopTv(page, forceRefresh)
+                }.filter { !it.isTalkShowOrReality }
+            }
+            HomeCategory.CARTOONS -> {
+                repository.getCartoons(page, forceRefresh).filter { it.isCartoon && !it.isAnime }
+            }
+            HomeCategory.ANIME -> {
+                val order = if (filter == HomeFilter.TOP_RATED) "top" else "popular"
+                repository.getAnime(page, forceRefresh, order).filter { it.isAnime }
+            }
+        }
     }
 
-    fun setInsets(top: Int, bottom: Int) {
-        _viewState.value = _viewState.value.copy(topInset = top, bottomInset = bottom)
+    private fun interleaveLists(primary: List<MediaDto>, secondary: List<MediaDto>): List<MediaDto> {
+        val result = mutableListOf<MediaDto>()
+        val seen = mutableSetOf<String>()
+        var primaryIndex = 0
+        var secondaryIndex = 0
+        while (primaryIndex < primary.size || secondaryIndex < secondary.size) {
+            if (primaryIndex < primary.size) {
+                val item = primary[primaryIndex++]
+                if (item.identifier.isNotEmpty() && seen.add(item.identifier)) result.add(item)
+            }
+            if (secondaryIndex < secondary.size) {
+                val item = secondary[secondaryIndex++]
+                if (item.identifier.isNotEmpty() && seen.add(item.identifier)) result.add(item)
+            }
+        }
+        return result
+    }
+
+    private fun interleaveBalancedMedia(
+        movies: List<MediaDto>,
+        tv: List<MediaDto>,
+        cartoons: List<MediaDto>,
+        anime: List<MediaDto>
+    ): List<MediaDto> {
+        val result = mutableListOf<MediaDto>()
+        val seen = mutableSetOf<String>()
+        var moviesIndex = 0
+        var tvIndex = 0
+        var cartoonsIndex = 0
+        var animeIndex = 0
+        var itemsSinceLastAnime = 10
+        var step = 0
+        val maxSteps = movies.size + tv.size + cartoons.size + anime.size
+
+        fun appendFrom(source: List<MediaDto>, startIndex: Int): Int {
+            var index = startIndex
+            while (index < source.size) {
+                val item = source[index++]
+                val id = item.identifier
+                if (id.isBlank() || id in seen || item.isTalkShowOrReality) continue
+                if (item.isAnime && itemsSinceLastAnime < 4) continue
+
+                seen.add(id)
+                result.add(item)
+                itemsSinceLastAnime = if (item.isAnime) 0 else itemsSinceLastAnime + 1
+                break
+            }
+            return index
+        }
+
+        while ((moviesIndex < movies.size || tvIndex < tv.size || cartoonsIndex < cartoons.size || animeIndex < anime.size) && step < maxSteps) {
+            step++
+            moviesIndex = appendFrom(movies, moviesIndex)
+            tvIndex = appendFrom(tv, tvIndex)
+            moviesIndex = appendFrom(movies, moviesIndex)
+            tvIndex = appendFrom(tv, tvIndex)
+
+            if (step % 2 == 1) {
+                val oldSize = result.size
+                cartoonsIndex = appendFrom(cartoons, cartoonsIndex)
+                if (result.size == oldSize) animeIndex = appendFrom(anime, animeIndex)
+            } else {
+                val oldSize = result.size
+                animeIndex = appendFrom(anime, animeIndex)
+                if (result.size == oldSize) cartoonsIndex = appendFrom(cartoons, cartoonsIndex)
+            }
+        }
+        return result
+    }
+
+    private fun filterValid(items: List<MediaDto>): List<MediaDto> {
+        return items.filter { item ->
+            val poster = item.getDisplayPosterUrl()
+            val hasPoster = !poster.isNullOrBlank() && !poster.lowercase().contains("no-poster")
+            val hasTitle = item.displayTitle.isNotBlank()
+            hasPoster && hasTitle
+        }
+    }
+
+    private suspend fun fetchOrEmpty(fetch: suspend () -> List<MediaDto>): List<MediaDto> = try {
+        fetch()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
     }
 }

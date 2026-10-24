@@ -2,24 +2,17 @@ package com.slooshfilm.app
 
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.view.animation.AnimationUtils
-import android.widget.ImageView
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 
-class SplashActivity : AppCompatActivity() {
+class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_splash)
-
-        val splashLogo = findViewById<ImageView>(R.id.splash_logo)
-        val animation = AnimationUtils.loadAnimation(this, R.anim.splash_animation)
-        splashLogo.startAnimation(animation)
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-        }, 600)
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_FORWARD_RESULT
+        }
+        startActivity(intent)
+        finish()
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 }

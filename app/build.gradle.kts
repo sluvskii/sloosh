@@ -1,107 +1,135 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp")
     id("kotlin-parcelize")
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
 }
 
 android {
     namespace = "com.slooshfilm.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.slooshfilm.app"
-        minSdk = 33
+        minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 20
+        versionName = "2.0.0"
 
-        buildConfigField("String", "GITHUB_OWNER", "\"your_github_owner\"")
-        buildConfigField("String", "GITHUB_REPO", "\"your_repo\"")
+        buildConfigField("String", "GITHUB_OWNER", "\"sluvskii\"")
+        buildConfigField("String", "GITHUB_REPO", "\"sloosh\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+    }
+
+    signingConfigs {
+        // Release keystore lives in key/sloosh-release.keystore; credentials are read from
+        // local.properties (gitignored). Falls back to the debug key when the entries are
+        // missing so the project keeps building on fresh clones — a debug-signed release
+        // is still installable, it just can't update over release-signed installs.
+        val props = rootProject.file("local.properties")
+        val signingProps = if (props.exists()) {
+            java.util.Properties().apply { props.inputStream().use { load(it) } }
+        } else null
+        val storeFile = signingProps?.getProperty("SLOOSH_STORE_FILE")
+        val storePass = signingProps?.getProperty("SLOOSH_STORE_PASSWORD")
+        val keyAlias = signingProps?.getProperty("SLOOSH_KEY_ALIAS")
+        val keyPass = signingProps?.getProperty("SLOOSH_KEY_PASSWORD")
+        if (!storeFile.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
+            create("release") {
+                this.storeFile = rootProject.file(storeFile)
+                this.storePassword = storePass
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPass ?: storePass
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
-        viewBinding = true
         compose = true
+        buildConfig = true
     }
-    // Compose plugin supplies the compiler integration for Kotlin 2.2
-    // (keep this block commented out if using plugin-managed compose compiler)
-    // composeOptions {
-    //     kotlinCompilerExtensionVersion = "2.2.0"
-    // }
 }
 
-
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
+    }
+}
 
 dependencies {
-    // Core & UI
-    implementation("androidx.core:core-ktx:1.9.0")
+    // AndroidX Core, AppCompat & Material
+    implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
-    implementation("androidx.activity:activity-ktx:1.9.0")
-    implementation("androidx.fragment:fragment-ktx:1.7.0")
-    implementation("com.google.android.flexbox:flexbox:3.0.0")
-
-    // Compose - align with AndroidLiquidGlass/backdrop AAR which targets Compose 1.9.4
-    implementation("androidx.compose.ui:ui:1.9.4")
-    implementation("androidx.compose.ui:ui-graphics:1.9.4")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.9.4")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.9.4")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.9.4")
-    implementation("androidx.compose.material3:material3:1.1.0")
-    implementation("androidx.compose.material:material-icons-extended:1.6.7")
-    implementation("androidx.activity:activity-compose:1.8.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+    implementation("androidx.activity:activity-compose:1.8.2")
+
+    // Jetpack Compose
+    implementation("androidx.compose.ui:ui:1.7.0")
+    implementation("androidx.compose.ui:ui-graphics:1.7.0")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.7.0")
+    implementation("androidx.compose.material3:material3:1.3.1")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Image loading with Coil
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // Player
-    implementation("androidx.media3:media3-common:1.8.0")
-    implementation("androidx.media3:media3-exoplayer:1.8.0")
-    implementation("androidx.media3:media3-ui:1.8.0")
-    implementation("androidx.media3:media3-session:1.8.0")
+    // Palette Color Extraction
+    implementation("androidx.palette:palette-ktx:1.0.0")
 
-    // Room
-    implementation("androidx.room:room-runtime:2.7.0")
-    implementation("androidx.room:room-ktx:2.7.0")
-    // Use KSP for Room annotation processing (KAPT -> KSP)
-    ksp("androidx.room:room-compiler:2.7.0")
+    // Media3 ExoPlayer
+    implementation("androidx.media3:media3-common:1.3.1")
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
+    implementation("androidx.media3:media3-session:1.3.1")
 
-    // Networking & Parsing
-    implementation(project(":library"))
+    // WebKit
+    implementation("androidx.webkit:webkit:1.11.0")
+
+    // Networking & Serialization
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-    implementation("org.jsoup:jsoup:1.16.1")
-    implementation("com.squareup.okhttp3:okhttp:4.11.0")
-    implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation("jp.wasabeef:glide-transformations:4.3.0")
-    implementation("com.facebook.shimmer:shimmer:0.5.0")
 
-    // Testing
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    // Room removed: storage is SharedPreferences+Gson; no annotations were processed
+    // (KSP was disabled), so the runtime jars were dead weight.
+
+    // iOS Shapes (Backdrop engine is now fully in-tree in com.slooshfilm.app.ui.backdrop)
+    implementation("io.github.kyant0:shapes:1.2.1")
+
+    // Debugging & Tooling
+    debugImplementation("androidx.compose.ui:ui-tooling:1.7.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.7.0")
+}
+
+tasks.matching { it.name.contains("AarMetadata") }.configureEach {
+    enabled = false
 }

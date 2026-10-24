@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- All theme definitions are in the main values/themes.xml file. 
-    This file is used to override specific colors for the dark theme. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Sloosh" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+    </style>
+
+    <style name="Theme.Sloosh.Splash" parent="Theme.Sloosh">
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+    </style>
 </resources>
