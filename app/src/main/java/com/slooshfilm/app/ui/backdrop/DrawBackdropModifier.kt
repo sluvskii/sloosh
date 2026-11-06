@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.LayoutModifierNode
@@ -25,6 +26,7 @@ import androidx.compose.ui.node.ObserverModifierNode
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.observeReads
 import androidx.compose.ui.node.requireGraphicsContext
+import androidx.compose.ui.node.requireLayoutCoordinates
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
@@ -38,6 +40,18 @@ import com.slooshfilm.app.ui.backdrop.shadow.InnerShadow
 import com.slooshfilm.app.ui.backdrop.shadow.InnerShadowElement
 import com.slooshfilm.app.ui.backdrop.shadow.Shadow
 import com.slooshfilm.app.ui.backdrop.shadow.ShadowElement
+
+private fun DelegatableNode.safeLayoutCoordinates(): LayoutCoordinates? {
+    return if (node.isAttached) {
+        try {
+            requireLayoutCoordinates().takeIf { it.isAttached }
+        } catch (_: Throwable) {
+            null
+        }
+    } else {
+        null
+    }
+}
 
 private val DefaultHighlight = { Highlight.Default }
 private val DefaultShadow = { Shadow.Default }
@@ -269,11 +283,16 @@ private class DrawBackdropNode(
         if (padding != 0f) {
             canvas.translate(padding, padding)
         }
+        val targetCoordinates = layoutCoordinates?.takeIf { it.isAttached }
+            ?: safeLayoutCoordinates()?.also {
+                layoutCoordinates = it
+                exportedBackdrop?.layerCoordinates = it
+            }
         onDrawBackdrop {
             with(backdrop) {
                 drawBackdrop(
                     density = effectScope,
-                    coordinates = layoutCoordinates,
+                    coordinates = targetCoordinates,
                     layerBlock = layerBlock
                 )
             }
@@ -319,6 +338,12 @@ private class DrawBackdropNode(
     }
 
     override fun ContentDrawScope.draw() {
+        if (layoutCoordinates == null || layoutCoordinates?.isAttached != true) {
+            safeLayoutCoordinates()?.let {
+                layoutCoordinates = it
+                exportedBackdrop?.layerCoordinates = it
+            }
+        }
         if (effectScope.update(this)) {
             updateEffects()
         }
@@ -341,13 +366,7 @@ private class DrawBackdropNode(
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
         if (coordinates.isAttached) {
-            if (backdrop.isCoordinatesDependent) {
-                layoutCoordinates = coordinates
-            } else {
-                if (layoutCoordinates != null) {
-                    layoutCoordinates = null
-                }
-            }
+            layoutCoordinates = coordinates
             exportedBackdrop?.layerCoordinates = coordinates
         }
     }
@@ -362,6 +381,10 @@ private class DrawBackdropNode(
         // без инвалидации перезаписанный слой остаётся в старых цветах до первого
         // взаимодействия (например, перетаскивания пилюли).
         if (isAttached) {
+            safeLayoutCoordinates()?.let {
+                layoutCoordinates = it
+                exportedBackdrop?.layerCoordinates = it
+            }
             invalidateDraw()
         }
     }
@@ -381,6 +404,11 @@ private class DrawBackdropNode(
     override fun onAttach() {
         val graphicsContext = requireGraphicsContext()
         graphicsLayer = graphicsContext.createGraphicsLayer()
+
+        safeLayoutCoordinates()?.let {
+            layoutCoordinates = it
+            exportedBackdrop?.layerCoordinates = it
+        }
 
         observeEffects()
     }

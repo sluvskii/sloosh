@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class FavoritesStore(context: Context) {
+class FavoritesStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("sloosh_favorites", Context.MODE_PRIVATE)
     private val gson = Gson()
     private val key = "favorites_list"
@@ -68,6 +68,7 @@ class FavoritesStore(context: Context) {
             true
         }
         saveFavorites(current)
+        triggerCloudSync()
         return isNowFavorite
     }
 
@@ -76,7 +77,32 @@ class FavoritesStore(context: Context) {
         val removed = current.removeAll { it.cleanId == id }
         if (removed) {
             saveFavorites(current)
+            triggerCloudSync()
         }
+    }
+
+    fun removeFavorite(media: MediaDto) {
+        val current = _favoritesFlow.value.toMutableList()
+        val removed = current.removeAll {
+            it.favoriteIdentity == media.favoriteIdentity || it.cleanId == media.cleanId
+        }
+        if (removed) {
+            saveFavorites(current)
+            triggerCloudSync()
+        }
+    }
+
+    fun syncRemoteFavorites(merged: List<MediaDto>) {
+        saveFavorites(merged)
+    }
+
+    private fun triggerCloudSync() {
+        try {
+            val authRepo = com.slooshfilm.app.data.repository.AuthRepository.getInstance(context)
+            if (authRepo.isAuthenticated) {
+                com.slooshfilm.app.data.repository.CloudSyncService.getInstance(context).syncAllData()
+            }
+        } catch (_: Exception) {}
     }
 
     companion object {

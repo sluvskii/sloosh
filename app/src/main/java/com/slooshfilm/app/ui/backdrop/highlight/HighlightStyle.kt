@@ -26,41 +26,48 @@ interface HighlightStyle {
 
     fun DrawScope.createShader(
         shape: Shape,
-        runtimeShaderCache: RuntimeShaderCache
+        runtimeShaderCache: RuntimeShaderCache,
+        alpha: Float = 1f,
+        keySuffix: String = ""
     ): RuntimeShader?
 
     @Immutable
     data class Plain(
-        override val color: Color = Color.White.copy(alpha = 0.38f),
-        override val blendMode: BlendMode = BlendMode.Plus
+        override val color: Color = Color.White.copy(alpha = 0.85f),
+        override val blendMode: BlendMode = BlendMode.Overlay
     ) : HighlightStyle {
 
         override fun DrawScope.createShader(
             shape: Shape,
-            runtimeShaderCache: RuntimeShaderCache
+            runtimeShaderCache: RuntimeShaderCache,
+            alpha: Float,
+            keySuffix: String
         ): RuntimeShader? = null
     }
 
     @Immutable
     data class Default(
-        override val color: Color = Color.White.copy(alpha = 0.5f),
-        override val blendMode: BlendMode = BlendMode.Plus,
+        override val color: Color = Color.White.copy(alpha = 0.85f),
+        override val blendMode: BlendMode = BlendMode.Overlay,
         val angle: Float = 45f,
         @param:FloatRange(from = 0.0) val falloff: Float = 1f
     ) : HighlightStyle {
 
         override fun DrawScope.createShader(
             shape: Shape,
-            runtimeShaderCache: RuntimeShaderCache
+            runtimeShaderCache: RuntimeShaderCache,
+            alpha: Float,
+            keySuffix: String
         ): RuntimeShader? {
             return if (isRuntimeShaderSupported()) {
                 runtimeShaderCache.obtainRuntimeShader(
-                    "Default",
+                    "Default$keySuffix",
                     DefaultHighlightShaderString
                 ).apply {
+                    val resolvedAlpha = (color.alpha * alpha).coerceIn(0f, 1f)
                     setFloatUniform("size", size.width, size.height)
                     setFloatUniform("cornerRadii", getCornerRadii(shape))
-                    setColorUniform("color", color.copy(alpha = 1f))
+                    setColorUniform("color", color.copy(alpha = resolvedAlpha))
                     setFloatUniform("angle", angle * (PI / 180f).toFloat())
                     setFloatUniform("falloff", falloff)
                 }
@@ -72,24 +79,28 @@ interface HighlightStyle {
 
     @Immutable
     data class Ambient(
-        @param:FloatRange(from = 0.0, to = 1.0) val intensity: Float = 0.38f
+        @param:FloatRange(from = 0.0, to = 1.0) val intensity: Float = 0.85f
     ) : HighlightStyle {
 
         override val color: Color = Color.White.copy(alpha = intensity)
 
-        override val blendMode: BlendMode = DrawScope.DefaultBlendMode
+        override val blendMode: BlendMode = BlendMode.Overlay
 
         override fun DrawScope.createShader(
             shape: Shape,
-            runtimeShaderCache: RuntimeShaderCache
+            runtimeShaderCache: RuntimeShaderCache,
+            alpha: Float,
+            keySuffix: String
         ): RuntimeShader? {
             return if (isRuntimeShaderSupported()) {
                 runtimeShaderCache.obtainRuntimeShader(
-                    "Ambient",
+                    "Ambient$keySuffix",
                     AmbientHighlightShaderString
                 ).apply {
+                    val resolvedAlpha = (color.alpha * alpha).coerceIn(0f, 1f)
                     setFloatUniform("size", size.width, size.height)
                     setFloatUniform("cornerRadii", getCornerRadii(shape))
+                    setColorUniform("color", color.copy(alpha = resolvedAlpha))
                     setFloatUniform("angle", 45f * (PI / 180f).toFloat())
                     setFloatUniform("falloff", 1f)
                 }

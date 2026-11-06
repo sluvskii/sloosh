@@ -1,13 +1,10 @@
 package com.slooshfilm.app.data.alloha
 
 /**
- * Static holder so PlayerScreen / DetailsScreen / WatchSelectorSheet can access the active
- * [AllohaSessionManager], cached Alloha results, resolved audio/quality variants, and stream configuration.
+ * Static holder so PlayerScreen / DetailsScreen / WatchSelectorSheet can access cached Alloha results,
+ * resolved audio/quality variants, and stream configuration.
  */
 object AllohaSessionHolder {
-    @Volatile
-    var session: AllohaSessionManager? = null
-
     /** Cached API result passed directly from DetailsScreen */
     @Volatile
     var cachedApiResult: AllohaApiResult? = null
@@ -40,6 +37,14 @@ object AllohaSessionHolder {
 
     /** Translation names for the current episode / film */
     var translationNames: List<String> = emptyList()
+
+    /** Authentic voice names mapped 1:1 to HLS master audio variants for rewriting */
+    @Volatile
+    var availableVoiceNames: List<String> = emptyList()
+
+    /** Currently preferred voice / voiceover name for HLS master playlist rewriting */
+    @Volatile
+    var currentVoice: String? = null
 
     /** Iframe URLs for each translation (parallel to [translationNames]). */
     var translationUrls: List<String> = emptyList()
@@ -84,7 +89,6 @@ object AllohaSessionHolder {
     }
 
     fun clear() {
-        session = null
         cachedApiResult = null
         activeTargetIframeUrl = null
         activeMediaId = null
@@ -93,6 +97,8 @@ object AllohaSessionHolder {
         audioVariants = emptyList()
         qualityVariants = emptyList()
         translationNames = emptyList()
+        availableVoiceNames = emptyList()
+        currentVoice = null
         translationUrls = emptyList()
         currentTranslation = ""
         qualityMap = emptyMap()

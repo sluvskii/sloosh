@@ -168,7 +168,7 @@ $RoundedRectSDF
 half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = coord - halfSize;
-    float radius = radiusAt(coord, cornerRadii);
+    float radius = radiusAt(centeredCoord, cornerRadii);
     
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
     float2 grad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
@@ -182,6 +182,7 @@ half4 main(float2 coord) {
 internal const val AmbientHighlightShaderString = """
 uniform float2 size;
 uniform float4 cornerRadii;
+layout(color) uniform half4 color;
 uniform float angle;
 uniform float falloff;
 
@@ -190,7 +191,7 @@ $RoundedRectSDF
 half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = coord - halfSize;
-    float radius = radiusAt(coord, cornerRadii);
+    float radius = radiusAt(centeredCoord, cornerRadii);
     
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
     float2 grad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
@@ -198,5 +199,5 @@ half4 main(float2 coord) {
     float d = dot(grad, normal);
     float intensity = pow(abs(d), falloff);
     float t = step(0.0, d);
-    return half4(t, t, t, 1.0) * intensity;
+    return color * (t * intensity);
 }"""

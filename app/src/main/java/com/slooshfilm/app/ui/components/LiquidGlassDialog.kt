@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -163,7 +164,7 @@ fun LiquidGlassDialog(
             } else {
                 LiquidGlassTokens.Dialog.copy(
                     refractionAmount = 12.dp + (8.dp * progressClamped) + (5.dp * liquidWave),
-                    chromaticAberration = 0.08f + (0.04f * liquidWave),
+                    chromaticAberration = 0f,
                     highlightAlpha = lerp(0.55f, 0.45f, progressClamped) + (0.10f * liquidWave)
                 )
             }
@@ -185,8 +186,13 @@ fun LiquidGlassDialog(
         // должны читаться, но плотности хватает, чтобы текст не тонул в постере.
         // Цвет — iOS systemGray5 (тёмная тема), а не почти чёрный: Apple использует
         // серый тинт в том числе для кнопок, поэтому окно не должно уходить в чёрный.
+        val resolvedBackdrop = backdrop ?: LocalBackdrop.current
         val dialogContainerColor = if (isGlassEnabled) {
-            if (isLightTheme) Color.White.copy(alpha = 0.80f) else Color(0xFF2C2C2E).copy(alpha = 0.62f)
+            if (resolvedBackdrop != null) {
+                if (isLightTheme) Color.White.copy(alpha = 0.80f) else Color(0xFF2C2C2E).copy(alpha = 0.65f)
+            } else {
+                if (isLightTheme) Color(0xFFF2F2F7).copy(alpha = 0.85f) else Color(0xFF2C2C2E).copy(alpha = 0.80f)
+            }
         } else {
             if (isLightTheme) Color.White else Color(0xFF1E1E22)
         }
@@ -224,7 +230,7 @@ fun LiquidGlassDialog(
                         style = dynamicStyle,
                         shape = RoundedRectangle(DialogCornerRadius),
                         containerColor = dialogContainerColor,
-                        backdrop = backdrop,
+                        backdrop = backdrop ?: LocalBackdrop.current,
                         maxDragScale = DialogDragScale,
                         dragTranslationFactor = DialogDragTranslation,
                         applyBlurSetting = false,
@@ -318,6 +324,7 @@ fun LiquidGlassAlertDialog(
     dismissButtonText: String = "Отмена",
     confirmButtonColor: Color = SlooshAccent,
     isDestructive: Boolean = false,
+    icon: Painter? = null,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
     backdrop: Backdrop? = null,
@@ -334,6 +341,25 @@ fun LiquidGlassAlertDialog(
         backdrop = backdrop,
         showCloseButton = false
     ) { dismiss ->
+        if (icon != null) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(if (isDestructive) Color(0xFFFF453A).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.08f))
+                    .align(Alignment.CenterHorizontally),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = icon,
+                    contentDescription = null,
+                    tint = if (isDestructive) Color(0xFFFF453A) else Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+        }
+
         if (!message.isNullOrBlank()) {
             Text(
                 text = message,
@@ -355,17 +381,19 @@ fun LiquidGlassAlertDialog(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Confirm button
-            val effectiveConfirmColor = if (isDestructive) Color(0xFFFF453A) else confirmButtonColor
+            // Confirm button (Apple solid white capsule or destructive red capsule, matching DetailsScreen)
+            val (confirmBg, confirmTextColor) = if (isDestructive) {
+                Color(0xFFFF453A) to Color.White
+            } else {
+                Color.White to Color.Black
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(Capsule())
-                    .background(
-                        if (isDestructive) Color(0xFFFF453A).copy(alpha = 0.20f)
-                        else effectiveConfirmColor.copy(alpha = 0.20f)
-                    )
+                    .background(confirmBg)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onConfirm()
@@ -375,20 +403,26 @@ fun LiquidGlassAlertDialog(
             ) {
                 Text(
                     text = confirmButtonText,
-                    color = if (isDestructive) Color(0xFFFF453A) else effectiveConfirmColor,
+                    color = confirmTextColor,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.2).sp
                 )
             }
 
-            // Dismiss button
+            // Dismiss button (Subtle translucent Apple capsule)
+            val (dismissBg, dismissTextColor) = if (isLightTheme) {
+                Color.Black.copy(alpha = 0.06f) to Color.Black
+            } else {
+                Color.White.copy(alpha = 0.08f) to Color.White
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(Capsule())
-                    .background(if (isLightTheme) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.10f))
+                    .background(dismissBg)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         dismiss()
@@ -397,7 +431,7 @@ fun LiquidGlassAlertDialog(
             ) {
                 Text(
                     text = dismissButtonText,
-                    color = TextPrimary,
+                    color = dismissTextColor,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = (-0.2).sp

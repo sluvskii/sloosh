@@ -32,7 +32,7 @@ data class WatchProgressItem(
         get() = if (season != null && episode != null) "S${season} E${episode}" else null
 }
 
-class PlaybackProgressStore(context: Context) {
+class PlaybackProgressStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("sloosh_watch_progress", Context.MODE_PRIVATE)
     private val gson = Gson()
     private val key = "progress_items"
@@ -109,6 +109,7 @@ class PlaybackProgressStore(context: Context) {
             current
         }
         saveItems(capped)
+        triggerCloudSync()
     }
 
     fun deleteProgress(mediaId: String) {
@@ -116,6 +117,7 @@ class PlaybackProgressStore(context: Context) {
         val removed = current.removeAll { it.mediaId == mediaId }
         if (removed) {
             saveItems(current)
+            triggerCloudSync()
         }
     }
 
@@ -126,7 +128,26 @@ class PlaybackProgressStore(context: Context) {
         }
         if (removed) {
             saveItems(current)
+            triggerCloudSync()
         }
+    }
+
+    fun syncRemoteProgress(merged: List<WatchProgressItem>) {
+        val capped = if (merged.size > MAX_STORED_ITEMS) {
+            merged.sortedByDescending { it.updatedAt }.take(MAX_STORED_ITEMS)
+        } else {
+            merged
+        }
+        saveItems(capped)
+    }
+
+    private fun triggerCloudSync() {
+        try {
+            val authRepo = com.slooshfilm.app.data.repository.AuthRepository.getInstance(context)
+            if (authRepo.isAuthenticated) {
+                com.slooshfilm.app.data.repository.CloudSyncService.getInstance(context).syncAllData()
+            }
+        } catch (_: Exception) {}
     }
 
     fun clearAll() {

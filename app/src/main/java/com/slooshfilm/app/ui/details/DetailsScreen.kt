@@ -84,6 +84,7 @@ import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import com.slooshfilm.app.ui.components.ErrorStateView
 import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.components.InteractiveHighlight
 import com.slooshfilm.app.ui.components.LiquidGlassDialog
@@ -97,6 +98,7 @@ import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.MediaCard
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
 import com.slooshfilm.app.ui.components.liquidGlassSurface
+import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import com.slooshfilm.app.ui.theme.*
 import com.slooshfilm.app.ui.util.rememberAdaptiveAmbientColor
@@ -267,16 +269,20 @@ fun DetailsScreen(
 
             // Fetch playback options independently so a slow stream lookup cannot hold the details screen on its skeleton.
             if (item.isTvSeries && allohaResult == null) {
-                val kpId = clean.toIntOrNull()
+                val kpId = item.kpId ?: if (mediaId.startsWith("kp_")) clean.toIntOrNull() else null
+                val tmdbId = item.tmdbId ?: if (!mediaId.startsWith("kp_")) clean.toIntOrNull() else null
                 val title = item.title ?: item.originalTitle ?: ""
                 detailSideJobs += scope.launch {
                     try {
                         val result = allohaRepository.fetchAllohaData(
                             mediaId = clean,
                             explicitKpId = kpId,
+                            tmdbId = tmdbId,
+                            imdbId = item.imdbId,
                             title = title,
                             originalTitle = item.originalTitle,
-                            year = item.year
+                            year = item.year,
+                            isTv = item.isTvSeries
                         )
                         currentCoroutineContext().ensureActive()
                         if (isCurrentDetails()) {
@@ -361,16 +367,21 @@ fun DetailsScreen(
             allohaError = null
             detailSideJobs += scope.launch {
                 try {
-                    val kpId = item?.cleanId?.toIntOrNull() ?: mediaId.replace("tv_", "").replace("movie_", "").toIntOrNull()
+                    val kpId = item?.kpId ?: if (mediaId.startsWith("kp_")) (item?.cleanId ?: mediaId).removePrefix("kp_").toIntOrNull() else null
+                    val tmdbId = item?.tmdbId ?: if (!mediaId.startsWith("kp_")) (item?.cleanId ?: mediaId).replace("tv_", "").replace("movie_", "").toIntOrNull() else null
+                    val imdbId = item?.imdbId
                     val title = item?.title ?: item?.originalTitle ?: ""
                     val origTitle = item?.originalTitle
                     val year = item?.year
                     val res = allohaRepository.fetchAllohaData(
                         mediaId = item?.cleanId ?: mediaId,
                         explicitKpId = kpId,
+                        tmdbId = tmdbId,
+                        imdbId = imdbId,
                         title = title,
                         originalTitle = origTitle,
-                        year = year
+                        year = year,
+                        isTv = item?.isTvSeries
                     )
                     currentCoroutineContext().ensureActive()
                     if (latestDetailsLoadIdentity == requestIdentity) {
@@ -489,14 +500,19 @@ fun DetailsScreen(
         drawContent()
     }
 
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val heroHeight = if (isLandscape) 280.dp else 365.dp
+    val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isTablet = configuration.screenWidthDp >= 600
+    val statusBarPadding = if (rawStatusBarPadding > 0.dp) rawStatusBarPadding else (if (isLandscape) 8.dp else 0.dp)
+    val cutoutPadding = rememberCutoutHorizontalPadding()
+    val detailsHorizontalPadding = 20.dp + cutoutPadding
+    val heroHeight = if (isLandscape) 240.dp else if (isTablet) 320.dp else 365.dp
     val isProgressiveBlurEnabled = LocalProgressiveBlur.current
     val isGlassEnabled = LocalGlassEnabled.current
-    val headerBlurHeight = statusBarPadding + 160.dp
+    val headerBlurHeight = statusBarPadding + (if (isLandscape) 100.dp else 160.dp)
     val navBarBottomPadding = rememberNavBarBottomPadding()
-    val bottomContentPadding = navBarBottomPadding + 72.dp
+    val bottomContentPadding = if (isLandscape) navBarBottomPadding + 48.dp else navBarBottomPadding + 72.dp
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -643,9 +659,9 @@ fun DetailsScreen(
                         // Details Header Content (padded 20.dp horizontally)
                         Column(
                             modifier = Modifier
-                                .widthIn(max = if (isLandscape) 550.dp else Dp.Unspecified)
+                                .widthIn(max = if (isLandscape || isTablet) 580.dp else Dp.Unspecified)
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
+                                .padding(horizontal = detailsHorizontalPadding),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                         // 1. Backdrop Page Indicator (pills)
@@ -792,8 +808,8 @@ fun DetailsScreen(
                                     contentColor = Color.Black
                                 ),
                                 shape = Capsule(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 20.dp),
-                                modifier = Modifier.height(50.dp)
+                                contentPadding = PaddingValues(start = 16.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
+                                modifier = Modifier.defaultMinSize(minHeight = 50.dp)
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_sf_play_fill),
@@ -848,25 +864,16 @@ fun DetailsScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 genres.forEach { genre ->
-                                    val chipHighlight = remember { InteractiveHighlight(animationScope = scope) }
-                                    Box(
-                                        modifier = Modifier
-                                            .liquidGlassInteractive(
-                                                interactiveHighlight = chipHighlight,
-                                                style = LiquidGlassTokens.Button,
-                                                shape = Capsule(),
-                                                containerColor = LiquidGlassSurfaceDark,
-                                                backdrop = glassBackdrop
-                                            )
-                                            .clip(Capsule())
-                                            .clickable(
-                                                interactionSource = null,
-                                                indication = null,
-                                                role = Role.Button
-                                            ) {
-                                                onGenreClick(genre, if (item.isTvSeries) "tv" else "movie")
-                                            }
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                    LiquidGlassFloatingButton(
+                                        onClick = {
+                                            onGenreClick(genre, if (item.isTvSeries) "tv" else "movie")
+                                        },
+                                        backdrop = glassBackdrop,
+                                        blurRadius = 8.dp,
+                                        shape = Capsule(),
+                                        tint = LiquidGlassSurfaceDark,
+                                        borderAlpha = 0.50f,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
                                         Text(
                                             text = genre,
@@ -886,7 +893,7 @@ fun DetailsScreen(
                         val studioItems = (studios + networks).distinctBy { studio ->
                             studio.id?.takeIf { it.isNotBlank() } ?: studio.name.orEmpty()
                         }
-                        val studioTitle = if (item.isTvSeries && networks.isNotEmpty()) "Платформа" else "Студия"
+                        val studioTitle = if (studioItems.size > 1) "Студии" else "Студия"
 
                         if (studioItems.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(20.dp))
@@ -907,35 +914,18 @@ fun DetailsScreen(
                                     val brand = StudioBrand.find(studio.name)
                                     val catalogId = brand?.id ?: studio.id
                                     val isEnabled = !catalogId.isNullOrBlank()
-                                    val chipHighlight = remember { InteractiveHighlight(animationScope = scope) }
-                                    val surfaceModifier = if (isEnabled) {
-                                        Modifier.liquidGlassInteractive(
-                                            interactiveHighlight = chipHighlight,
-                                            style = LiquidGlassTokens.Button,
-                                            shape = Capsule(),
-                                            containerColor = LiquidGlassSurfaceDark,
-                                            backdrop = glassBackdrop
-                                        )
-                                    } else {
-                                        Modifier.liquidGlassSurface(
-                                            style = LiquidGlassTokens.Button,
-                                            shape = Capsule(),
-                                            containerColor = LiquidGlassSurfaceDark,
-                                            backdrop = glassBackdrop
-                                        )
-                                    }
-                                    Box(
-                                        modifier = surfaceModifier
-                                            .clip(Capsule())
-                                            .clickable(
-                                                enabled = isEnabled,
-                                                interactionSource = null,
-                                                indication = null,
-                                                role = Role.Button
-                                            ) {
+                                    LiquidGlassFloatingButton(
+                                        onClick = {
+                                            if (isEnabled) {
                                                 catalogId?.let { id -> onStudioClick(id, brand?.name ?: studio.name.orEmpty()) }
                                             }
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        },
+                                        backdrop = glassBackdrop,
+                                        blurRadius = 8.dp,
+                                        shape = Capsule(),
+                                        tint = LiquidGlassSurfaceDark,
+                                        borderAlpha = 0.50f,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
                                         Text(
                                             text = studio.name ?: "",
@@ -1097,12 +1087,12 @@ fun DetailsScreen(
                             color = TextPrimaryDark,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = detailsHorizontalPadding)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             itemsIndexed(
@@ -1203,12 +1193,12 @@ fun DetailsScreen(
                             color = TextPrimaryDark,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = detailsHorizontalPadding)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             itemsIndexed(
@@ -1309,12 +1299,12 @@ fun DetailsScreen(
                             color = TextPrimaryDark,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = detailsHorizontalPadding)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             itemsIndexed(
@@ -1447,7 +1437,7 @@ fun DetailsScreen(
                             color = TextPrimaryDark,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = detailsHorizontalPadding)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -1455,30 +1445,21 @@ fun DetailsScreen(
                         if (allSeasonNumbers.isNotEmpty()) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(horizontal = 20.dp),
+                                contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 items(allSeasonNumbers, key = { it }, contentType = { "season-chip" }) { seasonNum ->
                                     val isSelected = seasonNum == selectedSeasonNumber
-                                    val chipHighlight = remember { InteractiveHighlight(animationScope = scope) }
-                                    Box(
-                                        modifier = Modifier
-                                            .liquidGlassInteractive(
-                                                interactiveHighlight = chipHighlight,
-                                                style = if (isSelected) LiquidGlassTokens.Button.copy(highlightAlpha = 0.85f) else LiquidGlassTokens.Button,
-                                                shape = Capsule(),
-                                                containerColor = if (isSelected) Color.White else LiquidGlassSurfaceDark,
-                                                backdrop = glassBackdrop
-                                            )
-                                            .clip(Capsule())
-                                            .clickable(
-                                                interactionSource = null,
-                                                indication = null,
-                                                role = Role.Button
-                                            ) {
-                                                selectedSeasonNumber = seasonNum
-                                            }
-                                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                                    LiquidGlassFloatingButton(
+                                        onClick = {
+                                            selectedSeasonNumber = seasonNum
+                                        },
+                                        backdrop = glassBackdrop,
+                                        blurRadius = 8.dp,
+                                        shape = Capsule(),
+                                        tint = if (isSelected) Color.White else LiquidGlassSurfaceDark,
+                                        borderAlpha = if (isSelected) 0.85f else 0.50f,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp)
                                     ) {
                                         Text(
                                             text = "$seasonNum сезон",
@@ -1496,7 +1477,7 @@ fun DetailsScreen(
                         if (isLoadingSeasonEpisodes && currentSeasonData?.episodes.isNullOrEmpty()) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                contentPadding = PaddingValues(horizontal = 20.dp),
+                                contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 items(4, key = { "episode-placeholder-$it" }, contentType = { "episode-placeholder" }) {
@@ -1522,7 +1503,7 @@ fun DetailsScreen(
                             if (maxEp > 0) {
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     items(maxEp, key = { "episode-${it + 1}" }, contentType = { "episode-card" }) { index ->
@@ -1657,7 +1638,7 @@ fun DetailsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = detailsHorizontalPadding)
                         ) {
                             Text(
                                 text = "Все части франшизы",
@@ -1678,13 +1659,13 @@ fun DetailsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(collectionParts, key = { it.favoriteIdentity }, contentType = { "media-card" }) { part ->
                                 MediaCard(
                                     media = part,
-                                    onClick = { onSimilarClick(part) },
+                                    onClick = onSimilarClick,
                                     width = 110
                                 )
                             }
@@ -1711,18 +1692,18 @@ fun DetailsScreen(
                             color = TextPrimaryDark,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = detailsHorizontalPadding)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(similarItems, key = { it.favoriteIdentity }, contentType = { "media-card" }) { similar ->
                                 MediaCard(
                                     media = similar,
-                                    onClick = { onSimilarClick(similar) },
+                                    onClick = onSimilarClick,
                                     width = 110
                                 )
                             }
@@ -1749,7 +1730,7 @@ fun DetailsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
+                                .padding(horizontal = detailsHorizontalPadding),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -1784,13 +1765,13 @@ fun DetailsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            contentPadding = PaddingValues(horizontal = detailsHorizontalPadding),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(studioReleases, key = { it.favoriteIdentity }, contentType = { "media-card" }) { rel ->
                                 MediaCard(
                                     media = rel,
-                                    onClick = { onSimilarClick(rel) },
+                                    onClick = onSimilarClick,
                                     width = 110
                                 )
                             }
@@ -1800,45 +1781,14 @@ fun DetailsScreen(
             }
         }
     } else {
-        // Error state or empty state with retry button
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_sf_exclamationmark_triangle_fill),
-                    contentDescription = null,
-                    tint = RatingIosRed,
-                    modifier = Modifier.size(48.dp)
-                )
-                Text(
-                    text = errorMessage ?: "Не удалось загрузить данные",
-                    style = SlooshTypography.bodyLarge,
-                    color = TextPrimaryDark,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                Button(
-                    onClick = ::requestDetailsRefresh,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SlooshAccent,
-                        contentColor = Color.Black
-                    ),
-                    shape = Capsule()
-                ) {
-                    Text(
-                        text = "Повторить",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                }
-            }
-        }
+        // Premium Apple TV+ Error State
+        ErrorStateView(
+            title = "Не удалось загрузить",
+            message = errorMessage ?: "Проверьте интернет-соединение и попробуйте снова.",
+            onRetry = ::requestDetailsRefresh,
+            iconRes = R.drawable.ic_sf_antenna_radiowaves,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
@@ -1895,12 +1845,12 @@ fun DetailsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .height(56.dp)
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                .padding(top = statusBarPadding)
+                .height(if (isLandscape) 44.dp else 56.dp)
+                .padding(horizontal = 16.dp + cutoutPadding),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
                 // Circular Back Button with Liquid Glass backdrop & touch stretch
                 LiquidGlassFloatingButton(
                     onClick = onBack,
@@ -1985,6 +1935,7 @@ fun DetailsScreen(
                 initialEpisode = watchSheetEpisode,
                 title = details?.title ?: "Выбор озвучки",
                 logoUrl = details?.displayLogoUrl,
+                backdrop = sceneBackdrop,
                 onDismiss = {
                     showWatchSheet = false
                     watchSheetSeason = null
@@ -1998,6 +1949,10 @@ fun DetailsScreen(
                     AllohaSessionHolder.activeTargetIframeUrl = iframe
                     AllohaSessionHolder.activeMediaId = details?.id ?: mediaId
                     AllohaSessionHolder.activeLogoUrl = details?.displayLogoUrl
+                    AllohaSessionHolder.currentVoice = translationName
+                    if (!iframe.isNullOrBlank()) {
+                        AllohaSessionHolder.availableVoiceNames = listOf(translationName ?: "Русский", "Оригинал")
+                    }
                     onPlay(season, episode, translationName, translationId, iframe)
                 }
             )
@@ -2019,28 +1974,39 @@ fun DetailsScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(SlooshAccent.copy(alpha = 0.12f)),
+                            .background(Color.White.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
                             contentDescription = null,
-                            tint = SlooshAccent,
+                            tint = Color.White,
                             modifier = Modifier.size(28.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "В разработке",
+                        text = "Скоро будет доступно",
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.60f),
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Сохранение фильмов и сериалов для просмотра без интернета появится в следующем обновлении.",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
 
                     // Две строки действий: сверху основное, снизу закрытие (iOS alert).
                     Box(
@@ -2048,7 +2014,7 @@ fun DetailsScreen(
                             .fillMaxWidth()
                             .height(50.dp)
                             .clip(Capsule())
-                            .background(SlooshAccent)
+                            .background(Color.White)
                             .clickable {
                                 dismiss()
                                 loadAndShowWatchSelector()
@@ -2070,13 +2036,13 @@ fun DetailsScreen(
                             .fillMaxWidth()
                             .height(50.dp)
                             .clip(Capsule())
-                            .background(Color.White.copy(alpha = 0.12f))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                             .clickable { dismiss() },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Понятно",
-                            color = TextPrimary,
+                            color = TextPrimaryDark,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )

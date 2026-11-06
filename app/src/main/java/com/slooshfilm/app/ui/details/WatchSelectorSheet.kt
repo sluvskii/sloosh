@@ -1,5 +1,7 @@
 package com.slooshfilm.app.ui.details
 
+import android.content.res.Configuration
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -36,9 +38,12 @@ import com.slooshfilm.app.R
 import com.slooshfilm.app.data.alloha.AllohaApiResult
 import com.slooshfilm.app.data.alloha.AllohaTranslationMatcher
 import com.slooshfilm.app.data.alloha.DubbingStudio
+import com.slooshfilm.app.data.alloha.LanguageFlag
 import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import java.util.Locale
 import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
@@ -71,6 +76,7 @@ fun WatchSelectorSheet(
     initialEpisode: Int? = null,
     title: String? = null,
     logoUrl: String? = null,
+    backdrop: com.slooshfilm.app.ui.backdrop.Backdrop? = null,
     onDismiss: () -> Unit,
     onPlay: (
         iframeUrl: String,
@@ -175,6 +181,10 @@ fun WatchSelectorSheet(
     val allAvailableTranslations = remember(result) {
         allSeasons.flatMap { s -> s.episodes.flatMap { it.translations } }
             .map { it.name }
+            .filter { name ->
+                val lower = name.lowercase(Locale.ROOT)
+                !lower.contains("субтитр") && !lower.contains("subtitle")
+            }
             .distinct()
             .sortedBy { AllohaTranslationMatcher.translationRank(it) }
     }
@@ -190,9 +200,13 @@ fun WatchSelectorSheet(
     }
 
     // Фильмы: только озвучка. Выбор в шторке идёт по имени, поэтому одинаковые имена
-    // (дубли API) схлопываем — иначе чипы неотличимы.
+    // (дубли API) схлопываем — иначе чипы неотличимы. Субтитры отсекаем (они доступны в плеере).
     val sortedMovieTranslations = remember(result?.movie) {
         result?.movie?.translations
+            ?.filter { t ->
+                val lower = t.name.lowercase(Locale.ROOT)
+                !lower.contains("субтитр") && !lower.contains("subtitle")
+            }
             ?.sortedBy { AllohaTranslationMatcher.translationRank(it.name) }
             ?.distinctBy { it.name }
             ?: emptyList()
@@ -240,33 +254,40 @@ fun WatchSelectorSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = sheetBackground,
-        // Место под серую полоску не резервируем: пустой слот сохраняет доступность шторки,
-        // а сам индикатор рисуется поверх контента (iOS: .presentationDragIndicator(.visible)).
         dragHandle = {},
-        shape = UnevenRoundedRectangle(topStart = SheetCornerRadius, topEnd = SheetCornerRadius)
+        shape = UnevenRoundedRectangle(
+            topStart = SheetCornerRadius,
+            topEnd = SheetCornerRadius
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(sheetHeight)
+            .nestedScroll(sheetDragGate)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 640.dp)
+                    .fillMaxSize()
+            ) {
 
             // 1. Контент и размытие шапки, захваченные в sheetSceneBackdrop.
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sheetHeight)
+                    .fillMaxSize()
                     .layerBackdrop(sheetSceneBackdrop)
             ) {
                 // 1.1 Прокручиваемый контент, захваченный в sheetContentBackdrop.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(sheetDragGate)
                         .layerBackdrop(sheetContentBackdrop)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(sheetBackground)
-                    )
-
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -303,35 +324,13 @@ fun WatchSelectorSheet(
                                 }
                             }
                         } else if (result == null || (result.movie == null && result.seasons.isEmpty())) {
-                            // Empty state matching iOS emptyContentView 1:1
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 32.dp, vertical = 48.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_rectangle_stack_fill),
-                                    contentDescription = null,
-                                    tint = TextSecondaryDark,
-                                    modifier = Modifier.size(42.dp)
-                                )
-                                Text(
-                                    text = "Видео пока недоступно",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimaryDark,
-                                    textAlign = TextAlign.Center
-                                )
-                                Text(
-                                    text = errorMessage ?: "Этот проект пока отсутствует в источниках стриминга или еще не вышел в релиз.",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = TextSecondaryDark,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                            // Empty state matching unified EmptyStateView
+                            EmptyStateView(
+                                iconRes = R.drawable.ic_sf_rectangle_stack_fill,
+                                title = "Видео пока недоступно",
+                                message = errorMessage ?: "Этот проект пока отсутствует в источниках стриминга или еще не вышел в релиз.",
+                                modifier = Modifier.padding(vertical = 48.dp)
+                            )
                         } else if (result != null && result.isSerial) {
                             // TV Series Selector: Sections in iOS order: 1. Озвучка, 2. Сезон, 3. Серия
 
@@ -362,11 +361,15 @@ fun WatchSelectorSheet(
                                                 index,
                                                 allAvailableTranslations
                                             )
+                                            val studio = DubbingStudio.detect(rawName)
+                                            val flag = LanguageFlag.detect("$rawName $displayName")
 
                                             WatchSelectorChip(
                                                 title = displayName,
                                                 isSelected = isSelected,
                                                 isAvailable = isAvailableInCurrentEp,
+                                                studio = studio,
+                                                flag = flag,
                                                 onClick = {
                                                     selectedTranslationName = rawName
                                                     // If not available in current ep, find first season/episode with this translation
@@ -507,11 +510,15 @@ fun WatchSelectorSheet(
                                                 index,
                                                 sortedMovieTranslations.map { it.name }
                                             )
+                                            val studio = DubbingStudio.detect(t.name)
+                                            val flag = LanguageFlag.detect("${t.name} $displayName")
 
                                             WatchSelectorChip(
                                                 title = displayName,
                                                 isSelected = isSelected,
                                                 isAvailable = true,
+                                                studio = studio,
+                                                flag = flag,
                                                 onClick = {
                                                     selectedMovieTranslationName = t.name
                                                 }
@@ -653,7 +660,7 @@ fun WatchSelectorSheet(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = actionButtonBottomPadding)
                         .graphicsLayer { alpha = if (isReadyToPlay) 1f else 0.40f }
-                        .height(actionButtonHeight)
+                        .defaultMinSize(minHeight = actionButtonHeight)
                         .shadow(
                             elevation = 10.dp,
                             shape = Capsule(),
@@ -691,6 +698,7 @@ fun WatchSelectorSheet(
                     .background(TextTertiaryDark)
             )
         }
+        }
     }
 }
 
@@ -703,10 +711,19 @@ fun WatchSelectorChip(
     isSelected: Boolean,
     isAvailable: Boolean = true,
     badge: String? = null,
+    studio: DubbingStudio? = null,
+    flag: LanguageFlag? = null,
     onClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
     val isDark = LocalSlooshColors.current.isDark
+
+    val activeIconResId = studio?.iconResId ?: flag?.iconResId
+    val displayTitle = if (activeIconResId != null) {
+        LanguageFlag.stripLeadingEmoji(title)
+    } else {
+        title
+    }
 
     val backgroundColor = if (isSelected) {
         if (isDark) Color.White else Color.Black
@@ -717,26 +734,45 @@ fun WatchSelectorChip(
     val textColor = if (isSelected) {
         if (isDark) Color.Black else Color.White
     } else {
-        if (isAvailable) TextPrimary else TextSecondary.copy(alpha = 0.45f)
+        TextPrimary
+    }
+
+    val leadingPadding = when {
+        activeIconResId != null -> 6.dp
+        !badge.isNullOrEmpty() -> 8.dp
+        else -> 12.dp
     }
 
     Box(
         modifier = Modifier
-            .height(32.dp)
+            .defaultMinSize(minHeight = 32.dp)
             .clip(Capsule())
             .background(backgroundColor)
-            .clickable(enabled = isAvailable || isSelected) {
+            .graphicsLayer {
+                alpha = if (isSelected || isAvailable) 1.0f else 0.40f
+            }
+            .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onClick()
             }
-            .padding(start = if (badge != null) 8.dp else 12.dp, end = 12.dp),
+            .padding(start = leadingPadding, end = 11.dp, top = 4.dp, bottom = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.5.dp)
         ) {
-            if (badge != null) {
+            if (activeIconResId != null) {
+                Image(
+                    painter = painterResource(activeIconResId),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                )
+            }
+            if (!badge.isNullOrEmpty()) {
                 Text(
                     text = badge,
                     fontSize = 11.sp,
@@ -745,7 +781,7 @@ fun WatchSelectorChip(
                 )
             }
             Text(
-                text = title,
+                text = displayTitle,
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = textColor,

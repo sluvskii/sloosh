@@ -131,11 +131,15 @@ interface MoviesApiService {
 object MoviesApi {
     const val DEFAULT_BASE_URL = "https://api.sloosh.workers.dev/"
     const val DEFAULT_IMAGES_BASE_URL = "https://api.sloosh.workers.dev"
-    const val API_KEY = "sloosh_app_sec_v1_8f93e14b2d07"
 
     private const val PREFS_NAME = "sloosh_network_config"
     private const val KEY_CACHED_BASE_URL = "cached_api_base_url"
     private const val KEY_CACHED_IMAGES_BASE_URL = "cached_images_base_url"
+
+    // Zero Static Secrets: единственный креденшал API — Firebase ID токен пользователя.
+    // Статических ключей в коде нет; провайдер подключается в init(context) после старта AuthRepository.
+    @Volatile
+    private var authRepository: com.slooshfilm.app.data.repository.AuthRepository? = null
 
     @Volatile
     var activeBaseUrl: String = DEFAULT_BASE_URL
@@ -146,6 +150,8 @@ object MoviesApi {
         private set
 
     fun init(context: Context) {
+        authRepository = com.slooshfilm.app.data.repository.AuthRepository.getInstance(context.applicationContext)
+
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val cachedApi = prefs.getString(KEY_CACHED_BASE_URL, null)
         val cachedImages = prefs.getString(KEY_CACHED_IMAGES_BASE_URL, null)
@@ -204,17 +210,8 @@ object MoviesApi {
                             com.slooshfilm.app.data.alloha.AllohaRepository.setBalancerBaseURL(context, balancerBase)
                         }
 
-                        val streamTokensArr = json.optJSONArray("streamTokens")
-                        if (streamTokensArr != null && context != null) {
-                            val tokens = mutableListOf<String>()
-                            for (i in 0 until streamTokensArr.length()) {
-                                val t = streamTokensArr.optString(i).trim()
-                                if (t.isNotBlank()) tokens.add(t)
-                            }
-                            if (tokens.isNotEmpty()) {
-                                com.slooshfilm.app.data.alloha.AllohaRepository.getInstance(context).updateFallbackTokens(tokens)
-                            }
-                        }
+                        // endpoint.json больше не содержит секретов (apiKey/streamTokens удалены):
+                        // он отвечает только за хосты, балансер, объявления и кампании.
 
                         if (updated && context != null) {
                             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -271,10 +268,28 @@ object MoviesApi {
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(DynamicHostInterceptor())
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("X-API-Key", API_KEY)
+                // Bearer-токен пользователя — единственная авторизация API (никаких X-API-Key)
+                val builder = chain.request().newBuilder()
+                val token = runCatching {
+                    authRepository?.let { repo ->
+                        kotlinx.coroutines.runBlocking { repo.ensureFreshToken() }
+                    }
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+                if (token != null) {
+                    builder.header("Authorization", "Bearer $token")
+                }
+                chain.proceed(builder.build())
+            }
+            .authenticator { _, response ->
+                // 401 — истёкший токен: принудительный refresh и один честный повтор
+                if (response.priorResponse != null) return@authenticator null
+                val repo = authRepository ?: return@authenticator null
+                val fresh = runCatching {
+                    kotlinx.coroutines.runBlocking { repo.ensureFreshToken(force = true) }
+                }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@authenticator null
+                response.request.newBuilder()
+                    .header("Authorization", "Bearer $fresh")
                     .build()
-                chain.proceed(request)
             }
             .addInterceptor(logging)
             .build()

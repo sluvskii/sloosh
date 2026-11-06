@@ -1,14 +1,20 @@
 package com.slooshfilm.app.ui.components
 
+import android.content.res.Configuration
 import android.provider.Settings
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -60,12 +66,14 @@ fun rememberNavBarBottomPadding(
     gestureBottomPadding: Dp = 24.dp,
     buttonSpacingAboveNavBar: Dp = 8.dp
 ): Dp {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val isGesture = rememberIsGestureNavigation()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    return if (isGesture) {
-        gestureBottomPadding
+    return if (isLandscape) {
+        if (isGesture) 8.dp else (navBarBottom + 4.dp)
     } else {
-        navBarBottom + buttonSpacingAboveNavBar
+        if (isGesture) gestureBottomPadding else (navBarBottom + buttonSpacingAboveNavBar)
     }
 }
 
@@ -79,5 +87,28 @@ fun rememberNavBarInset(): Dp {
     val isGesture = rememberIsGestureNavigation()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     return if (isGesture) 0.dp else navBarBottom
+}
+
+/**
+ * Returns symmetric horizontal padding for display cutout / notch in landscape orientation.
+ *
+ * In vertical (portrait) orientation: returns 0.dp (standard phone margins).
+ * In horizontal (landscape) orientation: detects the camera cutout inset from the edges,
+ * taking the maximum and applying it symmetrically on both left and right sides so that
+ * text, buttons, and content grids never collide with the camera cutout, while backgrounds,
+ * hero backdrops, and horizontal carousels bleed edge-to-edge.
+ */
+@Composable
+fun rememberCutoutHorizontalPadding(): Dp {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    if (!isLandscape) return 0.dp
+
+    val cutoutInsets = WindowInsets.displayCutout.asPaddingValues()
+    val cutoutStart = cutoutInsets.calculateStartPadding(LayoutDirection.Ltr)
+    val cutoutEnd = cutoutInsets.calculateEndPadding(LayoutDirection.Ltr)
+    val maxCutout = maxOf(cutoutStart, cutoutEnd)
+
+    return if (maxCutout > 0.dp) maxCutout else 24.dp
 }
 

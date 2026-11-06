@@ -217,7 +217,7 @@ fun LaunchSplashView(
                 painter = painterResource(id = R.drawable.ic_sloosh_logo),
                 contentDescription = "sloosh",
                 colorFilter = ColorFilter.tint(logoTint),
-                modifier = Modifier.size(width = 240.dp, height = 61.dp)
+                modifier = Modifier.size(width = 220.dp, height = 61.dp)
             )
 
             // Бегущий луч света строго по геометрии букв логотипа
@@ -226,7 +226,7 @@ fun LaunchSplashView(
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(shimmerColor),
                 modifier = Modifier
-                    .size(width = 240.dp, height = 61.dp)
+                    .size(width = 220.dp, height = 61.dp)
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }

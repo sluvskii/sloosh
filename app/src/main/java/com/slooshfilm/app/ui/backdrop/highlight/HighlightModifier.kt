@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceAtMost
@@ -92,10 +93,16 @@ internal class HighlightNode(
 
     private var highlightLayer: GraphicsLayer? = null
 
-    private val paint =
+    private val glintPaint =
         Paint().apply {
             style = PaintingStyle.Stroke
         }
+
+    private val haloPaint =
+        Paint().apply {
+            style = PaintingStyle.Stroke
+        }
+
     private var clipPath: Path? = null
 
     private val runtimeShaderCache = RuntimeShaderCacheImpl()
@@ -125,8 +132,8 @@ internal class HighlightNode(
 
             val safeSize =
                 IntSize(
-                    ceil(size.width).toInt() + 2,
-                    ceil(size.height).toInt() + 2
+                    ceil(size.width).toInt() + 4,
+                    ceil(size.height).toInt() + 4
                 )
 
             val outline = shapeProvider.shape.createOutline(size, layoutDirection, density)
@@ -149,14 +156,53 @@ internal class HighlightNode(
             )
 
             if (key != recordKey) {
-                configurePaint(highlight)
+                val strokeWidthPx = ceil(highlight.width.toPx().fastCoerceAtMost(size.minDimension / 2f)) * 2f
+                val haloShader = if (isRuntimeShaderSupported()) {
+                    with(highlight.style) {
+                        createShader(
+                            shape = shapeProvider.shape,
+                            runtimeShaderCache = runtimeShaderCache,
+                            alpha = 0.50f,
+                            keySuffix = "_halo"
+                        )
+                    }
+                } else null
+
+                val glintShader = if (isRuntimeShaderSupported()) {
+                    with(highlight.style) {
+                        createShader(
+                            shape = shapeProvider.shape,
+                            runtimeShaderCache = runtimeShaderCache,
+                            alpha = 1.0f,
+                            keySuffix = "_glint"
+                        )
+                    }
+                } else null
+
+                // 1. Ореол (Soft Halo Bloom):
+                val hasBlur = highlight.blurRadius.toPx() > 0f
+                if (hasBlur) {
+                    haloPaint.color = highlight.style.color.copy(alpha = highlight.style.color.alpha * 0.50f)
+                    haloPaint.strokeWidth = strokeWidthPx * 2.2f
+                    haloPaint.blur(highlight.blurRadius.toPx() * 1.5f)
+                    haloPaint.setRuntimeShader(haloShader)
+                }
+
+                // 2. Чёткая окантовка (Crisp Specular Edge Contour):
+                glintPaint.color = highlight.style.color
+                glintPaint.strokeWidth = strokeWidthPx
+                glintPaint.asFrameworkPaint().maskFilter = null // Sharp! No blur!
+                glintPaint.setRuntimeShader(glintShader)
 
                 highlightLayer.record(safeSize) {
-                    translate(1f, 1f) {
+                    translate(2f, 2f) {
                         val canvas = drawContext.canvas
                         canvas.save()
                         canvas.clipOutline(outline, clipPath)
-                        canvas.drawOutline(outline, paint)
+                        if (hasBlur) {
+                            canvas.drawOutline(outline, haloPaint)
+                        }
+                        canvas.drawOutline(outline, glintPaint)
                         canvas.restore()
                     }
                 }
@@ -171,7 +217,7 @@ internal class HighlightNode(
                 highlightLayer.blendMode = highlight.style.blendMode
             }
 
-            translate(-1f, -1f) {
+            translate(-2f, -2f) {
                 drawLayer(highlightLayer)
             }
         }
@@ -192,22 +238,6 @@ internal class HighlightNode(
         runtimeShaderCache.clear()
         prevStyle = null
         recordKey = null
-    }
-
-    private fun DrawScope.configurePaint(highlight: Highlight) {
-        paint.color = highlight.style.color
-        paint.strokeWidth = ceil(highlight.width.toPx().fastCoerceAtMost(size.minDimension / 2f)) * 2f
-        paint.blur(highlight.blurRadius.toPx())
-        if (isRuntimeShaderSupported()) {
-            val shader =
-                with(highlight.style) {
-                    createShader(
-                        shape = shapeProvider.shape,
-                        runtimeShaderCache = runtimeShaderCache
-                    )
-                }
-            paint.setRuntimeShader(shader)
-        }
     }
 }
 

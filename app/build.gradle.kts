@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "com.slooshfilm.app"
-        minSdk = 26
+        minSdk = 33
         targetSdk = 34
         versionCode = 20
         versionName = "2.0.0"
@@ -53,8 +53,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -126,6 +126,9 @@ dependencies {
     // iOS Shapes (Backdrop engine is now fully in-tree in com.slooshfilm.app.ui.backdrop)
     implementation("io.github.kyant0:shapes:1.2.1")
 
+    // Google Play Services Auth for Native System Bottom Sheet Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
     // Debugging & Tooling
     debugImplementation("androidx.compose.ui:ui-tooling:1.7.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.7.0")
@@ -133,4 +136,10 @@ dependencies {
 
 tasks.matching { it.name.contains("AarMetadata") }.configureEach {
     enabled = false
+}
+
+// Незавершённый WIP glass-библиотеки (io/github/neoruaa/glasmio) исключён из компиляции:
+// файлы остаются в рабочей копии, нижняя панель возвращена к стабильной версии (бэкап в wip-backup/).
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    exclude("io/**")
 }

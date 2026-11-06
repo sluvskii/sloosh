@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,8 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -49,7 +52,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -106,26 +111,32 @@ fun LiquidBottomTab(
     clip: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     val scale = LocalLiquidBottomTabScale.current
     val tabTint = LocalLiquidBottomTabTint.current
     val isMinimized = LocalLiquidBottomTabMinimized.current
     val textColor = LocalLiquidBottomTabTextColor.current
+    val interactionSource = remember { MutableInteractionSource() }
     Column(
         modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
             .then(if (clip) Modifier.clip(SharedCapsule) else Modifier)
             .then(
                 if (!isMinimized) {
                     Modifier.clickable(
-                        interactionSource = null,
+                        interactionSource = interactionSource,
                         indication = null,
                         role = Role.Tab,
-                        onClick = onClick
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onClick()
+                        }
                     )
                 } else {
                     Modifier
                 }
             )
-            .fillMaxHeight()
             .graphicsLayer {
                 val s = scale()
                 scaleX = s
@@ -163,7 +174,7 @@ private fun TabsLayout(
     ) { measurables, constraints ->
         val maxSlotPx = maxOf(stepPx, pillWidthPx).fastRoundToInt().coerceAtLeast(with(density) { 56.dp.toPx().fastRoundToInt() })
         val itemConstraints = constraints.copy(
-            minWidth = 0,
+            minWidth = maxSlotPx,
             maxWidth = maxSlotPx,
             minHeight = constraints.maxHeight,
             maxHeight = constraints.maxHeight
@@ -318,13 +329,22 @@ fun LiquidBottomTabs(
 
         val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
         val animationScope = rememberCoroutineScope()
-        var currentIndex by remember(selectedTabIndex) {
-            mutableIntStateOf(selectedTabIndex().coerceIn(0, (tabsCount - 1).coerceAtLeast(0)))
+        val haptic = LocalHapticFeedback.current
+
+        val currentStepPx by rememberUpdatedState(normalStepPx)
+        val currentIsLtr by rememberUpdatedState(isLtr)
+        val currentTabsCount by rememberUpdatedState(tabsCount)
+        val currentOnTabSelected by rememberUpdatedState(onTabSelected)
+        val currentSelectedTabIndex by rememberUpdatedState(selectedTabIndex)
+
+        var lastHapticIndex by remember {
+            mutableIntStateOf(currentSelectedTabIndex().coerceIn(0, (tabsCount - 1).coerceAtLeast(0)))
         }
-        val dampedDragAnimation = remember(animationScope, normalStepPx, density.density, isStaticBar) {
+
+        val dampedDragAnimation = remember(animationScope, isStaticBar, tabsCount) {
             DampedDragAnimation(
                 animationScope = animationScope,
-                initialValue = selectedTabIndex().coerceIn(0, (tabsCount - 1).coerceAtLeast(0)).toFloat(),
+                initialValue = currentSelectedTabIndex().coerceIn(0, (tabsCount - 1).coerceAtLeast(0)).toFloat(),
                 valueRange = 0f..(tabsCount - 1).coerceAtLeast(0).toFloat(),
                 visibilityThreshold = 0.001f,
                 density = density.density,
@@ -333,8 +353,9 @@ fun LiquidBottomTabs(
                 pressedScaleY = 68f / 44f,
                 onDragStarted = {},
                 onDragStopped = {
-                    val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
-                    currentIndex = targetIndex
+                    val count = currentTabsCount
+                    val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, (count - 1).coerceAtLeast(0))
+                    lastHapticIndex = targetIndex
                     animateToValue(targetIndex.toFloat())
                     if (!isStaticBar) {
                         animationScope.launch {
@@ -344,14 +365,20 @@ fun LiquidBottomTabs(
                             )
                         }
                     }
-                    onTabSelected(targetIndex)
+                    currentOnTabSelected(targetIndex)
                 },
                 onDrag = { _, dragAmount ->
-                    if (normalStepPx > 0f) {
-                        val delta = dragAmount.x / normalStepPx * if (isLtr) 1f else -1f
-                        updateValue(
-                            (targetValue + delta).fastCoerceIn(0f, (tabsCount - 1).toFloat())
-                        )
+                    val step = currentStepPx
+                    val count = currentTabsCount
+                    if (step > 0f && count > 1) {
+                        val delta = dragAmount.x / step * if (currentIsLtr) 1f else -1f
+                        val nextVal = (targetValue + delta).fastCoerceIn(0f, (count - 1).toFloat())
+                        updateValue(nextVal)
+                        val nearest = nextVal.fastRoundToInt().fastCoerceIn(0, count - 1)
+                        if (nearest != lastHapticIndex) {
+                            lastHapticIndex = nearest
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                     }
                     if (!isStaticBar) {
                         animationScope.launch {
@@ -362,13 +389,14 @@ fun LiquidBottomTabs(
             )
         }
 
-        LaunchedEffect(selectedTabIndex) {
-            snapshotFlow { selectedTabIndex() }
+        LaunchedEffect(dampedDragAnimation) {
+            snapshotFlow { currentSelectedTabIndex() }
                 .collectLatest { index ->
-                    if (index in 0 until tabsCount) {
-                        if (currentIndex != index || abs(dampedDragAnimation.targetValue - index) > 0.01f) {
-                            currentIndex = index
-                            dampedDragAnimation.animateToValue(index.toFloat())
+                    val count = currentTabsCount
+                    if (index in 0 until count) {
+                        val target = index.toFloat()
+                        if (abs(dampedDragAnimation.targetValue - target) > 0.001f) {
+                            dampedDragAnimation.animateToValue(target)
                         }
                     }
                 }
@@ -411,7 +439,7 @@ fun LiquidBottomTabs(
                                         val progress = dampedDragAnimation.pressProgress * (1f - searchProgress)
                                         val scale = lerp(1f, 1f + 16f.dp.toPx() / size.width, progress)
                                         scaleX = scale
-                                        scaleY = scale
+                                        scaleY = 1f
                                     }
                                 )
                         }
@@ -429,9 +457,8 @@ fun LiquidBottomTabs(
         if (sliderAlpha > 0f && isGlassEnabled) {
             val layer2TextColor = if (isLightTheme) Color.Black else Color.White
             CompositionLocalProvider(
-                LocalLiquidBottomTabScale provides {
-                    if (isStaticBar) 1f else lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
-                },
+                LocalLiquidBottomTabMinimized provides true,
+                LocalLiquidBottomTabScale provides { lerp(1f, 1.2f, dampedDragAnimation.pressProgress) },
                 LocalLiquidBottomTabTint provides (if (isStaticBar || accentColor == Color.White) null else ColorFilter.tint(accentColor)),
                 LocalLiquidBottomTabTextColor provides layer2TextColor,
                 LocalContentColor provides layer2TextColor
@@ -488,7 +515,7 @@ fun LiquidBottomTabs(
                                     Color.White.copy(alpha = lift * (1f - progress).fastCoerceIn(0f, 1f))
                                 } else {
                                     Color.Black.copy(
-                                        alpha = (if (isLight) lerp(0.18f, 0.08f, progress) else lerp(0.52f, 0.0f, progress)) * sliderAlpha
+                                        alpha = (if (isLight) lerp(0.18f, 0.0f, progress) else lerp(0.52f, 0.0f, progress)) * sliderAlpha
                                     )
                                 }
                                 if (!isStaticBar) drawRect(effectiveContainerColor)
@@ -538,11 +565,35 @@ fun LiquidBottomTabs(
                 val activeBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
                 Box(
                     Modifier
+                        .layout { measurable, _ ->
+                            val velocity = dampedDragAnimation.velocity / 10f
+                            val velScaleX = 1f / (1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f))
+                            val velScaleY = 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
+                            val currentScaleX = dampedDragAnimation.scaleX * velScaleX
+                            val currentScaleY = dampedDragAnimation.scaleY * velScaleY
+                            val targetW = (normalPillWidthPx * currentScaleX).fastRoundToInt()
+                            val targetH = (pillHeightPx * currentScaleY).fastRoundToInt()
+                            val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
+                            layout(targetW, targetH) {
+                                placeable.place(0, 0)
+                            }
+                        }
                         .graphicsLayer {
                             val shift = dampedDragAnimation.inertialShiftPx
-                            translationX =
+                            val velocity = dampedDragAnimation.velocity / 10f
+                            val velScaleX = 1f / (1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f))
+                            val velScaleY = 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
+                            val currentScaleX = dampedDragAnimation.scaleX * velScaleX
+                            val currentScaleY = dampedDragAnimation.scaleY * velScaleY
+                            val currentW = normalPillWidthPx * currentScaleX
+                            val currentH = pillHeightPx * currentScaleY
+
+                            val baseLeft =
                                 if (isLtr) insetPx + dampedDragAnimation.value * normalStepPx + (panelOffset * (1f - searchProgress)) + shift
                                 else size.width - (insetPx + normalPillWidthPx + dampedDragAnimation.value * normalStepPx) + (panelOffset * (1f - searchProgress)) - shift
+
+                            translationX = baseLeft - (currentW - normalPillWidthPx) / 2f
+                            translationY = 0f
                             alpha = (if (isSelectedTabValid) 1f else 0f) * sliderAlpha
                         }
                         .then(if (searchProgress < 0.01f) dampedDragAnimation.modifier else Modifier)
@@ -553,13 +604,17 @@ fun LiquidBottomTabs(
                                 val progress = dampedDragAnimation.pressProgress * sliderAlpha
                                 val activity = dampedDragAnimation.fluidActivity
                                 if (progress > 0f) {
-                                    val dynHeight = (4.5f + 2.5f * activity).dp.toPx() * progress
-                                    val dynAmount = (8f + 5f * activity).dp.toPx() * progress
-                                    val dynAberration = (0.22f + 0.10f * activity) * progress
+                                    val baseHeight = LiquidGlassTokens.Slider.refractionHeight.value
+                                    val baseAmount = LiquidGlassTokens.Slider.refractionAmount.value
+                                    val dynHeight = (baseHeight + 1.2f * activity).dp.toPx() * progress
+                                    val dynAmount = (baseAmount + 3.5f * activity).dp.toPx() * progress
+                                    val dynAberration = (LiquidGlassTokens.Slider.chromaticAberration + 0.04f * activity) * progress
+                                    val dynFishEye = (LiquidGlassTokens.Slider.fishEyeStrength + 0.03f * activity) * progress
                                     iosLens(
                                         refractionHeight = dynHeight,
                                         refractionAmount = dynAmount,
-                                        chromaticAberration = dynAberration
+                                        chromaticAberration = dynAberration,
+                                        fishEyeStrength = dynFishEye
                                     )
                                 }
                             },
@@ -586,13 +641,7 @@ fun LiquidBottomTabs(
                                     )
                                 } else null
                             },
-                            layerBlock = {
-                                scaleX = dampedDragAnimation.scaleX
-                                scaleY = dampedDragAnimation.scaleY
-                                val velocity = dampedDragAnimation.velocity / 10f
-                                scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f)
-                                scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
-                            }
+                            layerBlock = null
                         )
                         .glassBorder(
                             shape = SharedCapsule,
@@ -600,8 +649,6 @@ fun LiquidBottomTabs(
                                 dampedDragAnimation.pressProgress * sliderAlpha * (if (isLightTheme) 0.30f else 0.55f)
                             }
                         )
-                        .height(pillHeight)
-                        .width(pillWidthDp)
                 )
             } else {
                 // High-performance No-Glass Mode: Single Solid iOS Segmented Droplet

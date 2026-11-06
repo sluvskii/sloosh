@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Rational
 import android.view.LayoutInflater
 import android.view.WindowManager
@@ -17,7 +19,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -30,6 +34,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import com.slooshfilm.app.data.alloha.LanguageFlag
 import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.shapes.Capsule
@@ -72,12 +77,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.Uri
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -88,10 +99,12 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -198,9 +211,46 @@ fun PlayerScreen(
     // Stream Session Resolution states
     var sessionReloadKey by remember { mutableIntStateOf(0) }
     var preservePositionMs by remember { mutableLongStateOf(0L) }
+    var activeSubtitleConfigs by remember { mutableStateOf<List<MediaItem.SubtitleConfiguration>>(emptyList()) }
 
     // Cached Alloha Data
     var allohaData by remember { mutableStateOf(AllohaSessionHolder.cachedApiResult) }
+
+    // Available translations for the active video/episode (combining API translations with parsed audioVariants)
+    val availableTranslations = remember(allohaData, currentSeason, currentEpisode, resolvedAudioVariants, activeIframeUrl) {
+        val apiTranslations = if (allohaData?.isSerial == true) {
+            val s = allohaData?.seasons?.firstOrNull { it.season == (currentSeason ?: 1) } ?: allohaData?.seasons?.firstOrNull()
+            val ep = s?.episodes?.firstOrNull { it.episode == (currentEpisode ?: 1) } ?: s?.episodes?.firstOrNull()
+            ep?.translations ?: emptyList()
+        } else {
+            allohaData?.movie?.translations ?: emptyList()
+        }
+
+        val list = if (apiTranslations.size > 1) {
+            apiTranslations
+        } else if (resolvedAudioVariants.isNotEmpty()) {
+            val mapped = resolvedAudioVariants.mapNotNull { v ->
+                val t = (v["title"] as? String)?.trim() ?: return@mapNotNull null
+                if (t.isBlank() || t.contains("субтитр", ignoreCase = true) || t.contains("subtitle", ignoreCase = true)) return@mapNotNull null
+                val id = (v["id"] as? String) ?: t
+                AllohaTranslation(
+                    id = id,
+                    name = t,
+                    iframeUrl = activeIframeUrl ?: ""
+                )
+            }
+            if (mapped.isNotEmpty()) mapped else apiTranslations
+        } else {
+            apiTranslations
+        }
+        list.asSequence()
+            .filter { it.name.isNotBlank() }
+            .filterNot { it.name.contains("субтитр", ignoreCase = true) || it.name.contains("subtitle", ignoreCase = true) }
+            .distinctBy { "${it.id}|${it.iframeUrl}" }
+            .sortedBy { AllohaTranslationMatcher.translationRank(it.name) }
+            .toList()
+    }
+    val latestAvailableTranslations by rememberUpdatedState(availableTranslations)
 
     // Gestures state
     var isHudVisible by remember { mutableStateOf(false) }
@@ -288,7 +338,10 @@ fun PlayerScreen(
                         val startedAt = System.currentTimeMillis()
                         val sinceLast = startedAt - tokenRefreshState[0]
                         if (sinceLast in 0 until 2_000L) {
-                            Thread.sleep(2_000L - sinceLast)
+                            return@DynamicHttpDataSourceFactory null
+                        }
+                        if (Looper.myLooper() == Looper.getMainLooper()) {
+                            return@DynamicHttpDataSourceFactory null
                         }
                         tokenRefreshState[0] = System.currentTimeMillis()
                         android.util.Log.d("PlayerScreen", "DynamicHttpDataSource requested token refresh for $iframe")
@@ -296,7 +349,7 @@ fun PlayerScreen(
                         val resolver = AllohaRuntimeResolver(context)
                         AllohaSessionHolder.activeUserAgent = resolver.activeUserAgent
                         kotlinx.coroutines.runBlocking {
-                            withTimeoutOrNull(15_000L) {
+                            withTimeoutOrNull(8_000L) {
                                 val resolved = resolver.resolve(iframe)
                                 @Suppress("UNCHECKED_CAST")
                                 val hdrs = (resolved["headers"] as? Map<String, String>) ?: emptyMap()
@@ -306,15 +359,17 @@ fun PlayerScreen(
                                 val av = (resolved["audioVariants"] as? List<Map<String, Any>>) ?: emptyList()
                                 @Suppress("UNCHECKED_CAST")
                                 val qv = (resolved["qualityVariants"] as? List<Map<String, Any>>) ?: emptyList()
-                                if (av.isNotEmpty()) AllohaSessionHolder.audioVariants = av
+                                val isDedicated = iframe.isNotBlank() || latestAvailableTranslations.mapNotNull { it.iframeUrl.takeIf(String::isNotBlank) }.distinct().size > 1
+                                val enrichedAv = enrichAudioVariants(av, latestAvailableTranslations, isDedicatedIframe = isDedicated)
+                                if (enrichedAv.isNotEmpty()) AllohaSessionHolder.audioVariants = enrichedAv
                                 if (qv.isNotEmpty()) AllohaSessionHolder.qualityVariants = qv
 
                                 val matchingAudio = AllohaTranslationMatcher.findMatchingAudioVariant(
-                                    av,
+                                    enrichedAv,
                                     latestRequestedVoice,
                                     isDedicatedIframe = true
                                 )
-                                val targetAudio = matchingAudio ?: if (latestRequestedVoice.isNullOrBlank()) av.firstOrNull() else null
+                                val targetAudio = matchingAudio ?: if (latestRequestedVoice.isNullOrBlank()) enrichedAv.firstOrNull() else null
                                 val audioQualityVariants = (targetAudio?.get("qualityVariants") as? List<*>)?.mapNotNull { it as? Map<*, *> }
                                     ?: qv.mapNotNull { it as? Map<*, *> }
 
@@ -374,7 +429,28 @@ fun PlayerScreen(
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
 
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 15_000,
+                /* maxBufferMs = */ 30_000,
+                /* bufferForPlaybackMs = */ 1_000,
+                /* bufferForPlaybackAfterRebufferMs = */ 2_000
+            )
+            .setBackBuffer(
+                /* backBufferDurationMs = */ 10_000,
+                /* retainBackBufferFromKeyframe = */ true
+            )
+            .build()
+
+        val trackSelector = DefaultTrackSelector(context).apply {
+            parameters = buildUponParameters()
+                .setPreferredAudioLanguages("ru", "rus", "ru-RU")
+                .build()
+        }
+
         ExoPlayer.Builder(context, renderersFactory)
+            .setTrackSelector(trackSelector)
+            .setLoadControl(loadControl)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(httpDataSourceFactory, extractorsFactory)
                     .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
@@ -434,10 +510,44 @@ fun PlayerScreen(
 
     DisposableEffect(lifecycleOwner, exoPlayer) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) saveCurrentProgress()
+            when (event) {
+                Lifecycle.Event.ON_STOP -> saveCurrentProgress()
+                Lifecycle.Event.ON_RESUME -> {
+                    if (exoPlayer.playbackState == Player.STATE_IDLE && streamErrorMessage != null) {
+                        streamErrorMessage = null
+                        exoPlayer.prepare()
+                        exoPlayer.play()
+                    }
+                }
+                else -> Unit
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    DisposableEffect(Unit) {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val mainHandler = Handler(Looper.getMainLooper())
+        val networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                mainHandler.post {
+                    if (exoPlayer.playbackState == Player.STATE_IDLE && streamErrorMessage != null) {
+                        android.util.Log.d("PlayerScreen", "Network re-established, auto-recovering playback...")
+                        streamErrorMessage = null
+                        exoPlayer.prepare()
+                        exoPlayer.play()
+                    }
+                }
+            }
+        }
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        runCatching { connectivityManager?.registerNetworkCallback(request, networkCallback) }
+        onDispose {
+            runCatching { connectivityManager?.unregisterNetworkCallback(networkCallback) }
+        }
     }
 
     // Playback state tracking.
@@ -635,51 +745,44 @@ fun PlayerScreen(
                     }
                 } else if (playbackState == Player.STATE_READY) {
                     isRecoveringStream = false
-                    val pending = pendingVoiceForPlayback
-                        ?.takeIf { it == preparedVoiceForPlayback }
-                    if (pending != null) {
-                        if (!requiresNativeVoiceTrackForPlayback) {
-                            commitVoiceSelection(pending)
-                        } else {
-                            val voiceNames = resolvedAudioVariants.mapNotNull {
-                                (it["title"] as? String)?.takeIf(String::isNotBlank)
-                            }
-                            when (exoPlayer.selectAudioTrackForVoice(pending, voiceNames)) {
-                                true -> commitVoiceSelection(pending)
-                                null -> {
-                                    // Одна дорожка в потоке = это и есть выбранная озвучка
-                                    // (у каждой озвучки свой iframe). Не пугаем пользователя тостом.
-                                    val audioTrackCount = exoPlayer.currentTracks.groups
-                                        .filter { it.type == C.TRACK_TYPE_AUDIO }
-                                        .sumOf { it.length }
-                                    if (audioTrackCount <= 1) {
-                                        commitVoiceSelection(pending)
-                                    } else {
-                                        pendingVoice = null
-                                        pendingTranslation = null
-                                        Toast.makeText(
-                                            context,
-                                            "Эта озвучка недоступна в данном потоке",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
+                    val targetVoice = pendingVoiceForPlayback ?: preparedVoiceForPlayback ?: currentVoice
+                    if (!targetVoice.isNullOrBlank()) {
+                        val authenticVoiceNames = AllohaSessionHolder.availableVoiceNames
+                        val explicitIdx = authenticVoiceNames.indexOfFirst {
+                            AllohaTranslationMatcher.matches(it, targetVoice, exactOnly = true)
+                        }.takeIf { it >= 0 } ?: authenticVoiceNames.indexOfFirst {
+                            AllohaTranslationMatcher.matches(it, targetVoice, exactOnly = false)
+                        }.takeIf { it >= 0 }
+
+                        val audioGroups = exoPlayer.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO && it.isSupported }
+                        val audioTrackCount = audioGroups.sumOf { it.length }
+
+                        if (audioTrackCount > 1) {
+                            when (exoPlayer.selectAudioTrackForVoice(targetVoice, authenticVoiceNames, explicitIdx)) {
+                                true -> commitVoiceSelection(targetVoice)
                                 false -> Unit // Override применится, onTracksChanged подтвердит выбор.
+                                null -> commitVoiceSelection(targetVoice)
                             }
+                        } else {
+                            commitVoiceSelection(targetVoice)
                         }
                     }
                 }
             }
 
             override fun onTracksChanged(tracks: Tracks) {
-                if (!requiresNativeVoiceTrackForPlayback) return
-                val voice = pendingVoiceForPlayback ?: return
-                if (voice != preparedVoiceForPlayback) return
-                val voiceNames = resolvedAudioVariants.mapNotNull {
-                    (it["title"] as? String)?.takeIf(String::isNotBlank)
-                }
-                if (exoPlayer.selectAudioTrackForVoice(voice, voiceNames) == true) {
-                    commitVoiceSelection(voice)
+                val targetVoice = pendingVoiceForPlayback ?: preparedVoiceForPlayback ?: currentVoice
+                if (!targetVoice.isNullOrBlank()) {
+                    val authenticVoiceNames = AllohaSessionHolder.availableVoiceNames
+                    val explicitIdx = authenticVoiceNames.indexOfFirst {
+                        AllohaTranslationMatcher.matches(it, targetVoice, exactOnly = true)
+                    }.takeIf { it >= 0 } ?: authenticVoiceNames.indexOfFirst {
+                        AllohaTranslationMatcher.matches(it, targetVoice, exactOnly = false)
+                    }.takeIf { it >= 0 }
+
+                    if (exoPlayer.selectAudioTrackForVoice(targetVoice, authenticVoiceNames, explicitIdx) == true) {
+                        commitVoiceSelection(targetVoice)
+                    }
                 }
             }
 
@@ -701,7 +804,7 @@ fun PlayerScreen(
                     isRecoveringStream = true
                     AllohaSessionHolder.registerStreamUrlUpdate(streamUrl, nextCandidate)
                     streamUrl = nextCandidate
-                    exoPlayer.setMediaItem(createPlayableMediaItem(nextCandidate), preservePositionMs)
+                    exoPlayer.setMediaItem(createPlayableMediaItem(nextCandidate, activeSubtitleConfigs), preservePositionMs)
                     exoPlayer.prepare()
                     exoPlayer.play()
                     return
@@ -731,17 +834,19 @@ fun PlayerScreen(
                                 val qv = (resolved["qualityVariants"] as? List<Map<String, Any>>) ?: emptyList()
 
                                 AllohaSessionHolder.activeHeaders = hdrs
-                                AllohaSessionHolder.audioVariants = av
+                                val isDedicated = !iframe.isNullOrBlank() || latestAvailableTranslations.mapNotNull { it.iframeUrl.takeIf(String::isNotBlank) }.distinct().size > 1
+                                val enrichedAv = enrichAudioVariants(av, latestAvailableTranslations, isDedicatedIframe = isDedicated)
+                                AllohaSessionHolder.audioVariants = enrichedAv
                                 AllohaSessionHolder.qualityVariants = qv
-                                resolvedAudioVariants = av
+                                resolvedAudioVariants = enrichedAv
 
                                 // Find matching audio variant or pick first
                                 val matchingAudio = AllohaTranslationMatcher.findMatchingAudioVariant(
-                                    av,
+                                    enrichedAv,
                                     latestRequestedVoice,
                                     isDedicatedIframe = true
                                 )
-                                val targetAudio = matchingAudio ?: if (latestRequestedVoice.isNullOrBlank()) av.firstOrNull() else null
+                                val targetAudio = matchingAudio ?: if (latestRequestedVoice.isNullOrBlank()) enrichedAv.firstOrNull() else null
 
                                 // Build quality map from the chosen audio variant (or global qualityVariants)
                                 val audioQualityVariants = (targetAudio?.get("qualityVariants") as? List<*>)?.mapNotNull { it as? Map<*, *> }
@@ -778,7 +883,7 @@ fun PlayerScreen(
                                     if (exoPlayer.applicationLooper.thread.isAlive) {
                                         val resumePos = if (preservePositionMs > 0L) preservePositionMs else 0L
                                         preparedVoice = latestRequestedVoice
-                                        exoPlayer.setMediaItem(createPlayableMediaItem(freshUrl), resumePos)
+                                        exoPlayer.setMediaItem(createPlayableMediaItem(freshUrl, activeSubtitleConfigs), resumePos)
                                         exoPlayer.prepare()
                                         exoPlayer.play()
                                     }
@@ -839,16 +944,18 @@ fun PlayerScreen(
                 val av = (resolved["audioVariants"] as? List<Map<String, Any>>) ?: emptyList()
                 @Suppress("UNCHECKED_CAST")
                 val qv = (resolved["qualityVariants"] as? List<Map<String, Any>>) ?: emptyList()
-                if (av.isNotEmpty()) AllohaSessionHolder.audioVariants = av
+                val isDedicated = iframe.isNotBlank() || latestAvailableTranslations.mapNotNull { it.iframeUrl.takeIf(String::isNotBlank) }.distinct().size > 1
+                val enrichedAv = enrichAudioVariants(av, latestAvailableTranslations, isDedicatedIframe = isDedicated)
+                if (enrichedAv.isNotEmpty()) AllohaSessionHolder.audioVariants = enrichedAv
                 if (qv.isNotEmpty()) AllohaSessionHolder.qualityVariants = qv
-                resolvedAudioVariants = av
+                resolvedAudioVariants = enrichedAv
 
                 val matchingAudio = AllohaTranslationMatcher.findMatchingAudioVariant(
-                    av,
+                    enrichedAv,
                     latestRequestedVoice,
                     isDedicatedIframe = true
                 )
-                val targetAudio = matchingAudio ?: if (latestRequestedVoice.isNullOrBlank()) av.firstOrNull() else null
+                val targetAudio = matchingAudio ?: if (latestRequestedVoice.isNullOrBlank()) enrichedAv.firstOrNull() else null
                 val audioQualityVariants = (targetAudio?.get("qualityVariants") as? List<*>)?.mapNotNull { it as? Map<*, *> }
                     ?: qv.mapNotNull { it as? Map<*, *> }
 
@@ -860,10 +967,15 @@ fun PlayerScreen(
                 }
                 val fallback = (targetAudio?.get("url") as? String) ?: (resolved["url"] as? String).orEmpty()
                 val freshUrl = selectBestPlayableUrl(qMap, currentQualityKey, fallback)
+                val freshMaster = (targetAudio?.get("masterUrl") as? String)
+                    ?: (resolved["masterUrl"] as? String)
+                    ?: (resolved["url"] as? String)?.takeIf { it.contains("master.m3u8", ignoreCase = true) }
+                    ?: freshUrl
 
-                if (freshUrl.isNotBlank()) {
+                if (freshMaster.isNotBlank()) {
                     val oldMaster = AllohaSessionHolder.latestMasterUrl ?: streamUrl
-                    AllohaSessionHolder.registerStreamUrlUpdate(oldMaster, freshUrl)
+                    AllohaSessionHolder.registerStreamUrlUpdate(oldMaster, freshMaster)
+                    AllohaSessionHolder.latestMasterUrl = freshMaster
                     android.util.Log.d("PlayerScreen", "Proactive background token refresh completed successfully. New base registered.")
                 }
             } catch (e: CancellationException) {
@@ -936,7 +1048,6 @@ fun PlayerScreen(
                 )
             }
             exoPlayer.release()
-            AllohaSessionHolder.session?.release()
             AllohaSessionHolder.clear()
         }
     }
@@ -982,13 +1093,17 @@ fun PlayerScreen(
         if (currentAlloha == null || AllohaSessionHolder.activeMediaId != mediaId) {
             try {
                 val allohaRepo = AllohaRepository.getInstance(context)
-                val cleanKp = mediaId.replace("tv_", "").replace("movie_", "").toIntOrNull()
+                val isExplicitKp = mediaId.startsWith("kp_")
+                val explicitKp = if (isExplicitKp) mediaId.removePrefix("kp_").toIntOrNull() else null
+                val explicitTmdb = if (!isExplicitKp) mediaId.replace("tv_", "").replace("movie_", "").toIntOrNull() else null
                 currentAlloha = allohaRepo.fetchAllohaData(
                     mediaId = mediaId,
-                    explicitKpId = cleanKp,
+                    explicitKpId = explicitKp,
+                    tmdbId = explicitTmdb,
                     title = activeTitle,
                     originalTitle = origTitle,
-                    year = mediaYear
+                    year = mediaYear,
+                    isTv = mediaType == "tv" || mediaId.startsWith("tv_")
                 )
                 currentCoroutineContext().ensureActive()
                 allohaData = currentAlloha
@@ -1077,9 +1192,28 @@ fun PlayerScreen(
             val hdrs = (resolved["headers"] as? Map<String, String>) ?: emptyMap()
 
             AllohaSessionHolder.activeHeaders = hdrs
-            AllohaSessionHolder.audioVariants = av
+            val hasDistinctIframes = latestAvailableTranslations.mapNotNull { it.iframeUrl.takeIf(String::isNotBlank) }.distinct().size > 1
+            val isDedicatedIframe = !targetIframe.isNullOrBlank() || hasDistinctIframes
+            val enrichedAv = enrichAudioVariants(av, latestAvailableTranslations, isDedicatedIframe = isDedicatedIframe)
+            AllohaSessionHolder.audioVariants = enrichedAv
             AllohaSessionHolder.qualityVariants = qv
-            resolvedAudioVariants = av
+            resolvedAudioVariants = enrichedAv
+
+            // Parse sidecar subtitles from resolved stream (selection flag 0: disabled by default)
+            val parsedSubtitles = (resolved["subtitles"] as? List<*>)?.mapNotNull { item ->
+                val map = item as? Map<*, *> ?: return@mapNotNull null
+                val u = map["url"] as? String ?: return@mapNotNull null
+                val name = (map["name"] as? String)?.takeIf { it.isNotBlank() } ?: "Субтитры"
+                val lang = (map["language"] as? String)?.takeIf { it.isNotBlank() } ?: "ru"
+                val mime = if (u.contains(".vtt", ignoreCase = true)) MimeTypes.TEXT_VTT else MimeTypes.APPLICATION_SUBRIP
+                MediaItem.SubtitleConfiguration.Builder(Uri.parse(u))
+                    .setMimeType(mime)
+                    .setLabel(name)
+                    .setLanguage(lang)
+                    .setSelectionFlags(0)
+                    .build()
+            }.orEmpty()
+            activeSubtitleConfigs = parsedSubtitles
 
             // Extract skip intro / outro ranges from resolved stream
             val introMap = (resolved["introRange"] as? Map<*, *>)
@@ -1099,11 +1233,11 @@ fun PlayerScreen(
 
             // Find matching audio variant or pick first
             val matchingAudio = AllohaTranslationMatcher.findMatchingAudioVariant(
-                av,
+                enrichedAv,
                 requestedVoice,
                 isDedicatedIframe = true
             )
-            val targetAudio = matchingAudio ?: if (requestedVoice.isNullOrBlank()) av.firstOrNull() else null
+            val targetAudio = matchingAudio ?: if (requestedVoice.isNullOrBlank()) enrichedAv.firstOrNull() else null
 
             // Build quality map from the chosen audio variant (or global qualityVariants)
             val audioQualityVariants = (targetAudio?.get("qualityVariants") as? List<*>)?.mapNotNull { it as? Map<*, *> }
@@ -1147,16 +1281,49 @@ fun PlayerScreen(
                 }
             }
 
+            val currentVoiceName = targetTranslation?.name ?: requestedVoice.takeIf { !it.isNullOrBlank() } ?: "Русский"
+            val streamVoices = if (isDedicatedIframe) {
+                listOf(currentVoiceName, "Оригинал")
+            } else if (enrichedAv.isNotEmpty() && enrichedAv.any {
+                val t = (it["title"] as? String).orEmpty()
+                !t.startsWith("Озвучка", ignoreCase = true) &&
+                    !t.startsWith("Дорожка", ignoreCase = true) &&
+                    !t.startsWith("Track", ignoreCase = true) &&
+                    !t.equals("Unknown", ignoreCase = true)
+            }) {
+                enrichedAv.mapNotNull { (it["title"] as? String)?.takeIf(String::isNotBlank) }
+            } else {
+                latestAvailableTranslations.map { it.name }.ifEmpty { listOf(currentVoiceName, "Оригинал") }
+            }
+            AllohaSessionHolder.availableVoiceNames = streamVoices
+            AllohaSessionHolder.currentVoice = currentVoiceName
+
             val bestUrl = selectBestPlayableUrl(qMap, currentQualityKey, defaultUrl)
             qMap["Авто"] = bestUrl
             AllohaSessionHolder.qualityMap = qMap
 
-            val candidateUrl = if (currentQualityKey == "Авто") bestUrl else (qMap[currentQualityKey] ?: bestUrl)
+            // 1:1 with iOS PlaybackHlsRewriter: For multi-audio HLS streams, the root URL passed
+            // to ExoPlayer must ALWAYS be the master playlist (master.m3u8), not a single video
+            // stream variant (e.g. index-v1.m3u8). DynamicHttpDataSource rewrites the master playlist
+            // using AllohaHlsRewriter so that all authentic voice names are present and the chosen
+            // voice is marked DEFAULT=YES.
+            val masterUrl = (targetAudio?.get("masterUrl") as? String)
+                ?: (resolved["masterUrl"] as? String)
+                ?: defaultUrl.takeIf { it.contains("master.m3u8", ignoreCase = true) }
+                ?: (resolved["url"] as? String)?.takeIf { it.contains("master.m3u8", ignoreCase = true) }
 
-            if (candidateUrl.isBlank() || !candidateUrl.startsWith("http") || candidateUrl.contains("<") || candidateUrl.contains("\n")) {
+            val directMp4Url = qMap[currentQualityKey]?.takeIf {
+                it.contains(".mp4", ignoreCase = true) && !it.contains(".m3u8", ignoreCase = true)
+            }
+
+            val chosenRootUrl = directMp4Url
+                ?: masterUrl
+                ?: if (currentQualityKey == "Авто") bestUrl else (qMap[currentQualityKey] ?: bestUrl)
+
+            if (chosenRootUrl.isBlank() || !chosenRootUrl.startsWith("http") || chosenRootUrl.contains("<") || chosenRootUrl.contains("\n")) {
                 throw Exception("Не удалось извлечь корректный URL потока из плеера")
             }
-            val finalUrl = candidateUrl.trim()
+            val finalUrl = chosenRootUrl.trim()
 
             // Резервная цепочка: выбранное качество -> остальные варианты -> master/прямой URL.
             val candidates = buildPlayableCandidates(qMap, currentQualityKey, defaultUrl)
@@ -1167,7 +1334,7 @@ fun PlayerScreen(
             android.util.Log.d("PlayerScreen", "Alloha stream resolved: url=$finalUrl av=${av.size} qv=${qv.size} skips=${skips.size} headers=${hdrs.keys}")
 
             AllohaSessionHolder.registerStreamUrlUpdate(null, finalUrl)
-            AllohaSessionHolder.latestMasterUrl = finalUrl
+            AllohaSessionHolder.latestMasterUrl = masterUrl ?: finalUrl
             streamUrl = finalUrl
             isLoadingStream = false
             isRecoveringStream = false
@@ -1185,7 +1352,7 @@ fun PlayerScreen(
                 )
             }
 
-            val mediaItem = createPlayableMediaItem(finalUrl)
+            val mediaItem = createPlayableMediaItem(finalUrl, parsedSubtitles)
             preparedVoice = requestedVoice
             val matchingAudioQualityVariants = (matchingAudio?.get("qualityVariants") as? List<*>)
                 ?.mapNotNull { it as? Map<*, *> }
@@ -1194,12 +1361,28 @@ fun PlayerScreen(
                 matchingAudioQualityVariants.any { !(it["url"] as? String).isNullOrBlank() }
             // Если все озвучки живут в одном HLS (общий URL), дорожку переключаем нативно,
             // а не пересоздаём MediaItem с тем же адресом.
-            val distinctVariantUrls = av.mapNotNull { (it["url"] as? String)?.takeIf(String::isNotBlank) }.distinct()
+            val distinctVariantUrls = enrichedAv.mapNotNull { (it["url"] as? String)?.takeIf(String::isNotBlank) }.distinct()
             requiresNativeVoiceTrack = !requestedVoice.isNullOrBlank() &&
                 (distinctVariantUrls.size <= 1 || !matchingAudioHasPlayableUrl)
+
+            val maxRes = when {
+                currentQualityKey.contains("4K", ignoreCase = true) || currentQualityKey.contains("2160") -> 3840 to 2160
+                currentQualityKey.contains("2K", ignoreCase = true) || currentQualityKey.contains("1440") -> 2560 to 1440
+                currentQualityKey.contains("1080") -> 1920 to 1080
+                currentQualityKey.contains("720") -> 1280 to 720
+                currentQualityKey.contains("480") -> 854 to 480
+                currentQualityKey.contains("360") -> 640 to 360
+                else -> Int.MAX_VALUE to Int.MAX_VALUE
+            }
+
             exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
                 .buildUpon()
+                .setMaxVideoSize(maxRes.first, maxRes.second)
                 .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+                .setPreferredAudioLanguages("ru", "rus", "ru-RU")
+                .setPreferredTextLanguage(null)
                 .build()
             exoPlayer.setMediaItem(mediaItem, seekTarget)
             exoPlayer.prepare()
@@ -1228,40 +1411,6 @@ fun PlayerScreen(
         }
     }
 
-    // Available translations for the active video/episode (combining API translations with parsed audioVariants)
-    val availableTranslations = remember(allohaData, currentSeason, currentEpisode, resolvedAudioVariants) {
-        val apiTranslations = if (allohaData?.isSerial == true) {
-            val s = allohaData?.seasons?.firstOrNull { it.season == (currentSeason ?: 1) } ?: allohaData?.seasons?.firstOrNull()
-            val ep = s?.episodes?.firstOrNull { it.episode == (currentEpisode ?: 1) } ?: s?.episodes?.firstOrNull()
-            ep?.translations ?: emptyList()
-        } else {
-            allohaData?.movie?.translations ?: emptyList()
-        }
-
-        val list = if (apiTranslations.size > 1) {
-            apiTranslations
-        } else if (resolvedAudioVariants.isNotEmpty()) {
-            val mapped = resolvedAudioVariants.mapNotNull { v ->
-                val t = (v["title"] as? String)?.trim() ?: return@mapNotNull null
-                if (t.isBlank() || t.contains("субтитр", ignoreCase = true) || t.contains("subtitle", ignoreCase = true)) return@mapNotNull null
-                val id = (v["id"] as? String) ?: t
-                AllohaTranslation(
-                    id = id,
-                    name = t,
-                    iframeUrl = activeIframeUrl ?: ""
-                )
-            }
-            if (mapped.isNotEmpty()) mapped else apiTranslations
-        } else {
-            apiTranslations
-        }
-        list.asSequence()
-            .filter { it.name.isNotBlank() }
-            .filterNot { it.name.contains("субтитр", ignoreCase = true) || it.name.contains("subtitle", ignoreCase = true) }
-            .distinctBy { "${it.id}|${it.iframeUrl}" }
-            .sortedBy { AllohaTranslationMatcher.translationRank(it.name) }
-            .toList()
-    }
 
     // Skip intro / outro state tracking (isolated coroutine check to avoid 250ms root recompositions)
     var activeSkipRange by remember { mutableStateOf<LongRange?>(null) }
@@ -1879,7 +2028,7 @@ fun PlayerScreen(
                                         if (isMultiSeason) {
                                             seasonsList.forEach { s ->
                                                 s.episodes.forEach { ep ->
-                                                    episodeEntries.add(Triple("С${s.season} · Серия ${ep.episode}", s.season, ep.episode))
+                                                    episodeEntries.add(Triple("С${s.season}, Серия ${ep.episode}", s.season, ep.episode))
                                                 }
                                             }
                                         } else {
@@ -2019,11 +2168,18 @@ fun PlayerScreen(
                                             AllohaTranslationMatcher.matches(it.name, name, exactOnly = true)
                                         }.takeIf { it >= 0 }
                                         ?: 0
+                                    val rawName = name
+                                    val formatted = DubbingStudio.displayTranslationName(rawName, index, names)
+                                    val studio = DubbingStudio.detect(rawName)
+                                    val flag = LanguageFlag.detect("$rawName $formatted")
+                                    val iconResId = studio?.iconResId ?: flag.iconResId
+                                    val displayTitle = if (iconResId != null) LanguageFlag.stripLeadingEmoji(formatted) else formatted
                                     PlayerVoiceChip(
                                         names = names,
                                         index = index,
-                                        label = DubbingStudio.displayTranslationName(name, index, names),
-                                        canSwitch = availableTranslations.size > 1
+                                        label = displayTitle,
+                                        canSwitch = availableTranslations.size > 1,
+                                        iconResId = iconResId
                                     )
                                 }
                             }
@@ -2033,7 +2189,7 @@ fun PlayerScreen(
                                 Box(
                                     modifier = Modifier
                                         .height(44.dp)
-                                        .widthIn(max = 260.dp)
+                                        .widthIn(max = 280.dp)
                                         .graphicsLayer { alpha = multiCapsuleAlpha.value }
                                         .onGloballyPositioned { coords ->
                                             voiceCapsuleBounds = coords.boundsInRoot()
@@ -2056,11 +2212,25 @@ fun PlayerScreen(
                                             // 1:1 с iOS: подпись чипа — очищенное название с сохранением
                                             // слова «Дубляж» и студии, «#N» только при реальных дублях.
                                             val voiceOptions = sortedTranslations.mapIndexed { index, translation ->
-                                                DubbingStudio.displayTranslationName(
+                                                val formatted = DubbingStudio.displayTranslationName(
                                                     translation.name,
                                                     index,
                                                     chip.names
                                                 )
+                                                val studio = DubbingStudio.detect(translation.name)
+                                                val flag = LanguageFlag.detect("${translation.name} $formatted")
+                                                val iconRes = studio?.iconResId ?: flag.iconResId
+                                                if (iconRes != null) LanguageFlag.stripLeadingEmoji(formatted) else formatted
+                                            }
+                                            val voiceIcons = sortedTranslations.mapIndexed { index, translation ->
+                                                val formatted = DubbingStudio.displayTranslationName(
+                                                    translation.name,
+                                                    index,
+                                                    chip.names
+                                                )
+                                                val studio = DubbingStudio.detect(translation.name)
+                                                val flag = LanguageFlag.detect("${translation.name} $formatted")
+                                                studio?.iconResId ?: flag.iconResId
                                             }
                                             val selectedTranslationId = pendingTranslation?.id ?: currentTranslationId
                                             val selIdx = sortedTranslations.indexOfFirst { it.id == selectedTranslationId }
@@ -2075,57 +2245,86 @@ fun PlayerScreen(
                                                 options = voiceOptions,
                                                 selectedIndex = selIdx,
                                                 anchorBounds = voiceCapsuleBounds,
-                                                customWidth = 260.dp
+                                                customWidth = 280.dp,
+                                                itemIcons = voiceIcons
                                             ) { index ->
                                                 val trans = sortedTranslations[index]
                                                 val pos = exoPlayer.currentPosition
                                                 preservePositionMs = if (pos > 0L) pos else preservePositionMs
                                                 silentRetryCount = 0
                                                 candidateIndex = 0
-                                                // Все озвучки в одном HLS — переключаем аудиодорожку,
-                                                // не пересоздавая поток (iOS selectAudioTrackInPlayer).
-                                                val sameStream = trans.iframeUrl.isBlank() ||
-                                                    trans.iframeUrl == activeIframeUrl
-                                                val hasMultipleAudioTracks = exoPlayer.currentTracks.groups.any {
-                                                    it.type == C.TRACK_TYPE_AUDIO && it.length > 1
+
+                                                // 1:1 с iOS PlayerView.swift (lines 1956-1965):
+                                                // 1. Если для озвучки задан отдельный iframeUrl и он отличается от текущего —
+                                                // инвалидируем кэш и перезагружаем iframe с сохранённой позицией!
+                                                val targetIframe = trans.iframeUrl.takeIf { it.isNotBlank() }
+                                                if (targetIframe != null && targetIframe != activeIframeUrl) {
+                                                    AllohaSessionHolder.currentVoice = trans.name
+                                                    AllohaSessionHolder.availableVoiceNames = listOf(trans.name, "Оригинал")
+                                                    AllohaRuntimeResolver.invalidateCache(targetIframe)
+                                                    currentTranslationId = trans.id
+                                                    activeIframeUrl = targetIframe
+                                                    pendingVoice = trans.name
+                                                    pendingTranslation = trans
+                                                    preparedVoice = trans.name
+                                                    reloadToken += 1
+                                                    sessionReloadKey += 1
+                                                    return@show
                                                 }
-                                                val switched = if (sameStream && hasMultipleAudioTracks) {
+
+                                                // 2. Быстрое переключение через resolvedAudioVariants (прямые HLS ссылки внутри текущего потока)
+                                                val matchingVariant = resolvedAudioVariants.firstOrNull {
+                                                    AllohaTranslationMatcher.matches(it["title"] as? String, trans.name, exactOnly = true)
+                                                } ?: resolvedAudioVariants.firstOrNull {
+                                                    AllohaTranslationMatcher.matches(it["title"] as? String, trans.name)
+                                                }
+                                                val targetVariantUrl = matchingVariant?.get("url") as? String
+
+                                                if (!targetVariantUrl.isNullOrBlank() && targetVariantUrl != streamUrl) {
+                                                    val currentPos = exoPlayer.currentPosition
+                                                    preservePositionMs = currentPos
+                                                    streamUrl = targetVariantUrl
+                                                    currentTranslationId = trans.id
+                                                    commitVoiceSelection(trans.name)
+                                                    val freshMediaItem = createPlayableMediaItem(targetVariantUrl, activeSubtitleConfigs)
+                                                    exoPlayer.setMediaItem(freshMediaItem, currentPos)
+                                                    exoPlayer.prepare()
+                                                    exoPlayer.play()
+                                                    return@show
+                                                }
+
+                                                val audioTrackCount = exoPlayer.currentTracks.groups
+                                                    .filter { it.type == C.TRACK_TYPE_AUDIO && it.isSupported }
+                                                    .sumOf { it.length }
+                                                val hasMultipleAudioTracks = audioTrackCount > 1
+
+                                                // 1:1 с iOS: сначала пытаемся переключить встроенную дорожку HLS без перезагрузки
+                                                val switched = if (hasMultipleAudioTracks) {
                                                     exoPlayer.selectAudioTrackForVoice(
-                                                        trans.name,
-                                                        chip.names
+                                                        voice = trans.name,
+                                                        voices = AllohaSessionHolder.availableVoiceNames.ifEmpty { chip.names },
+                                                        explicitIndex = index
                                                     )
                                                 } else null
+
                                                 if (switched != null) {
                                                     currentTranslationId = trans.id
                                                     commitVoiceSelection(trans.name)
                                                 } else {
-                                                    // Тот же поток и всего одна аудиодорожка: перезагрузка
-                                                    // ничего не изменит — честно сообщаем об этом.
-                                                    val variantUrl = resolvedAudioVariants.firstOrNull {
-                                                        AllohaTranslationMatcher.matches(
-                                                            it["title"] as? String,
-                                                            trans.name,
-                                                            exactOnly = true
-                                                        )
-                                                    }?.get("url") as? String
-                                                    val playsSameUrl = !variantUrl.isNullOrBlank() &&
-                                                        variantUrl == streamUrl
-                                                    if (sameStream && !hasMultipleAudioTracks && playsSameUrl) {
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Эта озвучка недоступна в данном потоке",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    } else {
-                                                        pendingVoice = trans.name
-                                                        pendingTranslation = trans
-                                                        reloadToken += 1
+                                                    val fallbackIframe = targetIframe ?: activeIframeUrl
+                                                    if (!fallbackIframe.isNullOrBlank()) {
+                                                        AllohaRuntimeResolver.invalidateCache(fallbackIframe)
                                                     }
+                                                    sessionReloadKey += 1
+                                                    pendingVoice = trans.name
+                                                    pendingTranslation = trans
+                                                    preparedVoice = trans.name
+                                                    reloadToken += 1
                                                 }
                                             }
                                         }
                                         .padding(
-                                            start = 13.dp,
+                                            start = if (chip.iconResId != null) 10.dp else 13.dp,
                                             end = if (chip.canSwitch) 11.dp else 13.dp
                                         ),
                                     contentAlignment = Alignment.Center
@@ -2134,12 +2333,36 @@ fun PlayerScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(7.dp)
                                     ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_sf_waveform),
-                                            contentDescription = "Озвучка",
-                                            tint = Color.White.copy(alpha = 0.85f),
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                        if (chip.iconResId != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(22.dp)
+                                                    .clip(CircleShape)
+                                            ) {
+                                                Image(
+                                                    painter = painterResource(chip.iconResId),
+                                                    contentDescription = "Озвучка",
+                                                    contentScale = ContentScale.Fit,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .border(
+                                                            width = 0.5.dp,
+                                                            color = Color.White.copy(alpha = 0.14f),
+                                                            shape = CircleShape
+                                                        )
+                                                )
+                                            }
+                                        } else {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_sf_waveform),
+                                                contentDescription = "Озвучка",
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                         Text(
                                             text = chip.label,
                                             color = Color.White.copy(alpha = 0.92f),
@@ -2152,7 +2375,7 @@ fun PlayerScreen(
                                             Icon(
                                                 painter = painterResource(R.drawable.ic_sf_chevron_up_chevron_down),
                                                 contentDescription = null,
-                                                tint = Color.White.copy(alpha = 0.55f),
+                                                tint = Color.White.copy(alpha = 0.45f),
                                                 modifier = Modifier
                                                     .width(12.dp)
                                                     .height(16.dp)
@@ -2262,9 +2485,7 @@ fun PlayerScreen(
                                                 val availableQualities = run {
                                                     val list = mutableListOf("Авто")
                                                     val sortedKeys = AllohaSessionHolder.qualityMap.keys.filter { it != "Авто" }.sortedWith { a, b ->
-                                                        val numA = a.replace("p", "").replace("K", "000").toIntOrNull() ?: 0
-                                                        val numB = b.replace("p", "").replace("K", "000").toIntOrNull() ?: 0
-                                                        numB.compareTo(numA)
+                                                        qualityHeight(b).compareTo(qualityHeight(a))
                                                     }
                                                     if (sortedKeys.isNotEmpty()) list.addAll(sortedKeys)
                                                     list
@@ -2280,19 +2501,17 @@ fun PlayerScreen(
                                                     AllohaSessionHolder.currentQuality = q
                                                     AllohaSessionHolder.isAutoQuality = (q == "Авто")
 
-                                                    val targetUrl = if (q == "Авто") {
-                                                        selectBestPlayableUrl(AllohaSessionHolder.qualityMap, "Авто", streamUrl.orEmpty())
-                                                    } else {
-                                                        AllohaSessionHolder.qualityMap[q]
-                                                    }
+                                                    val isCurrentMp4 = streamUrl?.contains(".mp4", ignoreCase = true) == true && streamUrl?.contains(".m3u8", ignoreCase = true) != true
+                                                    val isTargetMp4 = AllohaSessionHolder.qualityMap[q]?.contains(".mp4", ignoreCase = true) == true &&
+                                                        AllohaSessionHolder.qualityMap[q]?.contains(".m3u8", ignoreCase = true) != true
 
-                                                    val maxRes = when (q) {
-                                                        "4K" -> 3840 to 2160
-                                                        "2K" -> 2560 to 1440
-                                                        "1080p" -> 1920 to 1080
-                                                        "720p" -> 1280 to 720
-                                                        "480p" -> 854 to 480
-                                                        "360p" -> 640 to 360
+                                                    val maxRes = when {
+                                                        q.contains("4K", ignoreCase = true) || q.contains("2160") -> 3840 to 2160
+                                                        q.contains("2K", ignoreCase = true) || q.contains("1440") -> 2560 to 1440
+                                                        q.contains("1080") -> 1920 to 1080
+                                                        q.contains("720") -> 1280 to 720
+                                                        q.contains("480") -> 854 to 480
+                                                        q.contains("360") -> 640 to 360
                                                         else -> Int.MAX_VALUE to Int.MAX_VALUE
                                                     }
                                                     exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
@@ -2300,15 +2519,22 @@ fun PlayerScreen(
                                                         .setMaxVideoSize(maxRes.first, maxRes.second)
                                                         .build()
 
-                                                    if (!targetUrl.isNullOrBlank() && targetUrl != streamUrl) {
-                                                        val currentPos = exoPlayer.currentPosition
-                                                        AllohaSessionHolder.registerStreamUrlUpdate(streamUrl, targetUrl)
-                                                        streamUrl = targetUrl
-                                                        playableCandidates = listOf(targetUrl)
-                                                        candidateIndex = 0
-                                                        exoPlayer.setMediaItem(createPlayableMediaItem(targetUrl), currentPos)
-                                                        exoPlayer.prepare()
-                                                        exoPlayer.play()
+                                                    if (isTargetMp4 || isCurrentMp4) {
+                                                        val targetUrl = if (isTargetMp4) {
+                                                            AllohaSessionHolder.qualityMap[q]
+                                                        } else {
+                                                            AllohaSessionHolder.latestMasterUrl ?: streamUrl
+                                                        }
+                                                        if (!targetUrl.isNullOrBlank() && targetUrl != streamUrl) {
+                                                            val currentPos = exoPlayer.currentPosition
+                                                            AllohaSessionHolder.registerStreamUrlUpdate(streamUrl, targetUrl)
+                                                            streamUrl = targetUrl
+                                                            playableCandidates = listOf(targetUrl)
+                                                            candidateIndex = 0
+                                                            exoPlayer.setMediaItem(createPlayableMediaItem(targetUrl, activeSubtitleConfigs), currentPos)
+                                                            exoPlayer.prepare()
+                                                            exoPlayer.play()
+                                                        }
                                                     }
                                                 }
                                             }
@@ -2663,7 +2889,8 @@ private data class PlayerVoiceChip(
     val names: List<String>,
     val index: Int,
     val label: String,
-    val canSwitch: Boolean
+    val canSwitch: Boolean,
+    val iconResId: Int? = null
 )
 
 /**
@@ -2955,11 +3182,20 @@ private fun selectBestPlayableUrl(
     preferredQuality: String,
     fallbackUrl: String? = null
 ): String {
-    // 1. If user selected a specific non-Auto quality and it exists in map, use it
-    if (preferredQuality != "Авто" && !qualityMap[preferredQuality].isNullOrBlank()) {
-        val u = qualityMap[preferredQuality]!!
-        if (u.isNotBlank()) {
-            return u
+    // 1. If user selected a specific non-Auto quality, find exact or height-matched variant
+    if (preferredQuality != "Авто" && preferredQuality != "Спрашивать") {
+        val direct = qualityMap[preferredQuality]
+        if (!direct.isNullOrBlank()) {
+            return direct
+        }
+        val targetHeight = qualityHeight(preferredQuality)
+        if (targetHeight > 0) {
+            val matchingKey = qualityMap.keys.firstOrNull { k ->
+                k != "Авто" && qualityHeight(k) == targetHeight && !qualityMap[k].isNullOrBlank()
+            }
+            if (matchingKey != null) {
+                return qualityMap[matchingKey]!!
+            }
         }
     }
 
@@ -3034,50 +3270,181 @@ private fun qualityHeight(label: String): Int {
     }
 }
 
-/** Selects exactly one embedded audio track for a voice when the stream has no separate variant URL. */
+private data class AudioTrackCandidate(
+    val group: Tracks.Group,
+    val trackIndex: Int,
+    val overallIndex: Int,
+    val format: Format,
+    val label: String,
+    val language: String,
+    val idStr: String,
+    val isRussian: Boolean,
+    val isEnglishOrOriginal: Boolean
+)
+
+private fun extractAudioIndex(raw: String?, isUri: Boolean = false): Int? {
+    if (raw.isNullOrBlank()) return null
+    if (isUri) {
+        val uriRegex = Regex("""index-a(\d+)""", RegexOption.IGNORE_CASE)
+        val match = uriRegex.find(raw)
+        if (match != null) {
+            val num = match.groupValues[1].toIntOrNull()
+            if (num != null && num >= 1) return num - 1
+        }
+    }
+    val pattern = Regex("""(?:^|[^a-zA-Z0-9])(?:[a-zA-Z]{2,4}|audio[_-]?|track[_-]?)(\d+)(?:$|[^a-zA-Z0-9])""", RegexOption.IGNORE_CASE)
+    val match = pattern.find(raw)
+    if (match != null) {
+        val num = match.groupValues[1].toIntOrNull()
+        if (num != null) return num
+    }
+    return null
+}
+
+private fun enrichAudioVariants(
+    variants: List<Map<String, Any>>,
+    translations: List<AllohaTranslation>,
+    isDedicatedIframe: Boolean = false
+): List<Map<String, Any>> {
+    if (variants.isEmpty() || isDedicatedIframe) return variants
+    val hasDistinctIframes = translations.mapNotNull { it.iframeUrl.takeIf(String::isNotBlank) }.distinct().size > 1
+    if (hasDistinctIframes) return variants
+    return variants.mapIndexed { index, variant ->
+        val rawTitle = (variant["title"] as? String)?.trim().orEmpty()
+        val isGeneric = rawTitle.isBlank() ||
+                rawTitle.startsWith("Дорожка", ignoreCase = true) ||
+                rawTitle.startsWith("Озвучка", ignoreCase = true) ||
+                rawTitle.startsWith("Track", ignoreCase = true) ||
+                rawTitle.equals("Unknown", ignoreCase = true)
+        if (isGeneric && index < translations.size) {
+            val trans = translations[index]
+            val mutable = HashMap(variant)
+            mutable["title"] = trans.name
+            mutable["translationId"] = trans.id
+            mutable
+        } else {
+            variant
+        }
+    }
+}
+
+/**
+ * Intelligently selects the exact embedded audio track matching the requested translation.
+ * Achieves 1:1 behavioral parity with iOS `selectAudioTrackInPlayer` and `PlaybackHlsRewriter`.
+ */
 @OptIn(UnstableApi::class)
-private fun ExoPlayer.selectAudioTrackForVoice(voice: String, voices: List<String> = emptyList()): Boolean? {
+private fun ExoPlayer.selectAudioTrackForVoice(
+    voice: String,
+    voices: List<String> = emptyList(),
+    explicitIndex: Int? = null
+): Boolean? {
     val groups = currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO && it.isSupported }
+    var runningIndex = 0
     val candidates = groups.flatMap { group ->
         (0 until group.length)
-            .filter { index -> group.isTrackSupported(index) }
-            .map { index ->
-                val format = group.getTrackFormat(index)
-                Triple(group, index, listOfNotNull(format.label, format.language).joinToString(" "))
+            .filter { group.isTrackSupported(it) }
+            .map { trackIndex ->
+                val format = group.getTrackFormat(trackIndex)
+                val label = format.label.orEmpty().trim()
+                val lang = format.language.orEmpty().trim().lowercase(Locale.ROOT)
+                val idStr = format.id.orEmpty().trim()
+                val fullMeta = "$label $lang $idStr".trim()
+                val isEng = AllohaTranslationMatcher.isOriginalOrEnglishTranslation(fullMeta) ||
+                        lang.startsWith("en") || label.contains("eng", ignoreCase = true) ||
+                        label.contains("orig", ignoreCase = true) || label.contains("англ", ignoreCase = true)
+                val isRus = lang.startsWith("ru") || label.contains("rus", ignoreCase = true) ||
+                        label.contains("рус", ignoreCase = true) || label.contains("дубл", ignoreCase = true) ||
+                        AllohaTranslationMatcher.detectLanguageTag(fullMeta) == "rus"
+                AudioTrackCandidate(
+                    group = group,
+                    trackIndex = trackIndex,
+                    overallIndex = runningIndex++,
+                    format = format,
+                    label = label,
+                    language = lang,
+                    idStr = idStr,
+                    isRussian = isRus,
+                    isEnglishOrOriginal = isEng
+                )
             }
     }
     if (candidates.isEmpty()) return null
 
-    var match = candidates.firstOrNull {
-        AllohaTranslationMatcher.matches(it.third, voice, exactOnly = true)
+    val targetVoiceIndex: Int? = explicitIndex
+        ?: voices.indexOfFirst { AllohaTranslationMatcher.matches(it, voice, exactOnly = true) }.takeIf { it >= 0 }
+        ?: voices.indexOfFirst { AllohaTranslationMatcher.matches(it, voice, exactOnly = false) }.takeIf { it >= 0 }
+        ?: extractAudioIndex(voice)
+
+    // 1. Exact / fuzzy match by authentic track label or id in HLS metadata
+    var match: AudioTrackCandidate? = candidates.firstOrNull {
+        AllohaTranslationMatcher.matches(it.label, voice, exactOnly = true) ||
+                AllohaTranslationMatcher.matches(it.idStr, voice, exactOnly = true)
     } ?: candidates.firstOrNull {
-        AllohaTranslationMatcher.matches(it.third, voice)
+        AllohaTranslationMatcher.matches(it.label, voice, exactOnly = false) ||
+                AllohaTranslationMatcher.matches(it.idStr, voice, exactOnly = false)
     }
 
-    // Дорожки в HLS часто названы технически (rus0/audio0), поэтому как в iOS
-    // используем позицию озвучки в списке, если число дорожек совпадает.
-    if (match == null && voices.size > 1) {
-        val voiceIndex = voices.indexOfFirst {
-            AllohaTranslationMatcher.matches(it, voice, exactOnly = true)
-        }.takeIf { it >= 0 } ?: voices.indexOfFirst {
-            AllohaTranslationMatcher.matches(it, voice)
-        }
-        if (voiceIndex >= 0 && voiceIndex < candidates.size) {
-            match = candidates[voiceIndex]
+    // 2. Match by embedded index in label/URI/ID (e.g. rus0, audio0, index-a1)
+    if (match == null && targetVoiceIndex != null) {
+        match = candidates.firstOrNull { cand ->
+            val idx = extractAudioIndex(cand.label)
+                ?: extractAudioIndex(cand.idStr, isUri = true)
+                ?: extractAudioIndex(cand.language)
+            idx == targetVoiceIndex
         }
     }
 
-    val resolved = match ?: return null
+    // 3. Match by position in candidates list (accounting for English original track 0)
+    if (match == null && targetVoiceIndex != null) {
+        val isLookingForRussian = AllohaTranslationMatcher.isRussianTranslation(voice)
+        val candidate0IsEnglish = candidates.isNotEmpty() && candidates[0].isEnglishOrOriginal
+        if (isLookingForRussian && candidate0IsEnglish) {
+            val nonEnglishCandidates = candidates.filter { !it.isEnglishOrOriginal }
+            if (targetVoiceIndex in nonEnglishCandidates.indices) {
+                match = nonEnglishCandidates[targetVoiceIndex]
+            } else if (targetVoiceIndex + 1 in candidates.indices) {
+                match = candidates[targetVoiceIndex + 1]
+            }
+        } else if (targetVoiceIndex in candidates.indices) {
+            match = candidates[targetVoiceIndex]
+        }
+    }
+
+    // 4. Language tag match if unambiguous (iOS Step 6)
+    if (match == null) {
+        if (AllohaTranslationMatcher.isOriginalOrEnglishTranslation(voice)) {
+            match = candidates.firstOrNull { it.isEnglishOrOriginal }
+                ?: if (candidates.size > 1) candidates[1] else null
+        } else if (AllohaTranslationMatcher.isRussianTranslation(voice)) {
+            match = candidates.firstOrNull { it.isRussian }
+                ?: candidates.firstOrNull { !it.isEnglishOrOriginal }
+                ?: candidates.firstOrNull()
+        }
+    }
+
+    // 5. Fallback for Russian target: if candidate 0 is English and there are multiple tracks, pick candidate 1 (iOS Step 7)
+    if (match == null && AllohaTranslationMatcher.isRussianTranslation(voice) && candidates.size > 1 && candidates[0].isEnglishOrOriginal) {
+        match = candidates[1]
+    }
+
+    // 6. Guaranteed fallback: select candidate 0
+    val resolved = match ?: candidates.firstOrNull() ?: return null
+
+    android.util.Log.d(
+        "PlayerScreen",
+        "selectAudioTrackForVoice: target='$voice', total=${candidates.size}, chosen='${resolved.label}' (overall=${resolved.overallIndex}, track=${resolved.trackIndex}, lang=${resolved.language}, isRus=${resolved.isRussian}, isEng=${resolved.isEnglishOrOriginal})"
+    )
 
     val selectedTrackCount = groups.sumOf { group ->
         (0 until group.length).count(group::isTrackSelected)
     }
-    if (resolved.first.isTrackSelected(resolved.second) && selectedTrackCount == 1) return true
+    if (resolved.group.isTrackSelected(resolved.trackIndex) && selectedTrackCount == 1) return true
 
     trackSelectionParameters = trackSelectionParameters
         .buildUpon()
         .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-        .setOverrideForType(TrackSelectionOverride(resolved.first.mediaTrackGroup, resolved.second))
+        .setOverrideForType(TrackSelectionOverride(resolved.group.mediaTrackGroup, resolved.trackIndex))
+        .setPreferredAudioLanguages("ru", "rus", "ru-RU")
         .build()
     return false
 }
@@ -3086,13 +3453,19 @@ private fun ExoPlayer.selectAudioTrackForVoice(voice: String, voices: List<Strin
  * Creates a MediaItem configured with explicit HLS/MP4/MPD mime types.
  * Ensures that ExoPlayer always uses HlsMediaSource even for CDN tokens lacking an .m3u8 extension.
  */
-private fun createPlayableMediaItem(url: String): MediaItem {
+private fun createPlayableMediaItem(
+    url: String,
+    subtitles: List<MediaItem.SubtitleConfiguration> = emptyList()
+): MediaItem {
     val builder = MediaItem.Builder().setUri(url)
     val lower = url.lowercase(Locale.ROOT)
     when {
         lower.contains(".mp4") -> builder.setMimeType(MimeTypes.VIDEO_MP4)
         lower.contains(".mpd") -> builder.setMimeType(MimeTypes.APPLICATION_MPD)
         else -> builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    }
+    if (subtitles.isNotEmpty()) {
+        builder.setSubtitleConfigurations(subtitles)
     }
     return builder.build()
 }

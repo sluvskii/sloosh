@@ -10,6 +10,7 @@
 # --- Gson models (data layer is serialized wholesale via TypeToken) ---
 -keep class com.slooshfilm.app.data.api.** { *; }
 -keep class com.slooshfilm.app.data.alloha.** { *; }
+-keep class com.slooshfilm.app.data.models.** { *; }
 -keep class com.slooshfilm.app.data.storage.** { *; }
 -keep class com.slooshfilm.app.data.messenger.** { *; }
 -keep class com.slooshfilm.app.data.repository.** { *; }

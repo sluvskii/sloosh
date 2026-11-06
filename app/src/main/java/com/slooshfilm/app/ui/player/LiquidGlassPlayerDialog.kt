@@ -1,20 +1,27 @@
 package com.slooshfilm.app.ui.player
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.slooshfilm.app.R
 import androidx.compose.material3.Icon
@@ -40,6 +47,8 @@ import com.slooshfilm.app.data.alloha.AllohaEpisode
 import com.slooshfilm.app.data.alloha.AllohaSeason
 import com.slooshfilm.app.data.alloha.AllohaTranslation
 import com.slooshfilm.app.data.alloha.AllohaTranslationMatcher
+import com.slooshfilm.app.data.alloha.DubbingStudio
+import com.slooshfilm.app.data.alloha.LanguageFlag
 import com.slooshfilm.app.ui.backdrop.Backdrop
 import com.slooshfilm.app.ui.components.LiquidGlassDialog
 import com.slooshfilm.app.ui.components.LiquidMenuTokens
@@ -160,6 +169,13 @@ fun PlayerVoiceoverGlassDialog(
                 val isSelected = remember(trans.name, currentVoice) {
                     AllohaTranslationMatcher.matches(trans.name, currentVoice)
                 }
+                val studio = remember(trans.name) { DubbingStudio.detect(trans.name) }
+                val flag = remember(trans.name) { LanguageFlag.detect(trans.name) }
+                val iconResId = studio?.iconResId ?: flag.iconResId
+                val displayName = remember(trans.name) {
+                    val clean = DubbingStudio.cleanTranslationName(trans.name)
+                    if (iconResId != null) LanguageFlag.stripLeadingEmoji(clean) else clean
+                }
 
                 Row(
                     modifier = Modifier
@@ -176,16 +192,45 @@ fun PlayerVoiceoverGlassDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = trans.name,
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Normal,
-                        letterSpacing = (-0.2).sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp)
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (iconResId != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                            ) {
+                                Image(
+                                    painter = painterResource(iconResId),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .border(
+                                            width = 0.5.dp,
+                                            color = Color.White.copy(alpha = 0.14f),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+
+                        Text(
+                            text = displayName,
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = (-0.2).sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
                     if (isSelected) {
                         Icon(
@@ -217,14 +262,22 @@ fun PlayerQualityGlassDialog(
     val available = remember(qualityMap) {
         val list = mutableListOf("Авто")
         val sortedKeys = qualityMap.keys.filter { it != "Авто" }.sortedWith { a, b ->
-            val numA = a.replace("p", "").replace("K", "000").toIntOrNull() ?: 0
-            val numB = b.replace("p", "").replace("K", "000").toIntOrNull() ?: 0
+            val numA = when {
+                a.contains("4K", ignoreCase = true) || a.contains("2160") -> 2160
+                a.contains("2K", ignoreCase = true) || a.contains("1440") -> 1440
+                else -> a.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
+            }
+            val numB = when {
+                b.contains("4K", ignoreCase = true) || b.contains("2160") -> 2160
+                b.contains("2K", ignoreCase = true) || b.contains("1440") -> 1440
+                else -> b.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
+            }
             numB.compareTo(numA) // Descending
         }
         if (sortedKeys.isNotEmpty()) {
             list.addAll(sortedKeys)
         } else {
-            list.addAll(listOf("1080p", "720p", "480p", "360p"))
+            list.addAll(listOf("4K", "2K", "1080p", "720p", "480p", "360p"))
         }
         list
     }

@@ -4,12 +4,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.node.requireLayoutCoordinates
 import androidx.compose.ui.platform.InspectorInfo
 import com.slooshfilm.app.ui.backdrop.internal.recordLayer
+
+private fun DelegatableNode.safeLayoutCoordinates(): LayoutCoordinates? {
+    return if (node.isAttached) {
+        try {
+            requireLayoutCoordinates().takeIf { it.isAttached }
+        } catch (_: Throwable) {
+            null
+        }
+    } else {
+        null
+    }
+}
 
 fun Modifier.layerBackdrop(backdrop: LayerBackdrop): Modifier =
     this then LayerBackdropElement(backdrop)
@@ -26,6 +40,9 @@ private class LayerBackdropElement(
         if (node.backdrop != backdrop) {
             node.backdrop.layerCoordinates = null
             node.backdrop = backdrop
+            node.safeLayoutCoordinates()?.let {
+                backdrop.layerCoordinates = it
+            }
         }
         node.invalidateDraw()
     }
@@ -53,7 +70,19 @@ private class LayerBackdropNode(
     var backdrop: LayerBackdrop
 ) : DrawModifierNode, GlobalPositionAwareModifierNode, Modifier.Node() {
 
+    override fun onAttach() {
+        super.onAttach()
+        safeLayoutCoordinates()?.let {
+            backdrop.layerCoordinates = it
+        }
+    }
+
     override fun ContentDrawScope.draw() {
+        if (backdrop.layerCoordinates == null || backdrop.layerCoordinates?.isAttached != true) {
+            safeLayoutCoordinates()?.let {
+                backdrop.layerCoordinates = it
+            }
+        }
         recordLayer(this@LayerBackdropNode, backdrop.graphicsLayer) { backdrop.onDraw(this@draw) }
         drawLayer(backdrop.graphicsLayer)
     }

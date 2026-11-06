@@ -1,21 +1,8 @@
 package com.slooshfilm.app.ui.details
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -27,29 +14,48 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.kyant.shapes.Capsule
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.api.MediaDto
 import com.slooshfilm.app.data.repository.MoviesRepository
 import com.slooshfilm.app.data.storage.LocalStorage
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import com.slooshfilm.app.ui.backdrop.backdrops.LayerBackdrop
+import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
+import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import com.slooshfilm.app.ui.components.LocalBackdrop
+import com.slooshfilm.app.ui.components.LocalProgressiveBlur
+import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
+import com.slooshfilm.app.ui.components.iosProgressiveBlur
+import com.slooshfilm.app.ui.theme.LocalSlooshColors
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
+import com.slooshfilm.app.ui.components.EmptyStateView
+import com.slooshfilm.app.ui.components.ErrorStateView
 import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
 import com.slooshfilm.app.ui.components.LocalCardDensity
 import com.slooshfilm.app.ui.components.MediaCard
@@ -88,199 +94,294 @@ fun MediaCatalogScreen(
         )
     }
     val gridState = rememberLazyGridState()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isTablet = configuration.screenWidthDp >= 600
     val isCompact = LocalCardDensity.current == LocalStorage.CARD_DENSITY_COMPACT
-    val horizontalPadding = if (isCompact) 12.dp else 16.dp
-    val gridSpacing = if (isCompact) 8.dp else 16.dp
-    val minCardWidth = if (isCompact) 95.dp else 105.dp
-    val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+    val cutoutPadding = rememberCutoutHorizontalPadding()
+    val horizontalPadding = (if (isTablet) 20.dp else if (isCompact) 10.dp else 14.dp) + cutoutPadding
+    val gridSpacing = if (isTablet) 10.dp else if (isCompact) 6.dp else 8.dp
+    val columnsCount = if (isTablet) 6 else if (isLandscape) 4 else 3
+
     val title = remember(kind, name) {
         if (kind == CATALOG_KIND_GENRE) displayGenreTitle(name) else name
     }
-    val lastVisibleIndex by remember {
-        derivedStateOf { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+
+    val lastScrollTimestamp = remember { java.util.concurrent.atomic.AtomicLong(0L) }
+    val scrollTrackingConnection = remember(gridState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                lastScrollTimestamp.set(android.os.SystemClock.uptimeMillis())
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                lastScrollTimestamp.set(android.os.SystemClock.uptimeMillis())
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                lastScrollTimestamp.set(android.os.SystemClock.uptimeMillis())
+                return Velocity.Zero
+            }
+        }
+    }
+
+    val onMediaCardClick = remember<(MediaDto) -> Unit>(onMediaClick, gridState) {
+        { media ->
+            val now = android.os.SystemClock.uptimeMillis()
+            val wasRecentlyScrolling = (now - lastScrollTimestamp.get()) < 350L
+            if (!gridState.isScrollInProgress && !wasRecentlyScrolling) {
+                onMediaClick(media)
+            }
+        }
     }
 
     LaunchedEffect(state) {
         state.loadInitial()
     }
-    LaunchedEffect(lastVisibleIndex, state.items.size) {
-        if (state.items.isNotEmpty() && lastVisibleIndex >= state.items.size - 4) {
+
+    val shouldLoadMore by remember(gridState) {
+        derivedStateOf {
+            val layoutInfo = gridState.layoutInfo
+            val total = layoutInfo.totalItemsCount
+            if (total == 0) return@derivedStateOf false
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= total - 4
+        }
+    }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
             state.loadNextPage()
         }
     }
 
-    // The back button floats over the flat screen background (no content scrolls
-    // under the header row), so this canvas backdrop is the exact scene behind it.
-    val glassBackdrop = rememberCanvasBackdrop {
-        drawRect(BackgroundDark)
+    val screenBg = BackgroundDark
+    val isProgressiveBlurEnabled = LocalProgressiveBlur.current
+    val contentBackdrop = rememberLayerBackdrop {
+        drawRect(screenBg)
+        drawContent()
+    }
+    val sceneBackdrop = rememberLayerBackdrop {
+        drawRect(screenBg)
+        drawContent()
     }
 
-    Column(
+    val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarPadding = if (rawStatusBarPadding > 0.dp) rawStatusBarPadding else (if (isLandscape) 8.dp else 0.dp)
+    val navBarBottomPadding = com.slooshfilm.app.ui.components.rememberNavBarBottomPadding()
+    val topHeaderHeight = statusBarPadding + (if (isLandscape) 44.dp else 56.dp)
+    val headerBlurHeight = statusBarPadding + (if (isLandscape) 52.dp else 70.dp)
+    val bottomTotalPadding = if (isLandscape) navBarBottomPadding + 48.dp else navBarBottomPadding + 24.dp
+
+    val isScrolledPastTop by remember(gridState) {
+        derivedStateOf {
+            gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 30
+        }
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(screenBg)
     ) {
+        // 1. Edge-to-Edge Content and Progressive Blur Header captured in sceneBackdrop
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .height(44.dp)
+                .fillMaxSize()
+                .then(if (isProgressiveBlurEnabled) Modifier.layerBackdrop(sceneBackdrop) else Modifier)
         ) {
-            LiquidGlassFloatingButton(
-                onClick = onBack,
-                backdrop = glassBackdrop,
-                shape = CircleShape,
+            // Scrollable Content Layer captured in contentBackdrop
+            Box(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .size(44.dp)
+                    .fillMaxSize()
+                    .then(if (isProgressiveBlurEnabled) Modifier.layerBackdrop(contentBackdrop) else Modifier)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_sf_chevron_left),
-                    contentDescription = "Назад",
-                    tint = TextPrimaryDark,
-                    modifier = Modifier.size(20.dp)
+                // Solid opaque background so posters and cards blur completely
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(screenBg)
+                )
+
+                PullToRefreshBox(
+                    isRefreshing = state.isRefreshing,
+                    onRefresh = { state.loadInitial(force = true) },
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    when {
+                        state.isLoading && state.items.isEmpty() -> {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(columnsCount),
+                                contentPadding = PaddingValues(
+                                    top = topHeaderHeight + 8.dp,
+                                    bottom = bottomTotalPadding,
+                                    start = horizontalPadding,
+                                    end = horizontalPadding
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(gridSpacing),
+                                verticalArrangement = Arrangement.spacedBy(gridSpacing),
+                                userScrollEnabled = false,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(columnsCount * 3, contentType = { "poster-placeholder" }) {
+                                    Column {
+                                        ShimmerPlaceholder(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(2f / 3f),
+                                            cornerRadius = 12.dp
+                                        )
+                                        Spacer(Modifier.height(7.dp))
+                                        ShimmerPlaceholder(Modifier.fillMaxWidth(0.82f).height(14.dp), cornerRadius = 4.dp)
+                                        Spacer(Modifier.height(5.dp))
+                                        ShimmerPlaceholder(Modifier.fillMaxWidth(0.55f).height(11.dp), cornerRadius = 4.dp)
+                                    }
+                                }
+                            }
+                        }
+
+                        state.items.isEmpty() -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(
+                                        top = topHeaderHeight,
+                                        bottom = bottomTotalPadding,
+                                        start = 32.dp,
+                                        end = 32.dp
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (state.errorMessage != null) {
+                                    ErrorStateView(
+                                        title = "Не удалось загрузить",
+                                        message = state.errorMessage ?: "Проверьте интернет-соединение и попробуйте снова.",
+                                        onRetry = { state.loadInitial(force = true) },
+                                        iconRes = R.drawable.ic_sf_antenna_radiowaves,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                } else {
+                                    EmptyStateView(
+                                        iconRes = R.drawable.ic_sf_film_fill,
+                                        title = "Ничего не найдено",
+                                        message = if (kind == CATALOG_KIND_GENRE) {
+                                            "В категории «$title» пока нет доступных фильмов"
+                                        } else {
+                                            "В каталоге «$title» пока нет доступных релизов"
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        else -> {
+                            LazyVerticalGrid(
+                                state = gridState,
+                                columns = GridCells.Fixed(columnsCount),
+                                contentPadding = PaddingValues(
+                                    top = topHeaderHeight + 8.dp,
+                                    bottom = bottomTotalPadding,
+                                    start = horizontalPadding,
+                                    end = horizontalPadding
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(gridSpacing),
+                                verticalArrangement = Arrangement.spacedBy(gridSpacing),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .nestedScroll(scrollTrackingConnection)
+                            ) {
+                                items(
+                                    items = state.items,
+                                    key = { it.favoriteIdentity },
+                                    contentType = { "media-card" }
+                                ) { media ->
+                                    MediaCard(
+                                        media = media,
+                                        onClick = onMediaCardClick,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (state.isAppending) {
+                                    items(
+                                        count = columnsCount,
+                                        key = { "cat_placeholder_$it" },
+                                        contentType = { "poster-placeholder" }
+                                    ) {
+                                        Column {
+                                            ShimmerPlaceholder(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .aspectRatio(2f / 3f),
+                                                cornerRadius = 12.dp
+                                            )
+                                            Spacer(Modifier.height(7.dp))
+                                            ShimmerPlaceholder(Modifier.fillMaxWidth(0.82f).height(14.dp), cornerRadius = 4.dp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Floating Progressive Blur Top Header (Apple TV+ Style)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(headerBlurHeight)
+                    .align(Alignment.TopCenter)
+            ) {
+                CatalogFloatingHeaderBackground(
+                    contentBackdrop = contentBackdrop,
+                    isProgressiveBlurEnabled = isProgressiveBlurEnabled,
+                    isScrolledPastTop = isScrolledPastTop,
+                    screenBg = screenBg,
+                    statusBarPadding = statusBarPadding
                 )
             }
         }
 
-        Text(
-            text = title,
-            style = SlooshTypography.headlineLarge,
-            color = TextPrimaryDark,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = horizontalPadding)
-                .padding(bottom = 10.dp)
-        )
+        // 2. Floating Top Navigation Bar (refracting sceneBackdrop)
+        CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+            val cutoutPadding = rememberCutoutHorizontalPadding()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = statusBarPadding)
+                    .height(if (isLandscape) 44.dp else 56.dp)
+                    .padding(horizontal = 16.dp + cutoutPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                // Centered Title matching iOS SlooshTopBar 1:1
+                Text(
+                    text = title,
+                    style = if (isLandscape) SlooshTypography.titleMedium else SlooshTypography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimaryDark,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 56.dp)
+                )
 
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = { state.loadInitial(force = true) },
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            when {
-                state.isLoading && state.items.isEmpty() -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minCardWidth),
-                        contentPadding = PaddingValues(
-                            start = horizontalPadding,
-                            end = horizontalPadding,
-                            bottom = bottomPadding
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(gridSpacing),
-                        verticalArrangement = Arrangement.spacedBy(gridSpacing),
-                        userScrollEnabled = false,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(9, contentType = { "poster-placeholder" }) {
-                            Column {
-                                ShimmerPlaceholder(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(2f / 3f),
-                                    cornerRadius = 12.dp
-                                )
-                                Spacer(Modifier.height(7.dp))
-                                ShimmerPlaceholder(Modifier.fillMaxWidth(0.82f).height(14.dp), cornerRadius = 4.dp)
-                                Spacer(Modifier.height(5.dp))
-                                ShimmerPlaceholder(Modifier.fillMaxWidth(0.55f).height(11.dp), cornerRadius = 4.dp)
-                            }
-                        }
-                    }
-                }
-
-                state.items.isEmpty() -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_film_fill),
-                                contentDescription = null,
-                                tint = TextTertiaryDark,
-                                modifier = Modifier.size(42.dp)
-                            )
-                            Spacer(Modifier.height(14.dp))
-                            Text(
-                                text = if (state.errorMessage == null) "Ничего не найдено" else "Не удалось загрузить",
-                                style = SlooshTypography.titleLarge,
-                                color = TextPrimaryDark,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = state.errorMessage ?: if (kind == CATALOG_KIND_GENRE) {
-                                    "В категории «$title» пока нет доступных фильмов"
-                                } else {
-                                    "В каталоге «$title» пока нет доступных релизов"
-                                },
-                                style = SlooshTypography.bodyMedium,
-                                color = TextSecondaryDark,
-                                textAlign = TextAlign.Center
-                            )
-                            if (state.errorMessage != null) {
-                                Spacer(Modifier.height(16.dp))
-                                Button(
-                                    onClick = { state.loadInitial(force = true) },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = SlooshAccent,
-                                        contentColor = Color.Black
-                                    ),
-                                    shape = Capsule()
-                                ) {
-                                    Text("Повторить")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                else -> {
-                    LazyVerticalGrid(
-                        state = gridState,
-                        columns = GridCells.Adaptive(minCardWidth),
-                        contentPadding = PaddingValues(
-                            start = horizontalPadding,
-                            end = horizontalPadding,
-                            bottom = bottomPadding
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(gridSpacing),
-                        verticalArrangement = Arrangement.spacedBy(gridSpacing),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(
-                            items = state.items,
-                            key = { it.favoriteIdentity },
-                            contentType = { "media-card" }
-                        ) { media ->
-                            MediaCard(
-                                media = media,
-                                onClick = { onMediaClick(media) }
-                            )
-                        }
-                        if (state.isAppending) {
-                            items(3, contentType = { "poster-placeholder" }) {
-                                Column {
-                                    ShimmerPlaceholder(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(2f / 3f),
-                                        cornerRadius = 12.dp
-                                    )
-                                    Spacer(Modifier.height(7.dp))
-                                    ShimmerPlaceholder(Modifier.fillMaxWidth(0.82f).height(14.dp), cornerRadius = 4.dp)
-                                }
-                            }
-                        }
-                    }
+                // Circular Glass Back Button
+                LiquidGlassFloatingButton(
+                    onClick = onBack,
+                    backdrop = sceneBackdrop,
+                    shape = CircleShape,
+                    tint = com.slooshfilm.app.ui.theme.LiquidGlassSurfaceDark,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_sf_chevron_left),
+                        contentDescription = "Назад",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
@@ -418,5 +519,60 @@ private fun displayGenreTitle(genre: String): String {
         "НФ и фэнтези"
     } else {
         normalized.replaceFirstChar { char -> char.titlecase() }
+    }
+}
+
+@Composable
+private fun CatalogFloatingHeaderBackground(
+    contentBackdrop: LayerBackdrop,
+    isProgressiveBlurEnabled: Boolean,
+    isScrolledPastTop: Boolean,
+    screenBg: Color,
+    statusBarPadding: Dp
+) {
+    val headerAlpha by animateFloatAsState(
+        targetValue = if (isScrolledPastTop) 1f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "catalogHeaderAlpha"
+    )
+
+    if (isProgressiveBlurEnabled && (isScrolledPastTop || headerAlpha > 0.001f)) {
+        val isLightTheme = !LocalSlooshColors.current.isDark
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = headerAlpha }
+                .drawBackdrop(
+                    backdrop = contentBackdrop,
+                    shape = { RectangleShape },
+                    effects = {
+                        val topOffsetPx = statusBarPadding.toPx()
+                        iosProgressiveBlur(
+                            maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                            topOffset = topOffsetPx,
+                            falloffDistance = (size.height - topOffsetPx).coerceAtLeast(1f),
+                            isLight = isLightTheme
+                        )
+                    },
+                    highlight = null,
+                    shadow = null
+                )
+        )
+    }
+
+    if (isScrolledPastTop || headerAlpha > 0.001f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = headerAlpha }
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            screenBg,
+                            screenBg.copy(alpha = 0f)
+                        )
+                    )
+                )
+        )
     }
 }

@@ -1,5 +1,7 @@
 package com.slooshfilm.app.data.alloha
 
+import androidx.annotation.DrawableRes
+import com.slooshfilm.app.R
 import java.util.regex.Pattern
 
 /**
@@ -10,71 +12,85 @@ import java.util.regex.Pattern
 enum class DubbingStudio(
     val id: String,
     val title: String,
+    @DrawableRes val iconResId: Int?,
     val searchKeywords: List<String>
 ) {
     RED_HEAD_SOUND(
         id = "rhs",
         title = "Red Head Sound",
+        iconResId = R.drawable.ic_studio_rhs,
         searchKeywords = listOf("red head sound", "redheadsound", "ред хед саунд", "редхед", "rhs", "рхс")
     ),
     HD_REZKA(
         id = "hdrezka",
         title = "HDRezka Studio",
+        iconResId = R.drawable.ic_studio_hdrezka,
         searchKeywords = listOf("hdrezka", "hd-rezka", "rezka", "хдрезка", "хд резка", "резка")
     ),
     FLARROW_FILMS(
         id = "flarrowfilms",
         title = "Flarrow Films",
+        iconResId = R.drawable.ic_studio_flarrowfilms,
         searchKeywords = listOf("flarrow films", "flarrowfilms", "flarrow", "флэрроу филмс", "флэрроу", "флероу")
     ),
     TV_SHOWS(
         id = "tvshows",
         title = "TVShows",
+        iconResId = R.drawable.ic_studio_tvshows,
         searchKeywords = listOf("tvshows", "tv shows", "tv-shows", "твшоус", "тв шоу", "твшоу")
     ),
     ALEX_FILM(
         id = "alexfilm",
         title = "AlexFilm",
+        iconResId = R.drawable.ic_studio_alexfilm,
         searchKeywords = listOf("alexfilm", "alex film", "alex-film", "алексфильм", "алекс фильм", "alex")
     ),
     RU_DUB(
         id = "rudub",
         title = "RuDub",
+        iconResId = null,
         searchKeywords = listOf("rudub", "ru dub", "ru-dub", "рудаб", "ру даб")
     ),
     COLD_FILM(
         id = "coldfilm",
         title = "ColdFilm",
+        iconResId = R.drawable.ic_studio_coldfilm,
         searchKeywords = listOf("coldfilm", "cold film", "cold-film", "колдфильм", "колд фильм", "cold")
     ),
     LOST_FILM(
         id = "lostfilm",
         title = "LostFilm",
+        iconResId = R.drawable.ic_studio_lostfilm,
         searchKeywords = listOf("lostfilm", "lost film", "lost-film", "лостфильм", "лост фильм", "lost")
     ),
     KUBIK_V_KUBE(
         id = "kubik",
         title = "Кубик в кубе",
+        iconResId = R.drawable.ic_studio_kubik,
         searchKeywords = listOf("кубик в кубе", "кубик в кубе (18+)", "кубики", "kubik v kube", "kubik-v-kube", "kubik")
     ),
     DARON_MONEY(
         id = "dms",
         title = "Dragon Money Studio",
+        iconResId = R.drawable.ic_studio_dms,
         searchKeywords = listOf("daron money studio", "daron money", "dragon money studio", "dragon money", "daron", "dragon", "dms", "дарон мани", "драгон мани", "дарон", "драгон")
     ),
     JASKIER(
         id = "jaskier",
         title = "Jaskier",
+        iconResId = R.drawable.ic_studio_jaskier,
         searchKeywords = listOf("jaskier", "яскъ", "яск", "яскьер", "яскиер", "жаскьер")
     ),
     NEW_STUDIO(
         id = "newstudio",
         title = "NewStudio",
+        iconResId = R.drawable.ic_studio_newstudio,
         searchKeywords = listOf("newstudio", "new studio", "new-studio", "ньюстудио", "нью студио", "нью-студио", "newstudio tv")
     ),
     LE_PRODUCTION(
         id = "leproduction",
         title = "LE-Production",
+        iconResId = R.drawable.ic_studio_le,
         searchKeywords = listOf("le-production", "le - production", "le production", "leproduction", "l.e. production", "l.e.production", "ле-продакшн", "ле продакшн", "лепродакшн", "ле продакшен", "ле-продакшен", "le-prod", "le prod")
     );
 
@@ -120,6 +136,11 @@ enum class DubbingStudio(
             indexInAll: Int,
             allRawNames: List<String>
         ): String = uniqueTranslationDisplayName(rawName, indexInAll, allRawNames)
+
+        /**
+         * Очищает эмодзи в начале названия, сохраняя само название целиком без обрезки (1:1 iOS DubbingStudio.cleanChipTitle).
+         */
+        fun cleanChipTitle(displayName: String): String = LanguageFlag.stripLeadingEmoji(displayName)
     }
 }
 

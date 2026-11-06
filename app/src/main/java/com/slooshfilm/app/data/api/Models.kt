@@ -85,14 +85,14 @@ data class MediaDto(
         else -> year?.toString() ?: ""
     }
 
-    fun getDisplayPosterUrl(isLowQuality: Boolean = false): String? {
+    fun getDisplayPosterUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
         val rawUrl = poster ?: posterUrl ?: posterPath
-        return normalizeImageUrl(path = rawUrl, id = originalId, isLowQuality = isLowQuality)
+        return normalizeImageUrl(path = rawUrl, id = originalId, isLowQuality = isLowQuality, quality = quality)
     }
 
-    fun getDisplayBackdropUrl(isLowQuality: Boolean = false): String? {
+    fun getDisplayBackdropUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
         val rawUrl = backdrop ?: backdropPath
-        return normalizeImageUrl(path = rawUrl, id = originalId, isLowQuality = isLowQuality) ?: getDisplayPosterUrl(isLowQuality)
+        return normalizeImageUrl(path = rawUrl, id = originalId, isLowQuality = isLowQuality, quality = quality, isBackdrop = true) ?: getDisplayPosterUrl(isLowQuality = isLowQuality, quality = quality)
     }
 
     val isTvSeries: Boolean
@@ -145,6 +145,10 @@ data class MediaDto(
     val id: String get() = originalId ?: identifier
     val cleanId: String get() = id.replace("tv_", "").replace("movie_", "")
     val favoriteIdentity: String get() = "${canonicalMediaType(type, originalId)}:$cleanId"
+
+    val kpId: Int? get() = externalIds?.effectiveKp?.takeIf { it > 0 } ?: if (originalId?.startsWith("kp_") == true) cleanId.toIntOrNull()?.takeIf { it > 0 } else null
+    val tmdbId: Int? get() = externalIds?.effectiveTmdb?.takeIf { it > 0 } ?: if (originalId?.startsWith("kp_") != true) cleanId.toIntOrNull()?.takeIf { it > 0 } else null
+    val imdbId: String? get() = externalIds?.effectiveImdb
 }
 
 private val tvTypeAliases = setOf("tv", "tv_series", "series", "mini_series", "serial", "show")
@@ -239,22 +243,27 @@ data class MediaDetailsDto(
     @SerializedName("revenue") val revenue: Long? = null,
     @SerializedName("ageRating") val ageRating: String? = null,
     @SerializedName("productionCompanies") val productionCompanies: List<StudioDto>? = null,
-    @SerializedName("networks") val networks: List<StudioDto>? = null
+    @SerializedName("networks") val networks: List<StudioDto>? = null,
+    @SerializedName("ids") val ids: IdsDto? = null,
+    @SerializedName("externalIds") val externalIds: ExternalIdsDto? = null
 ) {
-    fun getDisplayPosterUrl(isLowQuality: Boolean = false): String? {
-        return normalizeImageUrl(path = poster, id = id, isLowQuality = isLowQuality)
+    val kpId: Int? get() = (ids?.kp ?: externalIds?.effectiveKp)?.takeIf { it > 0 } ?: if (id?.startsWith("kp_") == true) cleanId.toIntOrNull()?.takeIf { it > 0 } else null
+    val tmdbId: Int? get() = (externalIds?.effectiveTmdb ?: ids?.tmdb ?: if (id?.startsWith("kp_") != true) cleanId.toIntOrNull() else null)?.takeIf { it > 0 }
+    val imdbId: String? get() = externalIds?.effectiveImdb ?: ids?.imdb
+    fun getDisplayPosterUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
+        return normalizeImageUrl(path = poster, id = id, isLowQuality = isLowQuality, quality = quality)
     }
 
-    fun getDisplayBackdropUrl(isLowQuality: Boolean = false): String? {
+    fun getDisplayBackdropUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
         val path = backdrop ?: backdrops?.firstOrNull()
-        return normalizeImageUrl(path = path, id = id, isLowQuality = isLowQuality) ?: getDisplayPosterUrl(isLowQuality)
+        return normalizeImageUrl(path = path, id = id, isLowQuality = isLowQuality, quality = quality, isBackdrop = true) ?: getDisplayPosterUrl(isLowQuality = isLowQuality, quality = quality)
     }
 
     val displayBackdropUrls: List<String>
         get() {
             val list = mutableListOf<String>()
             backdrops?.forEach { b ->
-                val norm = normalizeImageUrl(path = b, id = id, isLowQuality = false)
+                val norm = normalizeImageUrl(path = b, id = id, isLowQuality = false, isBackdrop = true)
                 if (!norm.isNullOrBlank() && !list.contains(norm)) {
                     list.add(norm)
                 }
@@ -325,21 +334,37 @@ data class MediaDetailsDto(
     }
 }
 
+@Immutable
 data class RatingsV2Dto(
     @SerializedName("kp") val kp: Double?,
     @SerializedName("imdb") val imdb: Double?,
     @SerializedName("tmdb") val tmdb: Double? = null
 )
 
+@Immutable
 data class GenreDto(
     @SerializedName("id") val id: String?,
     @SerializedName("name") val name: String?
 )
 
+@Immutable
 data class ExternalIdsDto(
-    @SerializedName("kpId") val kpId: Int?,
-    @SerializedName("tmdbId") val tmdbId: Int?,
-    @SerializedName("imdbId") val imdbId: String?
+    @SerializedName("kp") val kp: Int? = null,
+    @SerializedName("tmdb") val tmdb: Int? = null,
+    @SerializedName("imdb") val imdb: String? = null,
+    @SerializedName("kpId") val kpId: Int? = null,
+    @SerializedName("tmdbId") val tmdbId: Int? = null,
+    @SerializedName("imdbId") val imdbId: String? = null
+) {
+    val effectiveKp: Int? get() = kp ?: kpId
+    val effectiveTmdb: Int? get() = tmdb ?: tmdbId
+    val effectiveImdb: String? get() = imdb ?: imdbId
+}
+
+data class IdsDto(
+    @SerializedName("kp") val kp: Int? = null,
+    @SerializedName("imdb") val imdb: String? = null,
+    @SerializedName("tmdb") val tmdb: Int? = null
 )
 
 data class CastMemberDto(
@@ -448,23 +473,56 @@ data class StreamConfigDto(
     @SerializedName("tokens") val tokens: List<String>?
 )
 
-fun normalizeImageUrl(path: String?, id: String? = null, isLowQuality: Boolean = false): String? {
+fun normalizeImageUrl(
+    path: String?,
+    id: String? = null,
+    isLowQuality: Boolean = false,
+    quality: String? = null,
+    isBackdrop: Boolean = false
+): String? {
     if (path.isNullOrBlank()) return null
     val base = MoviesApi.activeImagesBaseUrl
     val proxyBase = "$base/api/v1/images/tmdb"
+
+    // Map quality options ("Низкое", "Среднее", "Высокое") to native TMDB sizes supported by sloosh-api proxy
+    val size = if (isBackdrop) {
+        when {
+            quality == "Низкое" || isLowQuality -> "w780"
+            quality == "Среднее" -> "w1280"
+            quality == "Высокое" -> "w1280"
+            else -> "w1280"
+        }
+    } else {
+        when {
+            quality == "Низкое" || isLowQuality -> "w185" // 20 KB ultra-fast thumbnail
+            quality == "Среднее" -> "w342"               // 60 KB crisp retina card
+            quality == "Высокое" -> "w500"               // 119 KB high-res
+            else -> "w342"
+        }
+    }
+
     if (path.startsWith("http://") || path.startsWith("https://")) {
+        // If the URL is already routed through our image proxy (/api/v1/images/tmdb/w500/...)
+        // adapt the size segment to match the requested quality setting
+        if (path.contains("/api/v1/images/tmdb/")) {
+            val tmdbPath = path.substringAfter("/api/v1/images/tmdb/").substringAfter("/")
+            return "$proxyBase/$size/$tmdbPath"
+        }
         if (path.contains("api-sloosh.vercel.app")) {
-            return path.replace("https://api-sloosh.vercel.app", base)
+            val replaced = path.replace("https://api-sloosh.vercel.app", base)
                 .replace("http://api-sloosh.vercel.app", base)
+            if (replaced.contains("/api/v1/images/tmdb/")) {
+                val tmdbPath = replaced.substringAfter("/api/v1/images/tmdb/").substringAfter("/")
+                return "$proxyBase/$size/$tmdbPath"
+            }
+            return replaced
         }
         if (path.contains("image.tmdb.org/t/p/")) {
-            val size = if (isLowQuality) "w500" else "w1280"
             val tmdbPath = path.substringAfter("image.tmdb.org/t/p/").substringAfter("/")
             return "$proxyBase/$size/$tmdbPath"
         }
         return path
     }
     val cleanPath = path.trimStart('/')
-    val size = if (isLowQuality) "w500" else "w1280"
     return "$proxyBase/$size/$cleanPath"
 }

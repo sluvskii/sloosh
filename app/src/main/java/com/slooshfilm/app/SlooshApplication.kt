@@ -59,7 +59,9 @@ class SlooshApplication : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
-            .allowHardware(true) // Native GPU HardwareBuffer textures for buttery smooth 120 FPS rendering
+            .allowHardware(false) // Disable background hardware bitmaps to prevent Mali driver BAD ALLOC and EGL context stalls
+            .bitmapConfig(android.graphics.Bitmap.Config.ARGB_8888)
+            .dispatcher(kotlinx.coroutines.Dispatchers.IO.limitedParallelism(4))
             .components {
                 add(Interceptor { chain ->
                     val request = chain.request
@@ -83,10 +85,10 @@ class SlooshApplication : Application(), ImageLoaderFactory {
                 dir.mkdirs()
                 DiskCache.Builder()
                     .directory(dir)
-                    .maxSizeBytes(100L * 1024 * 1024)
+                    .maxSizeBytes(150L * 1024 * 1024)
                     .build()
             }
-            .crossfade(true)
+            .crossfade(false)
             .build()
     }
 

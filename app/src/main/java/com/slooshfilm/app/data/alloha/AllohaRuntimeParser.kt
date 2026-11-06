@@ -120,10 +120,11 @@ object AllohaRuntimeParser {
                 }
 
                 val sortedItemVariants = itemVariants.sortedByDescending { qualityHeight((it["label"] as? String).orEmpty()) }
-                // Match iOS: use the highest direct quality first; master playlists can be
-                // stale or denied even when their underlying quality URLs are playable.
-                val chosenAudioURL = sortedItemVariants.firstOrNull()?.get("url") as? String
-                    ?: itemMasterURL
+                // For HLS streams with alternative audio tracks, always prioritize master.m3u8
+                // so ExoPlayer loads the complete multi-audio playlist and AllohaHlsRewriter can rewrite it.
+                val chosenAudioURL = itemMasterURL
+                    ?: masterURL
+                    ?: sortedItemVariants.firstOrNull()?.get("url") as? String
                     ?: itemAdaptiveURL
 
                 if (chosenAudioURL != null) {
@@ -131,6 +132,7 @@ object AllohaRuntimeParser {
                         "id" to "$i-$chosenAudioURL",
                         "title" to audioVariantTitle(item, i),
                         "url" to chosenAudioURL,
+                        "masterUrl" to (itemMasterURL ?: masterURL ?: chosenAudioURL),
                         "qualityVariants" to sortedItemVariants
                     ))
                 }
@@ -139,9 +141,9 @@ object AllohaRuntimeParser {
             qualityVariants.sortByDescending { qualityHeight((it["label"] as? String).orEmpty()) }
             val deduped = deduplicatedAudioVariants(audioVariants)
             val firstUrl = deduped.firstOrNull()?.get("url") as? String
-            val pickedURL = qualityVariants.firstOrNull()?.get("url") as? String
-                ?: masterURL
+            val pickedURL = masterURL
                 ?: adaptiveURL
+                ?: qualityVariants.firstOrNull()?.get("url") as? String
                 ?: firstUrl
             pickedURL ?: continue
 
@@ -402,7 +404,17 @@ object AllohaRuntimeParser {
     }
 
     private fun qualityHeight(label: String): Int {
-        return label.lowercase(Locale.ROOT).replace("p", "").toIntOrNull() ?: 0
+        val clean = label.lowercase(Locale.ROOT).trim()
+        return when {
+            clean.contains("4k") || clean.contains("2160") -> 2160
+            clean.contains("2k") || clean.contains("1440") -> 1440
+            clean.contains("1080") -> 1080
+            clean.contains("720") -> 720
+            clean.contains("480") -> 480
+            clean.contains("360") -> 360
+            clean.contains("240") -> 240
+            else -> clean.filter { it.isDigit() }.toIntOrNull() ?: 0
+        }
     }
 
     private fun normalizedQualityLabel(label: String): String {
@@ -443,7 +455,7 @@ object AllohaRuntimeParser {
             ?: firstEscapedURL(payload, listOf("m3u8", "mp4", "mpd"), baseUrl)
     }
 
-    private fun subtitleTracks(payload: String, baseUrl: URI): List<Map<String, String>> {
+    fun subtitleTracks(payload: String, baseUrl: URI): List<Map<String, String>> {
         val tracks = mutableListOf<Map<String, String>>()
 
         for (candidate in listOf(payload) + embeddedJSONObjectCandidates(payload)) {
@@ -453,12 +465,12 @@ object AllohaRuntimeParser {
                 if (tracksArray != null) {
                     for (i in 0 until tracksArray.length()) {
                         val track = tracksArray.optJSONObject(i) ?: continue
-                        if (track.optString("kind") != "captions") continue
-                        val url = track.optString("src", "")
+                        if (track.optString("kind", "captions") != "captions" && track.has("kind")) continue
+                        val url = track.optString("src", "").ifEmpty { track.optString("url", "").ifEmpty { track.optString("file", "") } }
                         val lang = track.optString("language", "und")
-                        val name = track.optString("label", lang)
+                        val name = track.optString("label", "").ifEmpty { track.optString("name", "").ifEmpty { track.optString("title", lang) } }
                         if (url.isNotBlank()) {
-                            val fullUrl = if (url.startsWith("//")) "https:$url" else url
+                            val fullUrl = makeURL(url, baseUrl) ?: (if (url.startsWith("//")) "https:$url" else url)
                             tracks += mapOf(
                                 "name" to name,
                                 "url" to fullUrl,
@@ -467,18 +479,40 @@ object AllohaRuntimeParser {
                         }
                     }
                 }
+                val subtitlesArray = obj.optJSONArray("subtitles")
+                if (subtitlesArray != null) {
+                    for (i in 0 until subtitlesArray.length()) {
+                        val item = subtitlesArray.optJSONObject(i) ?: continue
+                        val url = item.optString("url", "").ifEmpty { item.optString("src", "").ifEmpty { item.optString("file", "") } }
+                        val name = item.optString("name", "").ifEmpty { item.optString("label", "").ifEmpty { item.optString("title", "Субтитры") } }
+                        if (url.isNotBlank()) {
+                            val fullUrl = makeURL(url, baseUrl) ?: (if (url.startsWith("//")) "https:$url" else url)
+                            tracks += mapOf("name" to name, "url" to fullUrl)
+                        }
+                    }
+                }
+                val subString = obj.optString("subtitles", "").ifEmpty { obj.optString("subtitle", "") }
+                if (subString.isNotBlank()) {
+                    val bracketPattern = """\[([^\]]+)\]\s*([^\s,;\"'\[\]]+\.(?:vtt|srt)(?:\?[^\s,;\"'\[\]]*)?)"""
+                    tracks += subtitleTracksByPattern(subString, bracketPattern, baseUrl)
+                }
             } catch (_: Exception) { }
         }
 
-        if (tracks.isEmpty()) {
-            val patterns = listOf(
-                """\{\s*"url"\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\s*,\s*"name"\s*:\s*"([^"]+)"""",
-                """\{\s*url\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\s*,\s*name\s*:\s*"([^"]+)"""",
-                """\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"url"\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)""""
-            )
-            patterns.forEach { pattern ->
-                tracks += subtitleTracksByPattern(payload, pattern, baseUrl)
-            }
+        val patterns = listOf(
+            """\{\s*"url"\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\s*,\s*"name"\s*:\s*"([^"]+)"\}""",
+            """\{\s*url\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\s*,\s*name\s*:\s*"([^"]+)"\}""",
+            """\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"url"\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\}""",
+            """\{\s*"(?:title|label)"\s*:\s*"([^"]+)"\s*,\s*"url"\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\}""",
+            """\{\s*"url"\s*:\s*"([^"]+\.(?:vtt|srt)(?:\?[^"]*)?)"\s*,\s*"(?:title|label)"\s*:\s*"([^"]+)"\}""",
+            """\[([^\]]+)\]\s*([^\s,;\"'\[\]]+\.(?:vtt|srt)(?:\?[^\s,;\"'\[\]]*)?)""",
+            """<track\b[^>]*\bsrc=["']([^"']+\.(?:vtt|srt)[^"']*)["'][^>]*\blabel=["']([^"']+)["']""",
+            """<track\b[^>]*\blabel=["']([^"']+)["'][^>]*\bsrc=["']([^"']+\.(?:vtt|srt)[^"']*)["']""",
+            """["']?subtitle["']?\s*:\s*["']([^"']+\.(?:vtt|srt)(?:\?[^"']*)?)["']""",
+            """["']?subtitles["']?\s*:\s*["']([^"']+\.(?:vtt|srt)(?:\?[^"']*)?)["']"""
+        )
+        patterns.forEach { pattern ->
+            tracks += subtitleTracksByPattern(payload, pattern, baseUrl)
         }
 
         if (tracks.isEmpty()) {
@@ -487,7 +521,10 @@ object AllohaRuntimeParser {
             }
         }
         val seen = mutableSetOf<String>()
-        return tracks.filter { track -> seen.add(track["url"].orEmpty()) }
+        return tracks.filter { track ->
+            val u = track["url"].orEmpty()
+            u.isNotBlank() && seen.add(u)
+        }
     }
 
     private fun subtitleTracksByPattern(text: String, pattern: String, baseUrl: URI): List<Map<String, String>> {

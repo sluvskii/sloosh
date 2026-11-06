@@ -3,7 +3,9 @@ package com.slooshfilm.app.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -20,7 +22,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -172,6 +176,9 @@ class LiquidMenuState {
     var options by mutableStateOf<List<String>>(emptyList())
         internal set
 
+    var itemIcons by mutableStateOf<List<Int?>?>(null)
+        internal set
+
     var selectedIndex by mutableIntStateOf(-1)
         internal set
 
@@ -189,9 +196,11 @@ class LiquidMenuState {
         selectedIndex: Int,
         anchorBounds: Rect,
         customWidth: Dp? = null,
+        itemIcons: List<Int?>? = null,
         onSelect: (Int) -> Unit
     ) {
         this.options = options
+        this.itemIcons = itemIcons
         this.selectedIndex = selectedIndex
         this.anchorBounds = anchorBounds
         this.customWidth = customWidth
@@ -478,7 +487,7 @@ fun LiquidGlassMenuOverlay(
             } else {
                 LiquidGlassTokens.Menu.copy(
                     refractionAmount = 12.dp + (8.dp * progressClamped) + (5.dp * liquidWave),
-                    chromaticAberration = 0.08f + (0.04f * liquidWave),
+                    chromaticAberration = 0f,
                     highlightAlpha = lerp(0.55f, 0.45f, progressClamped) + (0.10f * liquidWave)
                 )
             }
@@ -704,7 +713,34 @@ fun LiquidGlassMenuOverlay(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(10.dp))
+                            val iconResId = state.itemIcons?.getOrNull(index)
+                            if (iconResId != null) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                ) {
+                                    Image(
+                                        painter = painterResource(iconResId),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .border(
+                                                width = 0.5.dp,
+                                                color = Color.White.copy(alpha = 0.14f),
+                                                shape = CircleShape
+                                            )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                            } else {
+                                Spacer(modifier = Modifier.width(10.dp))
+                            }
 
                             Text(
                                 text = option,

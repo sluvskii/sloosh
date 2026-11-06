@@ -1,20 +1,31 @@
 package com.slooshfilm.app.data.alloha
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.graphics.Bitmap
+import android.net.Uri
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.net.URI
 import java.net.URL
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -22,14 +33,16 @@ import java.util.concurrent.ConcurrentHashMap
 class AllohaRuntimeResolver(private val context: Context) {
     companion object {
         private val iframeCache = ConcurrentHashMap<String, Pair<Map<String, Any>, Long>>()
-        private const val CACHE_TTL_MS = 20_000L // 20 seconds (matches iOS)
+        private const val CACHE_TTL_MS = 20_000L // 20 seconds (matches iOS 1:1)
 
         fun invalidateCache(iframeUrl: String) {
             iframeCache.remove(iframeUrl)
+            DynamicHttpDataSource.invalidateMasterCache()
         }
 
         fun invalidateAllCache() {
             iframeCache.clear()
+            DynamicHttpDataSource.invalidateMasterCache()
         }
 
         private var uaIndex = 0
@@ -50,6 +63,7 @@ class AllohaRuntimeResolver(private val context: Context) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var webView: WebView? = null
+    private var hostView: View? = null
     private var finished = false
     private val headers = linkedMapOf<String, String>()
     private val pendingPayloads = ArrayDeque<String>()
@@ -84,26 +98,46 @@ class AllohaRuntimeResolver(private val context: Context) {
         }
     }
 
+    private fun findActivity(ctx: Context): Activity? {
+        var current = ctx
+        while (current is ContextWrapper) {
+            if (current is Activity) return current
+            current = current.baseContext
+        }
+        return null
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun start(iframeUrl: String) {
         val wv = WebView(context)
         webView = wv
-        wv.settings.javaScriptEnabled = true
-        wv.settings.domStorageEnabled = true
-        wv.settings.mediaPlaybackRequiresUserGesture = false
-        wv.settings.allowFileAccess = false
-        wv.settings.allowContentAccess = false
-        wv.settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-        wv.settings.userAgentString = activeUserAgent
+        wv.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            mediaPlaybackRequiresUserGesture = false
+            allowFileAccess = false
+            allowContentAccess = false
+            cacheMode = WebSettings.LOAD_NO_CACHE
+            userAgentString = activeUserAgent
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        }
 
         val cookieManager = android.webkit.CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(wv, true)
 
         wv.addJavascriptInterface(Bridge(), "AndroidAllohaResolver")
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            runCatching {
+                WebViewCompat.addDocumentStartJavaScript(wv, BOOTSTRAP_SCRIPT, setOf("*"))
+            }
+        }
+
         wv.webChromeClient = object : WebChromeClient() {
-            override fun getDefaultVideoPoster(): android.graphics.Bitmap? {
-                return android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ALPHA_8)
+            override fun getDefaultVideoPoster(): Bitmap? {
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8)
             }
         }
         wv.webViewClient = object : WebViewClient() {
@@ -112,9 +146,40 @@ class AllohaRuntimeResolver(private val context: Context) {
                 handler?.proceed()
             }
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                view?.evaluateJavascript(BOOTSTRAP_SCRIPT, null)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                view?.evaluateJavascript(BOOTSTRAP_SCRIPT, null)
+            }
         }
+
+        // Attach to View hierarchy to prevent Chromium from throttling background timers/WebSockets
+        val activity = findActivity(context)
+        val decorView = activity?.window?.decorView as? ViewGroup
+        if (decorView != null) {
+            val host = FrameLayout(context).apply {
+                visibility = View.INVISIBLE
+                alpha = 0f
+            }
+            decorView.addView(host, ViewGroup.LayoutParams(2, 2))
+            host.addView(wv, ViewGroup.LayoutParams(2, 2))
+            hostView = host
+        }
+
         startTimeout()
-        wv.loadDataWithBaseURL(iframeUrl, wrapperHtml(iframeUrl), "text/html", "UTF-8", iframeUrl)
+
+        val baseOrigin = try {
+            val uri = Uri.parse(iframeUrl)
+            "${uri.scheme ?: "https"}://${uri.authority}/"
+        } catch (_: Exception) {
+            iframeUrl
+        }
+        wv.loadDataWithBaseURL(baseOrigin, wrapperHtml(iframeUrl), "text/html", "UTF-8", iframeUrl)
     }
 
     private fun startTimeout() {
@@ -148,7 +213,7 @@ class AllohaRuntimeResolver(private val context: Context) {
 
                 if (payload.trimStart().startsWith("{") && payload.contains("\"hlsSource\"")) {
                     bestHlsSourcePayload = payload
-                    scheduleFallbackResolve(payload, if (hasAllohaPlaybackHeaders()) 800L else 2500L)
+                    scheduleFallbackResolve(payload, if (hasAllohaPlaybackHeaders()) 500L else 2500L)
                     if (hasAllohaPlaybackHeaders()) {
                         resolveBestAvailablePayload(payload)
                     }
@@ -171,7 +236,7 @@ class AllohaRuntimeResolver(private val context: Context) {
         when {
             payload.trimStart().startsWith("{") && payload.contains("\"hlsSource\"") -> {
                 bestHlsSourcePayload = payload
-                scheduleFallbackResolve(payload, if (hasAllohaPlaybackHeaders()) 1000L else 3000L)
+                scheduleFallbackResolve(payload, if (hasAllohaPlaybackHeaders()) 500L else 3000L)
             }
             isPlayablePayload(payload) -> {
                 bestDirectPayload = payload
@@ -215,6 +280,22 @@ class AllohaRuntimeResolver(private val context: Context) {
 
     private fun resolveBestAvailablePayload(fallback: String) {
         val base = baseUrl ?: return
+        val baseUri = try { URI(base) } catch (_: Exception) { null }
+
+        // Collect subtitles from ALL payloads matching iOS 1:1
+        val allSubtitles = mutableListOf<Map<String, String>>()
+        if (baseUri != null) {
+            val payloadsToScan = (pendingPayloads + listOfNotNull(bestHlsSourcePayload, bestMasterPayload, bestDirectPayload, fallback.ifBlank { null }))
+            for (p in payloadsToScan) {
+                allSubtitles.addAll(AllohaRuntimeParser.subtitleTracks(p, baseUri))
+            }
+        }
+        val seenSubUrls = mutableSetOf<String>()
+        val uniqueSubtitles = allSubtitles.filter { sub ->
+            val u = sub["url"].orEmpty()
+            u.isNotBlank() && seenSubUrls.add(u)
+        }
+
         val payloads = listOfNotNull(bestHlsSourcePayload, bestMasterPayload, bestDirectPayload, fallback.ifBlank { null })
         val seen = mutableSetOf<String>()
 
@@ -242,7 +323,7 @@ class AllohaRuntimeResolver(private val context: Context) {
             if (chosenUrl != null) {
                 finishOk(mapOf(
                     "url" to chosenUrl,
-                    "subtitles" to (parsed["subtitles"] ?: emptyList<Any>()),
+                    "subtitles" to (if (uniqueSubtitles.isNotEmpty()) uniqueSubtitles else (parsed["subtitles"] ?: emptyList<Any>())),
                     "audioVariants" to audioVariants,
                     "qualityVariants" to (parsed["qualityVariants"] ?: emptyList<Any>()),
                     "headers" to headers,
@@ -258,7 +339,7 @@ class AllohaRuntimeResolver(private val context: Context) {
         if (isCleanVideoUrl(masterUrl)) {
             finishOk(mapOf(
                 "url" to masterUrl!!,
-                "subtitles" to emptyList<Any>(),
+                "subtitles" to uniqueSubtitles,
                 "audioVariants" to emptyList<Any>(),
                 "qualityVariants" to emptyList<Any>(),
                 "headers" to headers,
@@ -273,7 +354,7 @@ class AllohaRuntimeResolver(private val context: Context) {
         if (isCleanVideoUrl(directUrl)) {
             finishOk(mapOf(
                 "url" to directUrl!!,
-                "subtitles" to emptyList<Any>(),
+                "subtitles" to uniqueSubtitles,
                 "audioVariants" to emptyList<Any>(),
                 "qualityVariants" to emptyList<Any>(),
                 "headers" to headers,
@@ -334,18 +415,27 @@ class AllohaRuntimeResolver(private val context: Context) {
         fallbackRunnable = null
         val view = webView
         webView = null
-        if (view != null) {
+        val host = hostView
+        hostView = null
+        if (view != null || host != null) {
             mainHandler.post {
                 runCatching {
-                    view.stopLoading()
-                    view.clearHistory()
-                    view.clearCache(true)
-                    view.clearFormData()
-                    view.removeJavascriptInterface("AndroidAllohaResolver")
-                    view.webViewClient = WebViewClient()
-                    view.webChromeClient = WebChromeClient()
-                    view.loadDataWithBaseURL(null, "", "text/html", "UTF-8", null)
-                    view.destroy()
+                    host?.let {
+                        (it.parent as? ViewGroup)?.removeView(it)
+                        (it as? ViewGroup)?.removeAllViews()
+                    }
+                    if (view != null) {
+                        (view.parent as? ViewGroup)?.removeView(view)
+                        view.stopLoading()
+                        view.clearHistory()
+                        view.clearCache(true)
+                        view.clearFormData()
+                        view.removeJavascriptInterface("AndroidAllohaResolver")
+                        view.webViewClient = WebViewClient()
+                        view.webChromeClient = WebChromeClient()
+                        view.loadDataWithBaseURL(null, "", "text/html", "UTF-8", null)
+                        view.destroy()
+                    }
                 }
             }
         }
@@ -357,176 +447,278 @@ class AllohaRuntimeResolver(private val context: Context) {
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+            <meta name="referrer" content="unsafe-url">
             <style>html, body, iframe { margin:0; width:100%; height:100%; background:#000; overflow:hidden; }</style>
         </head>
         <body>
-            <iframe id="alloha_iframe" src="$url" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen frameborder="0"></iframe>
-            <script>
-            (function() {
-              if (window.__neoAllohaResolverInstalled) return;
-              window.__neoAllohaResolverInstalled = true;
-              var capturedHeaders = {};
-              var lastPayload = '';
-              var lastM3u8 = '';
-              function post(type, payload) {
-                try {
-                  AndroidAllohaResolver.post(JSON.stringify({ type: type, payload: payload || '', headers: capturedHeaders }));
-                } catch(e) {}
-              }
-              function putHeader(name, value) {
-                if (!name || !value) return;
-                capturedHeaders[String(name).toLowerCase()] = String(value);
-              }
-              function defaultHeaders(win) {
-                try {
-                  if (!win || win === window) return;
-                  putHeader('origin', win.location.origin);
-                  putHeader('referer', win.location.origin + '/');
-                  putHeader('user-agent', win.navigator.userAgent);
-                  putHeader('accept', '*/*');
-                  putHeader('sec-fetch-dest', 'empty');
-                  putHeader('sec-fetch-mode', 'cors');
-                  putHeader('sec-fetch-site', 'cross-site');
-                } catch(e) {}
-              }
-              function looksPlayable(text) {
-                if (typeof text !== 'string' || !text) return false;
-                return text.indexOf('hlsSource') !== -1 ||
-                  text.indexOf('.m3u8') !== -1 ||
-                  text.indexOf('.mp4') !== -1 ||
-                  text.indexOf('.vtt') !== -1;
-              }
-              function report(payload) {
-                if (!looksPlayable(payload)) return;
-                if (payload === lastPayload) return;
-                lastPayload = payload;
-                post('payload', payload);
-              }
-              function scan(win) {
-                try {
-                  if (!win || win === window) return;
-                  defaultHeaders(win);
-                  var media = win.document ? win.document.querySelectorAll('video, source, track') : [];
-                  for (var i = 0; i < media.length; i++) {
-                    var src = media[i].currentSrc || media[i].src || media[i].getAttribute('src') || '';
-                    if (src && looksPlayable(src)) post('payload', src);
-                  }
-                  if (win.performance && win.performance.getEntriesByType) {
-                    var entries = win.performance.getEntriesByType('resource');
-                    for (var p = 0; p < entries.length; p++) {
-                      var entryName = entries[p].name || '';
-                      if (entryName && looksPlayable(entryName)) post('payload', entryName);
-                    }
-                  }
-                  if (win.hlsSource) {
-                    try { post('payload', JSON.stringify({ hlsSource: win.hlsSource })); } catch(e) {}
-                  }
-                  if (win.document && win.document.documentElement) {
-                    var html = win.document.documentElement.outerHTML || '';
-                    if (html.indexOf('hlsSource') !== -1 || html.indexOf('/bnsi/') !== -1) {
-                      report(html);
-                    }
-                  }
-                } catch(e) {}
-              }
-              function install(win) {
-                try {
-                  if (!win || win.__neoAllohaHooksInstalled) return;
-                  win.__neoAllohaHooksInstalled = true;
-                  if (win !== window) defaultHeaders(win);
-                  var originalOpen = win.XMLHttpRequest && win.XMLHttpRequest.prototype.open;
-                  var originalSetHeader = win.XMLHttpRequest && win.XMLHttpRequest.prototype.setRequestHeader;
-                  if (originalOpen && originalSetHeader) {
-                    win.XMLHttpRequest.prototype.open = function(method, requestUrl) {
-                      this.__neoAllohaUrl = requestUrl || '';
-                      this.addEventListener('load', function() {
-                        var responseUrl = this.responseURL || this.__neoAllohaUrl || '';
-                        var responseText = '';
-                        try { responseText = this.responseText || ''; } catch(e) {}
-                        if (responseUrl.indexOf('/bnsi/') !== -1 && responseText) report(responseText);
-                        if (responseText && responseText.indexOf('hlsSource') !== -1) report(responseText);
-                        if (responseUrl.indexOf('master.m3u8') !== -1 && responseUrl !== lastM3u8) {
-                          lastM3u8 = responseUrl;
-                          post('payload', responseUrl);
-                        }
-                      });
-                      return originalOpen.apply(this, arguments);
-                    };
-                    win.XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
-                      putHeader(name, value);
-                      return originalSetHeader.apply(this, arguments);
-                    };
-                  }
-                  var originalFetch = win.fetch;
-                  if (originalFetch) {
-                    win.fetch = function(input, init) {
-                      try {
-                        var requestUrl = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
-                        if (init && init.headers) {
-                          if (typeof init.headers.forEach === 'function') init.headers.forEach(function(value, name) { putHeader(name, value); });
-                          else for (var key in init.headers) putHeader(key, init.headers[key]);
-                        }
-                        if (input && input.headers && typeof input.headers.forEach === 'function') input.headers.forEach(function(value, name) { putHeader(name, value); });
-                        if (looksPlayable(requestUrl)) post('payload', requestUrl);
-                      } catch(e) {}
-                      return originalFetch.apply(this, arguments).then(function(response) {
-                        try {
-                          var responseUrl = response.url || '';
-                          if (looksPlayable(responseUrl)) post('payload', responseUrl);
-                          var clone = response.clone();
-                          clone.text().then(function(text) {
-                            if (text.indexOf('hlsSource') !== -1) report(text);
-                          }).catch(function(){});
-                        } catch(e) {}
-                        return response;
-                      });
-                    };
-                  }
-                  var originalSend = win.WebSocket && win.WebSocket.prototype.send;
-                  if (originalSend) {
-                    win.WebSocket.prototype.send = function(data) {
-                      if (!this.__neoAllohaWsHooked) {
-                        this.__neoAllohaWsHooked = true;
-                        this.addEventListener('message', function(event) {
-                          try {
-                            var msg = typeof event.data === 'string' ? JSON.parse(event.data) : null;
-                            if (msg && msg.type === 'config_update' && msg.edge_hash) {
-                              putHeader('accepts-controls', msg.edge_hash);
-                              if (msg.ttl) putHeader('x-neo-config-ttl', String(msg.ttl));
-                              post('headers', '');
-                            }
-                            if (typeof event.data === 'string' && looksPlayable(event.data)) {
-                              report(event.data);
-                            }
-                          } catch(e) {
-                            if (typeof event.data === 'string' && looksPlayable(event.data)) {
-                              report(event.data);
-                            }
-                          }
-                        });
-                      }
-                      return originalSend.apply(this, arguments);
-                    };
-                  }
-                } catch(e) {}
-              }
-              function tick() {
-                install(window);
-                try {
-                  var frames = document.querySelectorAll('iframe');
-                  for (var i = 0; i < frames.length; i++) {
-                    install(frames[i].contentWindow);
-                    scan(frames[i].contentWindow);
-                  }
-                } catch(e) {}
-              }
-              tick();
-              setInterval(tick, 500);
-              window.addEventListener('load', tick);
-            })();
-            </script>
+            <iframe id="alloha_iframe" src="$url" referrerpolicy="unsafe-url" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen frameborder="0"></iframe>
         </body>
         </html>
         """.trimIndent()
     }
+
+    private val BOOTSTRAP_SCRIPT = """
+    (function() {
+      if (window.__neoAllohaResolverInstalled) return;
+      window.__neoAllohaResolverInstalled = true;
+
+      var capturedHeaders = {};
+      var lastPayload = '';
+      var lastM3u8 = '';
+
+      function post(type, payload) {
+        try {
+          if (window.AndroidAllohaResolver && window.AndroidAllohaResolver.post) {
+            window.AndroidAllohaResolver.post(JSON.stringify({ type: type, payload: payload || '', headers: capturedHeaders }));
+          }
+        } catch(e) {}
+      }
+
+      function putHeader(name, value) {
+        if (!name || !value) return;
+        capturedHeaders[String(name).toLowerCase()] = String(value);
+      }
+
+      function defaultHeaders(win) {
+        try {
+          if (!win || !win.location) return;
+          putHeader('origin', win.location.origin);
+          putHeader('referer', win.location.origin + '/');
+          putHeader('user-agent', win.navigator.userAgent);
+          putHeader('accept', '*/*');
+          putHeader('sec-fetch-dest', 'empty');
+          putHeader('sec-fetch-mode', 'cors');
+          putHeader('sec-fetch-site', 'cross-site');
+        } catch(e) {}
+      }
+
+      function looksPlayable(text) {
+        return typeof text === 'string' && (
+          text.indexOf('hlsSource') !== -1 ||
+          text.indexOf('.m3u8') !== -1 ||
+          text.indexOf('.mp4') !== -1 ||
+          text.indexOf('.vtt') !== -1 ||
+          text.indexOf('.srt') !== -1 ||
+          text.indexOf('subtitles') !== -1 ||
+          text.indexOf('subtitle') !== -1
+        );
+      }
+
+      function report(payload) {
+        if (!looksPlayable(payload)) return;
+        if (payload === lastPayload) return;
+        lastPayload = payload;
+        post('payload', payload);
+      }
+
+      function scan(win) {
+        try {
+          if (!win) return;
+          defaultHeaders(win);
+          var chunks = [];
+          if (win.location && win.location.href) chunks.push(win.location.href);
+          if (win.document && win.document.documentElement) chunks.push(win.document.documentElement.outerHTML);
+          var media = win.document ? win.document.querySelectorAll('video, source, track') : [];
+          for (var i = 0; i < media.length; i++) chunks.push(media[i].currentSrc || media[i].src || media[i].getAttribute('src') || '');
+          if (win.performance && win.performance.getEntriesByType) {
+            var entries = win.performance.getEntriesByType('resource');
+            for (var p = 0; p < entries.length; p++) chunks.push(entries[p].name || '');
+          }
+          if (win.hlsSource) {
+            try { chunks.push(JSON.stringify({ hlsSource: win.hlsSource })); } catch(e) {}
+          }
+          try {
+            var tracks = win.document ? win.document.querySelectorAll('track') : [];
+            var extractedTracks = [];
+            for (var t = 0; t < tracks.length; t++) {
+              var tr = tracks[t];
+              var src = tr.src || tr.getAttribute('src');
+              if (src) {
+                var label = tr.label || tr.getAttribute('label') || tr.srclang || 'Субтитры';
+                extractedTracks.push({ name: label, url: src });
+              }
+            }
+            if (extractedTracks.length > 0) {
+              chunks.push(JSON.stringify({ subtitles: extractedTracks }));
+            }
+            if (win.playerjs_subtitle || win.pjssubtitle) {
+              chunks.push(JSON.stringify({ subtitles: win.playerjs_subtitle || win.pjssubtitle }));
+            }
+            if (win.player && (win.player.subtitle || win.player.subtitles || win.player.tracks)) {
+              chunks.push(JSON.stringify({ subtitles: win.player.subtitle || win.player.subtitles || win.player.tracks }));
+            }
+            if (win.alloha && (win.alloha.subtitles || win.alloha.subtitle)) {
+              chunks.push(JSON.stringify({ subtitles: win.alloha.subtitles || win.alloha.subtitle }));
+            }
+            var scripts = win.document ? win.document.querySelectorAll('script') : [];
+            for (var s = 0; s < scripts.length; s++) {
+              var st = scripts[s].textContent || '';
+              if (looksPlayable(st)) {
+                chunks.push(st);
+              }
+            }
+          } catch(e) {}
+          report(chunks.join('\n'));
+        } catch(e) {}
+      }
+
+      function install(win) {
+        try {
+          if (!win || win.__neoAllohaHooksInstalled) return;
+          win.__neoAllohaHooksInstalled = true;
+          defaultHeaders(win);
+
+          try {
+            var _pjs = win.Playerjs;
+            if (_pjs && !win.__neoPlayerjsHooked) {
+              win.__neoPlayerjsHooked = true;
+              win.Playerjs = function(cfg) {
+                try {
+                  if (cfg) {
+                    if (cfg.file) report(cfg.file);
+                    if (cfg.subtitle) report(JSON.stringify({ subtitles: cfg.subtitle }));
+                    if (cfg.subtitles) report(JSON.stringify({ subtitles: cfg.subtitles }));
+                  }
+                } catch(e) {}
+                return new _pjs(cfg);
+              };
+              win.Playerjs.prototype = _pjs.prototype;
+            }
+          } catch(e) {}
+
+          var OriginalWS = win.WebSocket;
+          if (OriginalWS && !win.__neoAllohaWsCtorHooked) {
+            win.__neoAllohaWsCtorHooked = true;
+            var PatchedWS = function(url, protocols) {
+              var ws = protocols !== undefined ? new OriginalWS(url, protocols) : new OriginalWS(url);
+              try {
+                ws.addEventListener('message', function(event) {
+                  try {
+                    var msg = typeof event.data === 'string' ? JSON.parse(event.data) : null;
+                    if (msg && msg.type === 'config_update' && msg.edge_hash) {
+                      putHeader('accepts-controls', msg.edge_hash);
+                      if (msg.ttl) putHeader('x-neo-config-ttl', String(msg.ttl));
+                      post('headers', '');
+                    }
+                    if (typeof event.data === 'string' && looksPlayable(event.data)) {
+                      report(event.data);
+                    }
+                  } catch(e) {
+                    if (typeof event.data === 'string' && looksPlayable(event.data)) {
+                      report(event.data);
+                    }
+                  }
+                });
+              } catch(e) {}
+              return ws;
+            };
+            PatchedWS.prototype = OriginalWS.prototype;
+            for (var prop in OriginalWS) {
+              if (OriginalWS.hasOwnProperty(prop)) {
+                try { PatchedWS[prop] = OriginalWS[prop]; } catch(e) {}
+              }
+            }
+            win.WebSocket = PatchedWS;
+          }
+
+          var originalOpen = win.XMLHttpRequest && win.XMLHttpRequest.prototype.open;
+          var originalSetHeader = win.XMLHttpRequest && win.XMLHttpRequest.prototype.setRequestHeader;
+          if (originalOpen && originalSetHeader) {
+            win.XMLHttpRequest.prototype.open = function(method, requestUrl) {
+              this.__neoAllohaUrl = requestUrl || '';
+              this.addEventListener('load', function() {
+                var responseUrl = this.responseURL || this.__neoAllohaUrl || '';
+                var responseText = '';
+                try { responseText = this.responseText || ''; } catch(e) {}
+                if (responseUrl.indexOf('/bnsi/') !== -1 && responseText) report(responseText);
+                if (responseText && responseText.indexOf('hlsSource') !== -1) report(responseText);
+                if (looksPlayable(responseText)) report(responseText);
+                if (responseUrl.indexOf('master.m3u8') !== -1 && responseUrl !== lastM3u8) {
+                  lastM3u8 = responseUrl;
+                  post('payload', responseUrl);
+                }
+              });
+              return originalOpen.apply(this, arguments);
+            };
+            win.XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+              putHeader(name, value);
+              return originalSetHeader.apply(this, arguments);
+            };
+          }
+
+          var originalFetch = win.fetch;
+          if (originalFetch) {
+            win.fetch = function(input, init) {
+              try {
+                var requestUrl = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
+                if (init && init.headers) {
+                  if (typeof init.headers.forEach === 'function') init.headers.forEach(function(value, name) { putHeader(name, value); });
+                  else for (var key in init.headers) putHeader(key, init.headers[key]);
+                }
+                if (input && input.headers && typeof input.headers.forEach === 'function') input.headers.forEach(function(value, name) { putHeader(name, value); });
+                if (looksPlayable(requestUrl)) post('payload', requestUrl);
+              } catch(e) {}
+
+              return originalFetch.apply(this, arguments).then(function(response) {
+                try {
+                  var responseUrl = response.url || '';
+                  if (looksPlayable(responseUrl)) post('payload', responseUrl);
+                  var clone = response.clone();
+                  clone.text().then(function(text) { report(text); }).catch(function(){});
+                } catch(e) {}
+                return response;
+              });
+            };
+          }
+
+          var originalSend = win.WebSocket && win.WebSocket.prototype.send;
+          if (originalSend) {
+            win.WebSocket.prototype.send = function(data) {
+              if (!this.__neoAllohaWsHooked) {
+                this.__neoAllohaWsHooked = true;
+                this.addEventListener('message', function(event) {
+                  try {
+                    var msg = typeof event.data === 'string' ? JSON.parse(event.data) : null;
+                    if (msg && msg.type === 'config_update' && msg.edge_hash) {
+                      putHeader('accepts-controls', msg.edge_hash);
+                      if (msg.ttl) putHeader('x-neo-config-ttl', String(msg.ttl));
+                      post('headers', '');
+                    }
+                    if (typeof event.data === 'string' && looksPlayable(event.data)) {
+                      report(event.data);
+                    }
+                  } catch(e) {
+                    if (typeof event.data === 'string' && looksPlayable(event.data)) {
+                      report(event.data);
+                    }
+                  }
+                });
+              }
+              return originalSend.apply(this, arguments);
+            };
+          }
+        } catch(e) {}
+      }
+
+      function tick() {
+        install(window);
+        scan(window);
+        try {
+          var frames = document.querySelectorAll('iframe');
+          for (var i = 0; i < frames.length; i++) {
+            try {
+              install(frames[i].contentWindow);
+              scan(frames[i].contentWindow);
+            } catch(e) {}
+          }
+        } catch(e) {}
+      }
+
+      install(window);
+      scan(window);
+      tick();
+      setInterval(tick, 300);
+      window.addEventListener('load', tick);
+    })();
+    """.trimIndent()
 }

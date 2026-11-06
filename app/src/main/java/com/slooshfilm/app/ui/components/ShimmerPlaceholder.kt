@@ -1,11 +1,12 @@
 package com.slooshfilm.app.ui.components
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -31,29 +32,36 @@ fun ShimmerPlaceholder(
     )
 
     val isLightTheme = !LocalSlooshColors.current.isDark
-    val shimmerColors = if (isLightTheme) {
-        listOf(
-            Color(0xFFE5E5EA),
-            Color(0xFFF2F2F7),
-            Color(0xFFE5E5EA)
-        )
-    } else {
-        listOf(
-            Color(0xFF141414),
-            Color(0xFF282828),
-            Color(0xFF141414)
-        )
+    val shimmerColors = remember(isLightTheme) {
+        if (isLightTheme) {
+            listOf(
+                Color(0xFFE5E5EA),
+                Color(0xFFF2F2F7),
+                Color(0xFFE5E5EA)
+            )
+        } else {
+            listOf(
+                Color(0xFF141414),
+                Color(0xFF282828),
+                Color(0xFF141414)
+            )
+        }
     }
 
-    val brush = Brush.linearGradient(
-        colors = shimmerColors,
-        start = Offset(translateAnim.value - 300f, translateAnim.value - 300f),
-        end = Offset(translateAnim.value, translateAnim.value)
-    )
+    val shape = remember(cornerRadius) { RoundedRectangle(cornerRadius) }
 
     Box(
         modifier = modifier
-            .clip(RoundedRectangle(cornerRadius))
-            .background(brush)
+            .clip(shape)
+            .drawBehind {
+                val progress = translateAnim.value
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = shimmerColors,
+                        start = Offset(progress - 300f, progress - 300f),
+                        end = Offset(progress, progress)
+                    )
+                )
+            }
     )
 }

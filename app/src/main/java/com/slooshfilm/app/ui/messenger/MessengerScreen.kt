@@ -19,6 +19,7 @@ import com.slooshfilm.app.R
 import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.iosProgressiveBlur
@@ -42,11 +43,14 @@ fun MessengerScreen(
         drawContent()
     }
 
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarPadding = if (rawStatusBarPadding > 0.dp) rawStatusBarPadding else (if (isLandscape) 8.dp else 0.dp)
     val navBarBottomPadding = rememberNavBarBottomPadding()
-    val topHeaderHeight = statusBarPadding + 56.dp
-    val headerBlurHeight = statusBarPadding + 70.dp
-    val bottomTotalPadding = navBarBottomPadding + 72.dp
+    val topHeaderHeight = statusBarPadding + (if (isLandscape) 44.dp else 56.dp)
+    val headerBlurHeight = statusBarPadding + (if (isLandscape) 52.dp else 70.dp)
+    val bottomTotalPadding = if (isLandscape) navBarBottomPadding + 48.dp else navBarBottomPadding + 72.dp
 
     Box(
         modifier = modifier
@@ -66,51 +70,21 @@ fun MessengerScreen(
             )
 
             // Centered Clean Status
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
                         top = topHeaderHeight,
                         bottom = bottomTotalPadding,
-                        start = 24.dp,
-                        end = 24.dp
+                        start = 32.dp,
+                        end = 32.dp
                     ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(SlooshAccent.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_bubble_fill),
-                        contentDescription = null,
-                        tint = SlooshAccent,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Чаты",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimaryDark,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "В разработке",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = TextSecondaryDark,
-                    textAlign = TextAlign.Center
+                EmptyStateView(
+                    iconRes = R.drawable.ic_sf_bubble_fill,
+                    title = "Скоро будет доступно",
+                    message = "Общение с друзьями и обсуждение фильмов появятся в следующем обновлении."
                 )
             }
         }
@@ -158,12 +132,13 @@ fun MessengerScreen(
             )
 
             // Header Title
+            val cutoutPadding = com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .height(56.dp)
-                    .padding(horizontal = 20.dp),
+                    .padding(top = statusBarPadding)
+                    .height(if (isLandscape) 44.dp else 56.dp)
+                    .padding(horizontal = 20.dp + cutoutPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

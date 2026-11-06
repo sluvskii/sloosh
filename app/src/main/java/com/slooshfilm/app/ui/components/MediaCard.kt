@@ -3,9 +3,11 @@ package com.slooshfilm.app.ui.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +28,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.size.Precision
+import coil.size.Size
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.data.api.MediaDto
 import com.slooshfilm.app.data.storage.LocalStorage
@@ -37,13 +41,16 @@ val LocalPosterQuality = compositionLocalOf { "Высокое" }
 val LocalShowOriginalTitle = compositionLocalOf { true }
 val LocalTabBarShowsLabels = compositionLocalOf { false }
 
+private val PosterCardShape = RoundedCornerShape(12.dp)
+private val RatingBadgeShape = RoundedCornerShape(7.5.dp)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MediaCard(
     media: MediaDto,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
+    onClick: (MediaDto) -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: ((MediaDto) -> Unit)? = null,
     width: Int? = null,
     cardStyle: String = LocalCardStyle.current
 ) {
@@ -53,36 +60,70 @@ fun MediaCard(
         modifier.fillMaxWidth()
     }
 
-    val interactionSource = remember { MutableInteractionSource() }
+    val clickModifier = if (onLongClick != null) {
+        val interactionSource = remember { MutableInteractionSource() }
+        Modifier.combinedClickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = { onClick(media) },
+            onLongClick = { onLongClick(media) }
+        )
+    } else {
+        Modifier.clickable(
+            interactionSource = null,
+            indication = null,
+            onClick = { onClick(media) }
+        )
+    }
+
+    // Pre-computed subtitle string avoiding duplicate allocations across styles
+    val subtitle = remember(media.yearString, media.genres) {
+        val year = media.yearString
+        val genre = media.genres?.firstOrNull()?.name
+        val genreCapitalized = if (!genre.isNullOrBlank()) {
+            genre.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
+        } else null
+
+        when {
+            year.isNotBlank() && !genreCapitalized.isNullOrBlank() -> "$year, $genreCapitalized"
+            year.isNotBlank() -> year
+            !genreCapitalized.isNullOrBlank() -> genreCapitalized
+            else -> ""
+        }
+    }
 
     Column(
-        modifier = cardModifier
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+        modifier = cardModifier.then(clickModifier)
     ) {
-        // Poster Box (2:3 aspect ratio) with iOS Continuous G2 Squircle
+        // Poster Box (2:3 aspect ratio) with high-efficiency hardware-accelerated rounded rect
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(RoundedRectangle(12.dp))
+                .clip(PosterCardShape)
                 .background(SurfaceDark)
         ) {
             val posterQuality = LocalPosterQuality.current
             val isLowQuality = posterQuality == "Низкое"
-            val posterUrl = media.getDisplayPosterUrl(isLowQuality = isLowQuality)
-            var isError by remember(posterUrl) { mutableStateOf(false) }
+            val posterUrl = remember(media, posterQuality) {
+                media.getDisplayPosterUrl(isLowQuality = isLowQuality, quality = posterQuality)
+            }
 
-            if (!isError && !posterUrl.isNullOrBlank()) {
+            val context = LocalContext.current
+            val imageRequest = remember(posterUrl) {
+                if (posterUrl.isNullOrBlank()) null else {
+                    ImageRequest.Builder(context)
+                        .data(posterUrl)
+                        .crossfade(false)
+                        .build()
+                }
+            }
+
+            if (imageRequest != null) {
                 AsyncImage(
-                    model = posterUrl,
+                    model = imageRequest,
                     contentDescription = media.displayTitle,
                     contentScale = ContentScale.Crop,
-                    onError = { isError = true },
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -100,18 +141,26 @@ fun MediaCard(
                 }
             }
 
-            // Rating badge (top-start)
+            // Pre-computed rating string avoiding String.format overhead on scroll
             val rating = media.rating ?: media.ratings?.kp ?: media.ratings?.imdb
-            if (rating != null && rating > 0.0) {
+            val formattedRating = remember(rating) {
+                if (rating != null && rating > 0.0) {
+                    val rounded = (rating * 10).toInt()
+                    "${rounded / 10}.${rounded % 10}"
+                } else null
+            }
+
+            // Rating badge (top-start)
+            if (formattedRating != null) {
                 Box(
                     modifier = Modifier
                         .padding(start = 6.dp, top = 6.dp)
-                        .clip(RoundedRectangle(7.5.dp))
-                        .background(ratingColor(rating))
+                        .clip(RatingBadgeShape)
+                        .background(ratingColor(rating ?: 0.0))
                         .padding(horizontal = 5.5.dp, vertical = 2.2.dp)
                 ) {
                     Text(
-                        text = String.format(java.util.Locale.US, "%.1f", rating),
+                        text = formattedRating,
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -120,17 +169,9 @@ fun MediaCard(
                     )
                 }
             }
+
             // Overlay Info (when cardStyle == "overlay")
             if (cardStyle == LocalStorage.CARD_STYLE_OVERLAY) {
-                val subtitle = buildString {
-                    if (media.yearString.isNotBlank()) append(media.yearString)
-                    val primaryGenre = media.genres?.firstOrNull()?.name
-                    if (!primaryGenre.isNullOrBlank()) {
-                        if (isNotEmpty()) append(" • ")
-                        append(primaryGenre.replaceFirstChar { it.uppercase() })
-                    }
-                }
-
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -175,11 +216,13 @@ fun MediaCard(
             Spacer(modifier = Modifier.height(5.dp))
 
             val showOriginal = LocalShowOriginalTitle.current
-            val origTitle = media.originalTitle
-            val displayTitleText = if (showOriginal && !origTitle.isNullOrBlank() && !origTitle.equals(media.displayTitle, ignoreCase = true)) {
-                "${media.displayTitle} / $origTitle"
-            } else {
-                media.displayTitle
+            val displayTitleText = remember(media.displayTitle, media.originalTitle, showOriginal) {
+                val origTitle = media.originalTitle
+                if (showOriginal && !origTitle.isNullOrBlank() && !origTitle.equals(media.displayTitle, ignoreCase = true)) {
+                    "${media.displayTitle} / $origTitle"
+                } else {
+                    media.displayTitle
+                }
             }
 
             Column(
@@ -197,19 +240,8 @@ fun MediaCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Year / Genre subtitle
-                val subtitle = buildString {
-                    if (media.yearString.isNotBlank()) append(media.yearString)
-                    val primaryGenre = media.genres?.firstOrNull()?.name
-                    if (!primaryGenre.isNullOrBlank()) {
-                        if (isNotEmpty()) append(" • ")
-                        append(primaryGenre.replaceFirstChar { it.uppercase() })
-                    }
-                }
-
                 if (subtitle.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
                         style = SlooshTypography.labelMedium,

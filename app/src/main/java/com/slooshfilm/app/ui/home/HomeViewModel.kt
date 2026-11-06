@@ -1,5 +1,6 @@
 package com.slooshfilm.app.ui.home
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -33,11 +34,13 @@ private data class CacheKey(
     val filter: HomeFilter
 )
 
+@Immutable
 data class HomeUiState(
     val selectedCategory: HomeCategory = HomeCategory.ALL,
     val selectedFilter: HomeFilter = HomeFilter.POPULAR,
     val items: List<MediaDto> = emptyList(),
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
     val errorMessage: String? = null
 )
@@ -120,8 +123,10 @@ class HomeViewModel(
         currentLoadJob = viewModelScope.launch {
             if (isLoadMore) {
                 _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            } else if (forceRefresh && _uiState.value.items.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(isRefreshing = true, errorMessage = null)
             } else {
-                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+                _uiState.value = _uiState.value.copy(isLoading = true, isRefreshing = false, errorMessage = null)
             }
 
             try {
@@ -146,6 +151,7 @@ class HomeViewModel(
                     _uiState.value = _uiState.value.copy(
                         items = list.toList(),
                         isLoading = false,
+                        isRefreshing = false,
                         isLoadingMore = false,
                         errorMessage = null
                     )
@@ -156,10 +162,28 @@ class HomeViewModel(
                 if (_uiState.value.selectedCategory == category && _uiState.value.selectedFilter == filter) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         isLoadingMore = false,
-                        errorMessage = if (isLoadMore) null else (e.localizedMessage ?: "Ошибка загрузки")
+                        errorMessage = if (isLoadMore || forceRefresh) null else sanitizeErrorMessage(e)
                     )
                 }
+            }
+        }
+    }
+
+    private fun sanitizeErrorMessage(e: Throwable): String {
+        return when {
+            e is java.net.UnknownHostException ||
+            e is java.net.ConnectException ||
+            e is java.net.SocketTimeoutException ||
+            e.message?.contains("Unable to resolve host", ignoreCase = true) == true ||
+            e.message?.contains("Failed to connect", ignoreCase = true) == true ||
+            e.message?.contains("api.sloosh", ignoreCase = true) == true ||
+            e.message?.contains("workers.dev", ignoreCase = true) == true -> {
+                "Не удалось подключиться к серверу. Проверьте интернет-соединение."
+            }
+            else -> {
+                "Не удалось загрузить данные. Попробуйте обновить ленту."
             }
         }
     }

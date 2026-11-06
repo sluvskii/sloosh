@@ -129,11 +129,10 @@ class AllohaRepository(private val context: Context) {
     private val failedTokens = ConcurrentHashMap<String, Long>()
     private val tokenCooldownMs = 5 * 60 * 1000L
 
-    private var fallbackTokens: List<String> = listOf(
-        "0b03867ff75fe92a6c11b058a9e8bb",
-        "02b48b9f71c4ae7f7f3291244c062c",
-        "d89da4fe26ad2a23078a6ffec01ff6"
-    )
+    // Zero Static Secrets: токены балансера не хранятся в коде. Пул выдаётся бэкендом только по
+    // валидному Firebase ID токену; последний успешно полученный пул персистится локально
+    // и служит офлайн-фоллбэком до восстановления связи.
+    private var fallbackTokens: List<String> = emptyList()
 
     init {
         val prefs = context.getSharedPreferences("sloosh_alloha_config", Context.MODE_PRIVATE)
@@ -143,15 +142,11 @@ class AllohaRepository(private val context: Context) {
         }
     }
 
-    fun updateFallbackTokens(tokens: List<String>) {
-        val valid = tokens.filter { it.isNotBlank() }
-        if (valid.isNotEmpty()) {
-            fallbackTokens = valid
-            context.getSharedPreferences("sloosh_alloha_config", Context.MODE_PRIVATE)
-                .edit()
-                .putStringSet(FALLBACK_TOKENS_KEY, valid.toSet())
-                .apply()
-        }
+    private fun persistTokens(tokens: List<String>) {
+        context.getSharedPreferences("sloosh_alloha_config", Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(FALLBACK_TOKENS_KEY, tokens.toSet())
+            .apply()
     }
 
     private suspend fun ensureTokensLoaded(): List<String> = tokensMutex.withLock {
@@ -163,6 +158,7 @@ class AllohaRepository(private val context: Context) {
                 if (fetched.isNotEmpty()) {
                     remoteTokens = fetched
                     lastTokensFetchTime = now
+                    persistTokens(fetched)
                     Log.d(TAG, "Loaded ${fetched.size} Alloha tokens from server")
                 }
             } catch (e: Exception) {
@@ -189,30 +185,49 @@ class AllohaRepository(private val context: Context) {
         title: String? = null,
         originalTitle: String? = null,
         year: Int? = null,
+        isTv: Boolean? = null,
         forceRefresh: Boolean = false
     ): AllohaApiResult? = withContext(Dispatchers.IO) {
         if (forceRefresh) {
             cache.clear()
         }
-        val kpId = explicitKpId ?: mediaId.replace("kp_", "").replace("tv_", "").replace("movie_", "").trim().toIntOrNull()
-        val validKp = (kpId ?: 0).takeIf { it > 0 }
-        val validTmdb = (tmdbId ?: 0).takeIf { it > 0 }
+        val isExplicitKp = mediaId.startsWith("kp_")
+        val isTvFromId = if (mediaId.startsWith("tv_")) true else if (mediaId.startsWith("movie_")) false else null
+        val effectiveIsTv = isTv ?: isTvFromId
+        val categoryParam = effectiveIsTv?.let { if (it) "2" else "1" }
+
+        val validKp = explicitKpId?.takeIf { it > 0 }
+            ?: if (isExplicitKp) mediaId.removePrefix("kp_").trim().toIntOrNull()?.takeIf { it > 0 } else null
+
+        val effectiveTmdb = tmdbId?.takeIf { it > 0 }
+            ?: if (!isExplicitKp) mediaId.replace("tv_", "").replace("movie_", "").trim().toIntOrNull()?.takeIf { it > 0 } else null
+        val validTmdb = effectiveTmdb?.takeIf { it > 0 }
+
+        // Helper to query with category and validate media type
+        suspend fun query(baseParams: Map<String, String>): AllohaApiResult? {
+            val params = baseParams.toMutableMap()
+            if (categoryParam != null) {
+                params["category"] = categoryParam
+            }
+            val res = performAllohaQueryParams(params, forceRefresh)
+            return if (res != null && isValidType(res, effectiveIsTv)) res else null
+        }
 
         // 1. Поиск по Kinopoisk ID
         if (validKp != null) {
-            val res = performAllohaQuery("kp", validKp.toString(), forceRefresh)
+            val res = query(mapOf("kp" to validKp.toString()))
             if (res != null) return@withContext res
         }
 
         // 2. Поиск по TMDB ID
         if (validTmdb != null) {
-            val res = performAllohaQuery("tmdb", validTmdb.toString(), forceRefresh)
+            val res = query(mapOf("tmdb" to validTmdb.toString()))
             if (res != null) return@withContext res
         }
 
         // 3. Поиск по IMDB ID
         if (!imdbId.isNullOrBlank()) {
-            val res = performAllohaQuery("imdb", imdbId.trim(), forceRefresh)
+            val res = query(mapOf("imdb" to imdbId.trim()))
             if (res != null) return@withContext res
         }
 
@@ -220,10 +235,10 @@ class AllohaRepository(private val context: Context) {
         if (!title.isNullOrBlank() && !title.startsWith("Без названия")) {
             val cleanTitle = title.trim()
             if (year != null && year > 1900) {
-                val res = performAllohaQueryParams(mapOf("name" to cleanTitle, "year" to year.toString()), forceRefresh)
+                val res = query(mapOf("name" to cleanTitle, "year" to year.toString()))
                 if (res != null) return@withContext res
             }
-            val res = performAllohaQuery("name", cleanTitle, forceRefresh)
+            val res = query(mapOf("name" to cleanTitle))
             if (res != null) return@withContext res
         }
 
@@ -231,14 +246,22 @@ class AllohaRepository(private val context: Context) {
         if (!originalTitle.isNullOrBlank() && originalTitle != title) {
             val cleanOrig = originalTitle.trim()
             if (year != null && year > 1900) {
-                val res = performAllohaQueryParams(mapOf("name" to cleanOrig, "year" to year.toString()), forceRefresh)
+                val res = query(mapOf("name" to cleanOrig, "year" to year.toString()))
                 if (res != null) return@withContext res
             }
-            val res = performAllohaQuery("name", cleanOrig, forceRefresh)
+            val res = query(mapOf("name" to cleanOrig))
             if (res != null) return@withContext res
         }
 
         null
+    }
+
+    private fun isValidType(result: AllohaApiResult, isTv: Boolean?): Boolean {
+        if (isTv != null) {
+            if (isTv && !result.isSerial) return false
+            if (!isTv && result.isSerial) return false
+        }
+        return true
     }
 
     suspend fun fetchMedia(
@@ -247,16 +270,18 @@ class AllohaRepository(private val context: Context) {
         imdbId: String? = null,
         title: String? = null,
         originalTitle: String? = null,
-        year: Int? = null
+        year: Int? = null,
+        isTv: Boolean? = null
     ): AllohaApiResult? {
         return fetchAllohaData(
-            mediaId = (kpId ?: tmdbId ?: 0).toString(),
+            mediaId = if (kpId != null && kpId > 0) "kp_$kpId" else (tmdbId ?: 0).toString(),
             explicitKpId = kpId,
             imdbId = imdbId,
             tmdbId = tmdbId,
             title = title,
             originalTitle = originalTitle,
-            year = year
+            year = year,
+            isTv = isTv
         )
     }
 
@@ -318,7 +343,9 @@ class AllohaRepository(private val context: Context) {
                 if (status == "error") {
                     val errorInfo = json.optString("error_info", "").lowercase(Locale.ROOT)
                     if (errorInfo.contains("not movie")) {
-                        // Релиз просто отсутствует в базе Alloha по данному запросу — переходим к след. параметру
+                        // Релиз просто отсутствует в базе Alloha по данному запросу —
+                        // токен полностью рабочий (iOS markTokenSuccess), подтверждаем его и переходим к след. параметру
+                        failedTokens.remove(candidateToken)
                         return null
                     }
                     failedTokens[candidateToken] = System.currentTimeMillis()

@@ -45,6 +45,10 @@ import android.app.Activity
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.compose.material3.MaterialTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.slooshfilm.app.data.repository.AuthRepository
+import com.slooshfilm.app.ui.components.OfflineBanner
+import com.slooshfilm.app.ui.profile.AuthSheet
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
 import com.slooshfilm.app.ui.theme.SlooshTheme
 import kotlin.math.roundToInt
@@ -77,6 +81,18 @@ fun SlooshApp() {
     val searchState = rememberSearchState()
 
     val context = LocalContext.current
+    val authRepo = remember { AuthRepository.getInstance(context) }
+    val currentUser by authRepo.currentUser.collectAsStateWithLifecycle()
+    val isAuthenticated = !currentUser.isAnonymous
+
+    // Обязательная авторизация (как на iOS): без входа основной UI не монтируется вообще.
+    // AuthSheet без onDismissRequest рисуется неотменяемым — выход только после входа.
+    // Успешный вход обновляет authRepo.currentUser → recomposition открывает приложение.
+    if (!isAuthenticated) {
+        AuthSheet()
+        return
+    }
+
     val localStorage = remember { LocalStorage(context) }
     val initialStartScreen = remember {
         val saved = localStorage.getStartScreen()
@@ -86,28 +102,31 @@ fun SlooshApp() {
     var currentCardStyle by remember { mutableStateOf(localStorage.getCardStyle()) }
     var currentCardDensity by remember { mutableStateOf(localStorage.getCardDensity()) }
     var currentProgressiveBlur by remember { mutableStateOf(localStorage.getProgressiveBlurEnabled()) }
-    var currentPosterQuality by remember { mutableStateOf(localStorage.getString("poster_quality", "Высокое")) }
+    var currentPosterQuality by remember { mutableStateOf(localStorage.getString("poster_quality", "Среднее")) }
     var currentShowOriginalTitle by remember { mutableStateOf(localStorage.getShowOriginalTitle()) }
     var currentTabBarShowsLabels by remember { mutableStateOf(localStorage.getTabBarShowsLabels()) }
     var currentGlassBlurMultiplier by remember { mutableFloatStateOf(localStorage.getLiquidGlassBlur()) }
     var currentGlassEnabled by remember { mutableStateOf(localStorage.getGlassEnabled()) }
 
-    DisposableEffect(localStorage) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+    val prefListener = remember {
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
                 LocalStorage.CARD_STYLE_KEY -> currentCardStyle = localStorage.getCardStyle()
                 LocalStorage.CARD_DENSITY_KEY -> currentCardDensity = localStorage.getCardDensity()
                 LocalStorage.PROGRESSIVE_BLUR_KEY -> currentProgressiveBlur = localStorage.getProgressiveBlurEnabled()
-                "poster_quality" -> currentPosterQuality = localStorage.getString("poster_quality", "Высокое")
+                "poster_quality" -> currentPosterQuality = localStorage.getString("poster_quality", "Среднее")
                 "show_original_title" -> currentShowOriginalTitle = localStorage.getShowOriginalTitle()
                 "tab_bar_shows_labels" -> currentTabBarShowsLabels = localStorage.getTabBarShowsLabels()
                 LocalStorage.LIQUID_GLASS_BLUR_KEY -> currentGlassBlurMultiplier = localStorage.getLiquidGlassBlur()
                 LocalStorage.GLASS_ENABLED_KEY -> currentGlassEnabled = localStorage.getGlassEnabled()
             }
         }
-        localStorage.prefs.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    DisposableEffect(localStorage, prefListener) {
+        localStorage.prefs.registerOnSharedPreferenceChangeListener(prefListener)
         onDispose {
-            localStorage.prefs.unregisterOnSharedPreferenceChangeListener(listener)
+            localStorage.prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         }
     }
 
@@ -116,27 +135,6 @@ fun SlooshApp() {
     LaunchedEffect(currentRoute) {
         if (currentRoute != null && Screen.bottomBarTabs.any { it.route == currentRoute }) {
             previousTabRoute = currentRoute
-        }
-    }
-
-    // Freeze the root backdrop recording during push/pop transitions: the incoming screen's
-    // first composition is the most expensive frame of the app, and re-recording the whole
-    // NavHost into an offscreen layer on top of it doubles the compositing cost. The recorded
-    // layer keeps its last frame, so the bottom bar glass samples a stale (visually identical,
-    // static) frame for the 280ms of the slide. Tab fades (140ms) keep live recording because
-    // the droplet pill animates then.
-    var lastRouteForTransition by remember { mutableStateOf<String?>(null) }
-    var isPushPopTransition by remember { mutableStateOf(false) }
-    LaunchedEffect(currentRoute) {
-        val previous = lastRouteForTransition
-        lastRouteForTransition = currentRoute
-        if (previous != null && currentRoute != null && previous != currentRoute) {
-            val bothTabs = isMainTab(previous) && isMainTab(currentRoute)
-            if (!bothTabs) {
-                isPushPopTransition = true
-                kotlinx.coroutines.delay(340)
-                isPushPopTransition = false
-            }
         }
     }
 
@@ -163,7 +161,7 @@ fun SlooshApp() {
         drawContent()
     }
 
-    val navHostModifier = if (showBottomBar && currentGlassEnabled && !isPushPopTransition) {
+    val navHostModifier = if (showBottomBar && currentGlassEnabled) {
         Modifier
             .fillMaxSize()
             .layerBackdrop(backdrop)
@@ -175,7 +173,7 @@ fun SlooshApp() {
         LocalCardStyle provides currentCardStyle,
         LocalCardDensity provides currentCardDensity,
         LocalGlassEnabled provides currentGlassEnabled,
-        LocalProgressiveBlur provides (currentProgressiveBlur && currentGlassEnabled),
+        LocalProgressiveBlur provides currentProgressiveBlur,
         LocalPosterQuality provides currentPosterQuality,
         LocalShowOriginalTitle provides currentShowOriginalTitle,
         LocalTabBarShowsLabels provides currentTabBarShowsLabels,
@@ -186,10 +184,30 @@ fun SlooshApp() {
                 .fillMaxSize()
                 .background(screenBg)
         ) {
-            NavHost(
-                navController = navController,
-                startDestination = initialStartScreen,
-                modifier = navHostModifier.clipToBounds(),
+            AnimatedContent(
+                targetState = isAuthenticated,
+                transitionSpec = {
+                    if (targetState) {
+                        fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) togetherWith
+                            fadeOut(animationSpec = tween(200, easing = FastOutLinearInEasing))
+                    } else {
+                        fadeIn(animationSpec = tween(250, easing = FastOutSlowInEasing)) togetherWith
+                            fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing))
+                    }
+                },
+                label = "appAuthTransition"
+            ) { authed ->
+                if (!authed) {
+                    AuthSheet(
+                        onDismissRequest = null,
+                        canDismiss = false
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = initialStartScreen,
+                            modifier = navHostModifier.clipToBounds(),
             enterTransition = {
                 val targetRoute = targetState.destination.route
                 val initialRoute = initialState.destination.route
@@ -470,65 +488,73 @@ fun SlooshApp() {
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     navController = navController,
-                    onGlassEnabledChange = { currentGlassEnabled = it }
+                    onGlassEnabledChange = { currentGlassEnabled = it },
+                    onProgressiveBlurChange = { currentProgressiveBlur = it }
                 )
             }
 
             composable(Screen.SettingsAppearance.route) {
                 SettingsScreen(
                     navController = navController,
-                    onGlassEnabledChange = { currentGlassEnabled = it }
+                    onGlassEnabledChange = { currentGlassEnabled = it },
+                    onProgressiveBlurChange = { currentProgressiveBlur = it }
                 )
             }
 
             composable(Screen.SettingsGeneral.route) {
                 SettingsScreen(
                     navController = navController,
-                    onGlassEnabledChange = { currentGlassEnabled = it }
+                    onGlassEnabledChange = { currentGlassEnabled = it },
+                    onProgressiveBlurChange = { currentProgressiveBlur = it }
                 )
             }
 
             composable(Screen.SettingsPlayer.route) {
                 SettingsScreen(
                     navController = navController,
-                    onGlassEnabledChange = { currentGlassEnabled = it }
+                    onGlassEnabledChange = { currentGlassEnabled = it },
+                    onProgressiveBlurChange = { currentProgressiveBlur = it }
                 )
             }
 
             composable(Screen.SettingsAbout.route) {
                 SettingsScreen(
                     navController = navController,
-                    onGlassEnabledChange = { currentGlassEnabled = it }
+                    onGlassEnabledChange = { currentGlassEnabled = it },
+                    onProgressiveBlurChange = { currentProgressiveBlur = it }
                 )
             }
         }
 
-        // Floating Bottom Bar Island Overlay
-        AnimatedVisibility(
-            visible = showBottomBar,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            SlooshBottomBar(
-                currentRoute = currentRoute,
-                previousTab = previousTab,
-                searchState = searchState,
-                backdrop = backdrop,
-                onNavigate = { screen ->
-                    navController.navigate(screen.route) {
-                        popUpTo(initialStartScreen) {
-                            saveState = true
+            // Floating Bottom Bar Island Overlay
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                SlooshBottomBar(
+                    currentRoute = currentRoute,
+                    previousTab = previousTab,
+                    searchState = searchState,
+                    backdrop = backdrop,
+                    onNavigate = { screen ->
+                        navController.navigate(screen.route) {
+                            popUpTo(initialStartScreen) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
+                )
+            }
         }
+    }
+}
 
         // Оффлайн-плашка: единый индикатор потери сети для всех экранов
-        com.slooshfilm.app.ui.components.OfflineBanner(
+        OfflineBanner(
             backdrop = if (currentGlassEnabled) backdrop else null,
             modifier = Modifier.align(Alignment.TopCenter)
         )

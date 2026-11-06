@@ -1,9 +1,11 @@
 package com.slooshfilm.app.ui.profile
 
+import android.content.res.Configuration
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,10 +16,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.kyant.shapes.Capsule
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Velocity
 import com.slooshfilm.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,9 +45,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.slooshfilm.app.data.api.MediaDto
+import com.slooshfilm.app.data.repository.AuthRepository
+import com.slooshfilm.app.data.repository.CloudSyncService
 import com.slooshfilm.app.data.storage.FavoritesStore
 import com.slooshfilm.app.data.storage.LocalStorage
+import com.slooshfilm.app.ui.components.EmptyStateView
+import com.slooshfilm.app.ui.components.LiquidGlassAlertDialog
 import com.slooshfilm.app.ui.components.LiquidGlassDialog
 import com.slooshfilm.app.ui.components.LiquidGlassTokens
 import com.slooshfilm.app.ui.components.LocalCardDensity
@@ -72,16 +89,30 @@ fun ProfileScreen(
     val favoritesStore = remember { FavoritesStore.getInstance(context) }
     val favorites by favoritesStore.favoritesFlow.collectAsStateWithLifecycle()
 
+    val authRepo = remember { AuthRepository.getInstance(context) }
+    val currentUser by authRepo.currentUser.collectAsStateWithLifecycle()
+    val isAuthenticated = !currentUser.isAnonymous
+    val cloudSync = remember { CloudSyncService.getInstance(context) }
+
     var selectedCategory by remember { mutableStateOf(FavoriteCategory.ALL) }
+    var showAuthSheet by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showSignOutAlert by remember { mutableStateOf(false) }
     var showDownloadsDialog by remember { mutableStateOf(false) }
+    var longClickedMedia by remember { mutableStateOf<MediaDto?>(null) }
+
+    LaunchedEffect(isAuthenticated) {
+        if (isAuthenticated) {
+            cloudSync.syncAllData()
+        }
+    }
 
     val filteredFavorites = remember(favorites, selectedCategory) {
         when (selectedCategory) {
             FavoriteCategory.ALL -> favorites
-            FavoriteCategory.MOVIES -> favorites.filter { it.type == "movie" && !it.isCartoon }
-            FavoriteCategory.SERIES -> favorites.filter { it.type == "tv" && !it.isCartoon }
-            FavoriteCategory.CARTOONS -> favorites.filter { it.isCartoon || it.type == "cartoon" }
+            FavoriteCategory.MOVIES -> favorites.filter { !it.isTvSeries && !it.isCartoon }
+            FavoriteCategory.SERIES -> favorites.filter { it.isTvSeries && !it.isCartoon }
+            FavoriteCategory.CARTOONS -> favorites.filter { it.isCartoon || it.isAnime || it.type == "cartoon" }
         }
     }
 
@@ -95,11 +126,33 @@ fun ProfileScreen(
         drawContent()
     }
 
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarPadding = if (rawStatusBarPadding > 0.dp) rawStatusBarPadding else (if (isLandscape) 8.dp else 0.dp)
     val navBarBottomPadding = rememberNavBarBottomPadding()
-    val topHeaderHeight = statusBarPadding + 106.dp
-    val headerBlurHeight = statusBarPadding + 140.dp
-    val bottomTotalPadding = navBarBottomPadding + 72.dp
+    val topHeaderHeight = statusBarPadding + (if (isLandscape) 80.dp else 106.dp)
+    val headerBlurHeight = statusBarPadding + (if (isLandscape) 96.dp else 140.dp)
+    val bottomTotalPadding = if (isLandscape) navBarBottomPadding + 48.dp else navBarBottomPadding + 72.dp
+
+    val gridState = rememberLazyGridState()
+    val density = LocalDensity.current
+    val headerFadeDistancePx = remember(density) { with(density) { 56.dp.toPx() } }
+    val headerScrollFraction by remember(gridState, headerFadeDistancePx) {
+        derivedStateOf {
+            val offsetPx = if (gridState.firstVisibleItemIndex > 0) {
+                headerFadeDistancePx
+            } else {
+                gridState.firstVisibleItemScrollOffset.toFloat()
+            }
+            (offsetPx / headerFadeDistancePx).coerceIn(0f, 1f)
+        }
+    }
+    val headerAlpha by animateFloatAsState(
+        targetValue = headerScrollFraction,
+        animationSpec = tween(durationMillis = 200),
+        label = "profileHeaderAlpha"
+    )
 
     Box(
         modifier = modifier
@@ -133,28 +186,11 @@ fun ProfileScreen(
                             .padding(top = topHeaderHeight, bottom = bottomTotalPadding, start = 32.dp, end = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_bookmark_fill),
-                                contentDescription = null,
-                                tint = TextTertiaryDark,
-                                modifier = Modifier.size(52.dp)
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Text(
-                                text = "Пока ничего не добавлено",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Сохраняйте фильмы и сериалы в избранное, чтобы быстро возвращаться к ним позже.",
-                                fontSize = 14.sp,
-                                color = TextSecondaryDark,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        EmptyStateView(
+                            iconRes = R.drawable.ic_sf_bookmark_fill,
+                            title = "Пока ничего не добавлено",
+                            message = "Сохраняйте фильмы и сериалы в избранное, чтобы быстро возвращаться к ним позже."
+                        )
                     }
                 } else if (filteredFavorites.isEmpty()) {
                     // Category empty state
@@ -164,38 +200,64 @@ fun ProfileScreen(
                             .padding(top = topHeaderHeight, bottom = bottomTotalPadding, start = 32.dp, end = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_film_fill),
-                                contentDescription = null,
-                                tint = TextTertiaryDark,
-                                modifier = Modifier.size(52.dp)
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Text(
-                                text = "В этой подборке пока пусто",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Попробуйте открыть другую вкладку или добавьте что-нибудь в избранное.",
-                                fontSize = 14.sp,
-                                color = TextSecondaryDark,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        EmptyStateView(
+                            iconRes = R.drawable.ic_sf_film_fill,
+                            title = "В этой подборке пока пусто",
+                            message = "Попробуйте открыть другую вкладку или добавьте что-нибудь в избранное."
+                        )
                     }
                 } else {
+                    val configuration = LocalConfiguration.current
+                    val isTablet = configuration.screenWidthDp >= 600
                     val cardDensity = LocalCardDensity.current
                     val isCompact = cardDensity == LocalStorage.CARD_DENSITY_COMPACT
-                    val gridSpacing = if (isCompact) 6.dp else 8.dp
-                    val gridSidePadding = if (isCompact) 10.dp else 12.dp
+                    val cutoutPadding = rememberCutoutHorizontalPadding()
+                    val gridSpacing = if (isTablet) 10.dp else if (isCompact) 6.dp else 8.dp
+                    val gridSidePadding = (if (isTablet) 20.dp else if (isCompact) 10.dp else 12.dp) + cutoutPadding
+                    val columnsCount = if (isTablet) 6 else if (isLandscape) 4 else 3
+                    val lastScrollTimestamp = remember { java.util.concurrent.atomic.AtomicLong(0L) }
+                    val scrollTrackingConnection = remember(gridState) {
+                        object : NestedScrollConnection {
+                            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                                lastScrollTimestamp.set(android.os.SystemClock.uptimeMillis())
+                                return Offset.Zero
+                            }
 
-                    // 3-Column Poster Grid
+                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                                lastScrollTimestamp.set(android.os.SystemClock.uptimeMillis())
+                                return Offset.Zero
+                            }
+
+                            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                                lastScrollTimestamp.set(android.os.SystemClock.uptimeMillis())
+                                return Velocity.Zero
+                            }
+                        }
+                    }
+
+                    val onMediaCardClick = remember<(MediaDto) -> Unit>(onNavigateToDetails, gridState) {
+                        { media ->
+                            val now = android.os.SystemClock.uptimeMillis()
+                            val wasRecentlyScrolling = (now - lastScrollTimestamp.get()) < 350L
+                            if (!gridState.isScrollInProgress && !wasRecentlyScrolling) {
+                                onNavigateToDetails(media)
+                            }
+                        }
+                    }
+                    val onMediaCardLongClick = remember<(MediaDto) -> Unit>(gridState) {
+                        { media ->
+                            val now = android.os.SystemClock.uptimeMillis()
+                            val wasRecentlyScrolling = (now - lastScrollTimestamp.get()) < 350L
+                            if (!gridState.isScrollInProgress && !wasRecentlyScrolling) {
+                                longClickedMedia = media
+                            }
+                        }
+                    }
+
+                    // Adaptive Poster Grid (3 cols on phones, 4/5 in landscape, 6/7 on tablets)
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                        state = gridState,
+                        columns = GridCells.Fixed(columnsCount),
                         contentPadding = PaddingValues(
                             top = topHeaderHeight + 8.dp,
                             bottom = bottomTotalPadding,
@@ -204,12 +266,15 @@ fun ProfileScreen(
                         ),
                         horizontalArrangement = Arrangement.spacedBy(gridSpacing),
                         verticalArrangement = Arrangement.spacedBy(gridSpacing),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(scrollTrackingConnection)
                     ) {
                         items(filteredFavorites, key = { it.favoriteIdentity }) { media ->
                             MediaCard(
                                 media = media,
-                                onClick = { onNavigateToDetails(media) },
+                                onClick = onMediaCardClick,
+                                onLongClick = onMediaCardLongClick,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -224,12 +289,13 @@ fun ProfileScreen(
                     .height(headerBlurHeight)
                     .align(Alignment.TopCenter)
             ) {
-                if (LocalProgressiveBlur.current) {
+                if (LocalProgressiveBlur.current && headerAlpha > 0.001f) {
                     val isLightTheme = !LocalSlooshColors.current.isDark
                     // Progressive blur layer: true physical variable radius blur (decreasing smoothly from 4dp to 0dp)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
+                            .graphicsLayer { alpha = headerAlpha }
                             .drawBackdrop(
                                 backdrop = contentBackdrop,
                                 shape = { RectangleShape },
@@ -252,6 +318,7 @@ fun ProfileScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .graphicsLayer { alpha = headerAlpha }
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
@@ -270,45 +337,99 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(bottom = 16.dp)
+                    .padding(top = statusBarPadding)
+                    .padding(bottom = if (isLandscape) 4.dp else 16.dp)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Top Header Bar: Left Avatar | Center Title | Right Download+Settings Capsule
+                    val cutoutPadding = rememberCutoutHorizontalPadding()
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
-                            .padding(horizontal = 16.dp)
+                            .height(if (isLandscape) 44.dp else 56.dp)
+                            .padding(horizontal = 16.dp + cutoutPadding)
                     ) {
-                        // Left Avatar Button (44dp circular button, styled like search button)
-                        LiquidGlassFloatingButton(
-                            onClick = { showAccountDialog = true },
-                            backdrop = sceneBackdrop,
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .align(Alignment.CenterStart)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_person_fill),
-                                contentDescription = "Профиль",
-                                tint = LocalContentColor.current,
-                                modifier = Modifier.size(22.dp)
-                            )
+                        // Left Avatar / Sign-In Button (iOS 1:1)
+                        if (isAuthenticated) {
+                            LiquidGlassFloatingButton(
+                                onClick = { showAccountDialog = true },
+                                backdrop = sceneBackdrop,
+                                shape = CircleShape,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .align(Alignment.CenterStart)
+                            ) {
+                                val photoUrl = currentUser.photoURL
+                                if (!photoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = photoUrl,
+                                        contentDescription = "Профиль",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                    )
+                                } else {
+                                    val initials = currentUser.avatarInitials
+                                    if (initials.isNotEmpty() && initials != "👤") {
+                                        Text(
+                                            text = initials,
+                                            color = SlooshAccent,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    } else {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_sf_person_fill),
+                                            contentDescription = "Профиль",
+                                            tint = LocalContentColor.current,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            LiquidGlassFloatingButton(
+                                onClick = { showAuthSheet = true },
+                                backdrop = sceneBackdrop,
+                                shape = Capsule(),
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .align(Alignment.CenterStart)
+                            ) {
+                                Text(
+                                    text = "Войти",
+                                    color = SlooshAccent,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 18.dp)
+                                )
+                            }
                         }
 
                         // Center Title (iOS 1:1: font 20 medium)
+                        val headerTitle = if (isAuthenticated) {
+                            if (!currentUser.tag.isNullOrBlank()) {
+                                currentUser.displayTag
+                            } else {
+                                currentUser.displayTitle
+                            }
+                        } else {
+                            "Профиль"
+                        }
+
                         Text(
-                            text = "Профиль",
+                            text = headerTitle,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Medium,
                             color = TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.align(Alignment.Center)
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(horizontal = 80.dp)
                         )
 
                         // Right Capsule: Download + Settings side-by-side (LiquidGlassDualButton, 44dp height)
@@ -350,63 +471,44 @@ fun ProfileScreen(
             }
         }
 
-        // Account Dialog (Coming Soon)
-        if (showAccountDialog) {
-            LiquidGlassDialog(
-                title = "Аккаунт sloosh",
+        // Account Dialog (Authenticated user profile details & cloud sync)
+        if (showAccountDialog && isAuthenticated) {
+            ProfileAccountDialog(
+                user = currentUser,
                 onDismissRequest = { showAccountDialog = false },
+                onSignOutClick = {
+                    showAccountDialog = false
+                    showSignOutAlert = true
+                },
+                backdrop = sceneBackdrop
+            )
+        }
+
+        // Sign Out Confirmation Alert
+        if (showSignOutAlert) {
+            LiquidGlassAlertDialog(
+                title = "Выйти из аккаунта?",
+                message = "Вы действительно хотите выйти из своего аккаунта?",
+                confirmButtonText = "Выйти",
+                dismissButtonText = "Отмена",
+                isDestructive = true,
                 backdrop = sceneBackdrop,
-                showCloseButton = false
-            ) { dismiss ->
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(SlooshAccent.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_person_fill),
-                            contentDescription = null,
-                            tint = SlooshAccent,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "В разработке",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .clip(Capsule())
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .clickable { dismiss() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Понятно",
-                            color = TextPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                onConfirm = {
+                    showSignOutAlert = false
+                    authRepo.signOut()
+                },
+                onDismissRequest = {
+                    showSignOutAlert = false
                 }
-            }
+            )
+        }
+
+        // Auth Sheet (Full modal sheet matching iOS AuthView.swift 1:1)
+        if (showAuthSheet) {
+            AuthSheet(
+                onDismissRequest = { showAuthSheet = false },
+                backdrop = sceneBackdrop
+            )
         }
 
         // Downloads Dialog (Coming Soon)
@@ -425,41 +527,154 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(SlooshAccent.copy(alpha = 0.12f)),
+                            .background(Color.White.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
                             contentDescription = null,
-                            tint = SlooshAccent,
+                            tint = Color.White,
                             modifier = Modifier.size(28.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "В разработке",
+                        text = "Скоро будет доступно",
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.60f),
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Сохранение фильмов и сериалов для просмотра без интернета появится в следующем обновлении.",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
                             .clip(Capsule())
-                            .background(Color.White.copy(alpha = 0.12f))
+                            .background(Color.White)
                             .clickable { dismiss() },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Понятно",
-                            color = TextPrimary,
+                            color = Color.Black,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Long-Press Action Sheet Dialog for Favorite item
+        val selectedMedia = longClickedMedia
+        if (selectedMedia != null) {
+            LiquidGlassDialog(
+                title = selectedMedia.displayTitle,
+                onDismissRequest = { longClickedMedia = null },
+                backdrop = sceneBackdrop,
+                showCloseButton = false
+            ) { dismiss ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Open Details
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(Capsule())
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                            .clickable {
+                                dismiss()
+                                onNavigateToDetails(selectedMedia)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_sf_info_circle_fill),
+                                contentDescription = null,
+                                tint = TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Подробнее",
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    // Remove from favorites
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(Capsule())
+                            .background(RatingIosRed.copy(alpha = 0.15f))
+                            .clickable {
+                                dismiss()
+                                favoritesStore.removeFavorite(selectedMedia)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_sf_trash_fill),
+                                contentDescription = null,
+                                tint = RatingIosRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Удалить из избранного",
+                                color = RatingIosRed,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Cancel
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(Capsule())
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                            .clickable { dismiss() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Отмена",
+                            color = TextSecondary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -479,12 +694,18 @@ private fun ProfileCategoryTextTabs(
     onSelectCategory: (FavoriteCategory) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val cutoutPadding = rememberCutoutHorizontalPadding()
+    val tabSpacing = if (isLandscape) 10.dp else 12.dp
+    val titleFontSize = if (isLandscape) 22.sp else 28.sp
+
     LazyRow(
         modifier = modifier
             .fillMaxWidth()
             .padding(top = 4.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 16.dp + cutoutPadding, end = 16.dp + cutoutPadding),
+        horizontalArrangement = Arrangement.spacedBy(tabSpacing),
         verticalAlignment = Alignment.CenterVertically
     ) {
         items(FavoriteCategory.values()) { category ->
@@ -520,7 +741,7 @@ private fun ProfileCategoryTextTabs(
                 Text(
                     text = category.title,
                     color = textColor,
-                    fontSize = 28.sp,
+                    fontSize = titleFontSize,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                     letterSpacing = (-0.8).sp,
                     modifier = Modifier.plusBlendMode()

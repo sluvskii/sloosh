@@ -40,10 +40,31 @@ class SearchState(
 
     val focusRequester = FocusRequester()
 
-    var searchHistory by mutableStateOf(
-        historyPrefs.getStringSet("history", emptySet())?.toList() ?: emptyList()
-    )
+    private fun loadHistory(): List<String> {
+        val raw = historyPrefs.getString("history_ordered_v2", null)
+        if (!raw.isNullOrBlank()) {
+            try {
+                val list = com.google.gson.Gson().fromJson<List<String>>(
+                    raw,
+                    object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
+                )
+                if (!list.isNullOrEmpty()) return list
+            } catch (_: Exception) {}
+        }
+        return historyPrefs.getStringSet("history", emptySet())?.toList() ?: emptyList()
+    }
+
+    var searchHistory by mutableStateOf(loadHistory())
         private set
+
+    private fun persistHistory(list: List<String>) {
+        searchHistory = list
+        val json = com.google.gson.Gson().toJson(list)
+        historyPrefs.edit()
+            .putString("history_ordered_v2", json)
+            .putStringSet("history", list.toSet())
+            .apply()
+    }
 
     private var searchJob: Job? = null
     private var requestGeneration = 0
@@ -107,7 +128,20 @@ class SearchState(
             } catch (e: Exception) {
                 if (generation != requestGeneration) return@launch
                 if (!isAppend) {
-                    errorMessage = e.localizedMessage ?: "Ошибка поиска"
+                    errorMessage = when {
+                        e is java.net.UnknownHostException ||
+                        e is java.net.ConnectException ||
+                        e is java.net.SocketTimeoutException ||
+                        e.message?.contains("Unable to resolve host", ignoreCase = true) == true ||
+                        e.message?.contains("Failed to connect", ignoreCase = true) == true ||
+                        e.message?.contains("api.sloosh", ignoreCase = true) == true ||
+                        e.message?.contains("workers.dev", ignoreCase = true) == true -> {
+                            "Не удалось подключиться к серверу. Проверьте интернет-соединение."
+                        }
+                        else -> {
+                            "Не удалось выполнить поиск. Попробуйте повторить запрос."
+                        }
+                    }
                     results = emptyList()
                 }
             } finally {
@@ -136,21 +170,22 @@ class SearchState(
         val current = searchHistory.toMutableList()
         current.remove(trimmed)
         current.add(0, trimmed)
-        val limited = current.take(10)
-        searchHistory = limited
-        historyPrefs.edit().putStringSet("history", limited.toSet()).apply()
+        val limited = current.take(15)
+        persistHistory(limited)
     }
 
     fun removeHistory(item: String) {
         val current = searchHistory.toMutableList()
         current.remove(item)
-        searchHistory = current
-        historyPrefs.edit().putStringSet("history", current.toSet()).apply()
+        persistHistory(current)
     }
 
     fun clearHistory() {
         searchHistory = emptyList()
-        historyPrefs.edit().remove("history").apply()
+        historyPrefs.edit()
+            .remove("history")
+            .remove("history_ordered_v2")
+            .apply()
     }
 }
 

@@ -282,6 +282,7 @@ uniform float refractionHeight;
 uniform float refractionAmount;
 uniform float depthEffect;
 uniform float chromaticAberration;
+uniform float fishEyeStrength;
 
 float radiusAt(float2 coord, float4 radii) {
     if (coord.x >= 0.0) {
@@ -317,25 +318,38 @@ float circleMap(float x) {
 half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = (coord + offset) - halfSize;
-    float radius = radiusAt(coord, cornerRadii);
+    float radius = radiusAt(centeredCoord, cornerRadii);
     
     float sd = sdRoundedRect(centeredCoord, halfSize, radius);
-    if (-sd >= refractionHeight) {
+    if (sd > 0.0) {
         return content.eval(coord);
     }
-    sd = min(sd, 0.0);
+    if (-sd >= refractionHeight && fishEyeStrength <= 0.0) {
+        return content.eval(coord);
+    }
+    
+    // Genuine convex fish-eye optical lens magnification on the GPU
+    float2 domeOffset = float2(0.0);
+    if (fishEyeStrength > 0.0) {
+        float maxDepth = min(halfSize.x, halfSize.y);
+        float u = clamp(1.0 - (-sd / max(maxDepth, 0.001)), 0.0, 1.0);
+        float domeFactor = fishEyeStrength * (1.0 - u * u);
+        domeOffset = -centeredCoord * (domeFactor / (1.0 + fishEyeStrength));
+    }
     
     float edgeFactor = 1.0 - clamp(-sd / max(refractionHeight, 0.001), 0.0, 1.0);
     float d = circleMap(edgeFactor) * refractionAmount;
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-    float2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord));
+    float2 centerDir = length(centeredCoord) > 0.001 ? normalize(centeredCoord) : float2(0.0);
+    float2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * centerDir);
     
-    float2 refractedCoord = coord + d * grad;
+    float2 refractedCoord = coord + domeOffset + d * grad;
     
     // Subtle Fresnel rim reflection: delicate optical edge without standing out
     float fresnel = pow(edgeFactor, 4.5) * 0.07;
     
-    if (chromaticAberration <= 0.0) {
+    // Fast path: in the central lens zone (where edgeFactor <= 0.001), perform a single crystal-clear evaluation
+    if (chromaticAberration <= 0.0 || edgeFactor <= 0.001) {
         half4 color = content.eval(refractedCoord);
         color.rgb += half3(fresnel) * (half3(1.0) - color.rgb * 0.35);
         return color;
@@ -390,10 +404,11 @@ fun BackdropEffectScope.iosLens(
     @FloatRange(from = 0.0) refractionHeight: Float,
     @FloatRange(from = 0.0) refractionAmount: Float,
     depthEffect: Boolean = false,
-    @FloatRange(from = 0.0) chromaticAberration: Float = 0f
+    @FloatRange(from = 0.0) chromaticAberration: Float = 0f,
+    @FloatRange(from = 0.0) fishEyeStrength: Float = 0f
 ) {
     if (!isRuntimeShaderSupported()) return
-    if (refractionHeight <= 0f || refractionAmount <= 0f) return
+    if ((refractionHeight <= 0f || refractionAmount <= 0f) && fishEyeStrength <= 0f) return
 
     if (padding > 0f) {
         padding = (padding - refractionHeight).coerceAtLeast(0f)
@@ -455,6 +470,7 @@ fun BackdropEffectScope.iosLens(
         setFloatUniform("refractionAmount", -refractionAmount)
         setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
         setFloatUniform("chromaticAberration", chromaticAberration)
+        setFloatUniform("fishEyeStrength", fishEyeStrength)
     }
 }
 
@@ -569,20 +585,15 @@ half4 main(float2 coord) {
         return content.eval(coord);
     }
     
-    half4 accum = half4(0.0);
-    float totalW = 0.0;
+    // High-efficiency unrolled 9-tap horizontal Gaussian filter with pre-normalized constant weights.
+    // Eliminates 9 transcendental exp() calculations per pixel, freeing GPU SFU units and guaranteeing 120 FPS.
+    half4 accum = content.eval(coord) * half(0.2041637);
+    accum += (content.eval(coord + float2(0.25 * r, 0.0)) + content.eval(coord - float2(0.25 * r, 0.0))) * half(0.1801738);
+    accum += (content.eval(coord + float2(0.50 * r, 0.0)) + content.eval(coord - float2(0.50 * r, 0.0))) * half(0.1238315);
+    accum += (content.eval(coord + float2(0.75 * r, 0.0)) + content.eval(coord - float2(0.75 * r, 0.0))) * half(0.0662822);
+    accum += (content.eval(coord + float2(1.00 * r, 0.0)) + content.eval(coord - float2(1.00 * r, 0.0))) * half(0.0276305);
     
-    // 9-tap continuous horizontal Gaussian pass (120 FPS high-efficiency)
-    for (int k = -4; k <= 4; ++k) {
-        float fk = float(k);
-        float distNorm = fk * 0.25;
-        float2 offset = float2(distNorm * r, 0.0);
-        float w = exp(-2.0 * distNorm * distNorm);
-        accum += content.eval(coord + offset) * half(w);
-        totalW += w;
-    }
-    
-    return accum / half(max(totalW, 0.0001));
+    return accum;
 }
 """
 
@@ -614,19 +625,15 @@ half4 main(float2 coord) {
         return content.eval(coord);
     }
     
-    half4 accum = half4(0.0);
-    float totalW = 0.0;
+    // High-efficiency unrolled 9-tap vertical Gaussian filter with pre-normalized constant weights.
+    // Eliminates 9 transcendental exp() calculations per pixel, freeing GPU SFU units and guaranteeing 120 FPS.
+    half4 accum = content.eval(coord) * half(0.2041637);
+    accum += (content.eval(coord + float2(0.0, 0.25 * r)) + content.eval(coord - float2(0.0, 0.25 * r))) * half(0.1801738);
+    accum += (content.eval(coord + float2(0.0, 0.50 * r)) + content.eval(coord - float2(0.0, 0.50 * r))) * half(0.1238315);
+    accum += (content.eval(coord + float2(0.0, 0.75 * r)) + content.eval(coord - float2(0.0, 0.75 * r))) * half(0.0662822);
+    accum += (content.eval(coord + float2(0.0, 1.00 * r)) + content.eval(coord - float2(0.0, 1.00 * r))) * half(0.0276305);
     
-    // 9-tap continuous vertical Gaussian pass (120 FPS high-efficiency)
-    for (int k = -4; k <= 4; ++k) {
-        float fk = float(k);
-        float distNorm = fk * 0.25;
-        float2 offset = float2(0.0, distNorm * r);
-        float w = exp(-2.0 * distNorm * distNorm);
-        accum += content.eval(coord + offset) * half(w);
-        totalW += w;
-    }
-    half4 c = accum / half(max(totalW, 0.0001));
+    half4 c = accum;
     
     if (c.a <= 0.0) {
         return c;
@@ -880,7 +887,8 @@ private fun Modifier.glassBorderInternal(
         // Physical hairline edge for bright/white backgrounds:
         // Ensures the glass contour remains distinctly visible on pure white or high-luminance backgrounds
         // where BlendMode.Overlay mathematically produces zero effect.
-        val basePhysicalAlpha = if (isLightTheme) 0.35f else 0.12f
+        // In dark theme, this is strictly 0 to preserve authentic glass transparency without muddy gray tones.
+        val basePhysicalAlpha = if (isLightTheme) 0.20f else 0.0f
         val currentPhysicalAlpha = (basePhysicalAlpha * (currentAlpha / defaultAlpha)).coerceIn(0f, 1f)
         if (currentPhysicalAlpha > 0f) {
             cache.outline?.let { outline ->
@@ -939,7 +947,7 @@ float2 gradSdRoundedRect(float2 coord, float2 halfSize, float radius) {
 half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = coord - halfSize;
-    float radius = radiusAt(coord, cornerRadii);
+    float radius = radiusAt(centeredCoord, cornerRadii);
     
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
     float2 grad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
@@ -1025,8 +1033,8 @@ private fun DrawScope.getHighlightCornerRadii(shape: Shape): FloatArray {
  */
 @Immutable
 data class ConcentratedHighlightStyle(
-    override val color: Color = Color.White.copy(alpha = 0.5f),
-    override val blendMode: BlendMode = BlendMode.Plus,
+    override val color: Color = Color.White.copy(alpha = 0.85f),
+    override val blendMode: BlendMode = BlendMode.Overlay,
     val angle: Float = 90f,
     @param:FloatRange(from = 0.0) val falloff: Float = 1f,
     val lengthFactor: Float = 0.55f
@@ -1034,16 +1042,19 @@ data class ConcentratedHighlightStyle(
 
     override fun DrawScope.createShader(
         shape: Shape,
-        runtimeShaderCache: RuntimeShaderCache
+        runtimeShaderCache: RuntimeShaderCache,
+        alpha: Float,
+        keySuffix: String
     ): RuntimeShader? {
         return if (isRuntimeShaderSupported()) {
             runtimeShaderCache.obtainRuntimeShader(
-                "ConcentratedHighlight",
+                "ConcentratedHighlight$keySuffix",
                 ConcentratedHighlightShaderString
             ).apply {
+                val resolvedAlpha = (color.alpha * alpha).coerceIn(0f, 1f)
                 setFloatUniform("size", size.width, size.height)
                 setFloatUniform("cornerRadii", getHighlightCornerRadii(shape))
-                setColorUniform("color", color.copy(alpha = 1f))
+                setColorUniform("color", color.copy(alpha = resolvedAlpha))
                 setFloatUniform("angle", (angle * (PI / 180f)).toFloat())
                 setFloatUniform("falloff", falloff)
                 setFloatUniform("lengthFactor", lengthFactor)
@@ -1070,6 +1081,7 @@ data class LiquidGlassStyle(
     val refractionAmount: Dp = 28.dp,
     val depthEffect: Boolean = false,
     val chromaticAberration: Float = 0f,
+    val fishEyeStrength: Float = 0f,
     val highlightAlpha: Float = 0.68f,
     val highlightStyle: HighlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
     val borderAlpha: Float? = null,
@@ -1094,7 +1106,7 @@ object LiquidGlassTokens {
         refractionHeight = 14.dp,
         refractionAmount = 28.dp,
         depthEffect = false,
-        chromaticAberration = 0.12f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.68f,
         highlightStyle = ConcentratedHighlightStyle(angle = 90f),
         borderAlpha = null, // Dynamically resolves to 0.30f light / 0.55f dark
@@ -1105,15 +1117,16 @@ object LiquidGlassTokens {
 
     /**
      * Active tab dynamic slider preset (46dp capsule droplet).
-     * Base optical values that scale during drag (4.5/8dp lens, 0.22f dispersion).
+     * Base optical values that scale during drag (4.8/9.5dp lens, 0.16f dispersion, 0.08f subtle fish-eye).
      */
     val Slider = LiquidGlassStyle(
         blurRadius = 4.dp,
         blurOpacity = 1.0f,
-        refractionHeight = 4.5.dp,
-        refractionAmount = 8.dp,
+        refractionHeight = 4.8.dp,
+        refractionAmount = 9.5.dp,
         depthEffect = false,
-        chromaticAberration = 0.22f,
+        chromaticAberration = 0.16f,
+        fishEyeStrength = 0.08f,
         highlightAlpha = 0.50f,
         highlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
         borderAlpha = null,
@@ -1124,7 +1137,7 @@ object LiquidGlassTokens {
 
     /**
      * Floating action button preset (e.g. search button, media controls).
-     * Features 20dp smooth frosted blur with 72% opacity, 16/34dp enhanced liquid lens with physical chromatic dispersion,
+     * Features 20dp smooth frosted blur with 72% opacity, 16/34dp enhanced liquid lens,
      * inner glow, drop shadow, and elastic tactile physics.
      */
     val Button = LiquidGlassStyle(
@@ -1133,7 +1146,7 @@ object LiquidGlassTokens {
         refractionHeight = 16.dp,
         refractionAmount = 34.dp,
         depthEffect = false,
-        chromaticAberration = 0.18f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.68f,
         highlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
         borderAlpha = null,
@@ -1147,7 +1160,7 @@ object LiquidGlassTokens {
      * Floating action button in active/selected state (e.g. search screen active).
      */
     val ButtonActive = Button.copy(
-        chromaticAberration = 0.22f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.85f,
         shadowAlpha = 0.50f,
         innerShadowAlpha = 0.60f
@@ -1162,7 +1175,7 @@ object LiquidGlassTokens {
         refractionHeight = 16.dp,
         refractionAmount = 34.dp,
         depthEffect = false,
-        chromaticAberration = 0.10f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.68f,
         highlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
         borderAlpha = null,
@@ -1181,7 +1194,7 @@ object LiquidGlassTokens {
         refractionHeight = 9.dp,
         refractionAmount = 18.dp,
         depthEffect = false,
-        chromaticAberration = 0.12f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.35f,
         highlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
         borderAlpha = null,
@@ -1193,7 +1206,7 @@ object LiquidGlassTokens {
     /**
      * Context menu card preset (iOS Liquid Glass pull-down context menu).
      * Features authentic compound dual-radius blur (10dp core + 20dp ambient glow), 10/20dp liquid lens refraction,
-     * delicate chromatic dispersion, 0.45f specular highlight, and 0.5dp hairline border.
+     * 0.45f specular highlight, and 0.5dp hairline border.
      */
     val Menu = LiquidGlassStyle(
         blurRadius = 10.dp,
@@ -1202,7 +1215,7 @@ object LiquidGlassTokens {
         refractionHeight = 10.dp,
         refractionAmount = 20.dp,
         depthEffect = false,
-        chromaticAberration = 0.08f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.45f,
         highlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
         borderAlpha = null,
@@ -1223,7 +1236,7 @@ object LiquidGlassTokens {
         refractionHeight = 10.dp,
         refractionAmount = 20.dp,
         depthEffect = false,
-        chromaticAberration = 0.08f,
+        chromaticAberration = 0f,
         highlightAlpha = 0.45f,
         highlightStyle = HighlightStyle.Default(angle = 90f, falloff = 3.0f),
         borderAlpha = null,
@@ -1284,7 +1297,8 @@ fun Modifier.liquidGlassSurface(
                         refractionHeight = style.refractionHeight.toPx(),
                         refractionAmount = style.refractionAmount.toPx(),
                         depthEffect = style.depthEffect,
-                        chromaticAberration = style.chromaticAberration
+                        chromaticAberration = style.chromaticAberration,
+                        fishEyeStrength = style.fishEyeStrength
                     )
                 }
             }
@@ -1292,6 +1306,8 @@ fun Modifier.liquidGlassSurface(
         highlight = {
             if (style.highlightAlpha > 0f) {
                 Highlight(
+                    width = style.borderWidth,
+                    blurRadius = 1.5.dp,
                     alpha = style.highlightAlpha,
                     style = style.highlightStyle
                 )
@@ -1427,7 +1443,8 @@ fun Modifier.liquidGlassInteractive(
                         refractionHeight = style.refractionHeight.toPx(),
                         refractionAmount = style.refractionAmount.toPx(),
                         depthEffect = style.depthEffect,
-                        chromaticAberration = style.chromaticAberration
+                        chromaticAberration = style.chromaticAberration,
+                        fishEyeStrength = style.fishEyeStrength
                     )
                 }
             }
@@ -1435,6 +1452,8 @@ fun Modifier.liquidGlassInteractive(
         highlight = {
             if (style.highlightAlpha > 0f) {
                 Highlight(
+                    width = style.borderWidth,
+                    blurRadius = 1.5.dp,
                     alpha = style.highlightAlpha,
                     style = style.highlightStyle
                 )

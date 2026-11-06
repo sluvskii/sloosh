@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "535135371915",
+    "firebase_url": "https://sloosh-77434-default-rtdb.firebaseio.com",
+    "project_id": "sloosh-77434",
+    "storage_bucket": "sloosh-77434.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535135371915:android:ce5b92e8d53f9d08f38a8e",
+        "android_client_info": {
+          "package_name": "com.slooshfilm.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "535135371915-n2sr91it0ramcgv3078m8asvrf4dn0ri.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQussJy2N2Nfa6dwl7GuWJ7jAK7fI3Upc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "535135371915-n2sr91it0ramcgv3078m8asvrf4dn0ri.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "535135371915-8iou4igr3g5rfan904mtolv5r5uatfuv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sloosh.ios"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

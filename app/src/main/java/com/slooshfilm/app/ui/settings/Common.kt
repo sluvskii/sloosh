@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -52,9 +54,11 @@ import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.slooshfilm.app.ui.backdrop.backdrops.LayerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import com.slooshfilm.app.ui.components.LiquidGroupedList
 import com.slooshfilm.app.ui.backdrop.drawBackdrop
 import com.slooshfilm.app.ui.backdrop.highlight.Highlight
 import com.slooshfilm.app.ui.backdrop.shadow.Shadow
@@ -88,6 +92,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
+import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -97,20 +102,38 @@ fun SettingsScaffold(
     title: String,
     onBackClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    sceneBackdrop: LayerBackdrop? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val screenBg = MaterialTheme.colorScheme.background
+    val effectiveSceneBackdrop = sceneBackdrop ?: rememberLayerBackdrop {
+        drawRect(screenBg)
+        drawContent()
+    }
     val contentBackdrop = rememberLayerBackdrop {
         drawRect(screenBg)
         drawContent()
     }
-    val sceneBackdrop = rememberLayerBackdrop {
-        drawRect(screenBg)
-        drawContent()
-    }
     val menuState = remember { LiquidMenuState() }
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val headerBlurHeight = statusBarPadding + 64.dp
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarPadding = if (rawStatusBarPadding > 0.dp) rawStatusBarPadding else (if (isLandscape) 8.dp else 0.dp)
+    val headerBlurHeight = statusBarPadding + (if (isLandscape) 48.dp else 64.dp)
+
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+    val headerFadeDistancePx = remember(density) { with(density) { 56.dp.toPx() } }
+    val headerScrollFraction by remember(scrollState, headerFadeDistancePx) {
+        derivedStateOf {
+            (scrollState.value.toFloat() / headerFadeDistancePx).coerceIn(0f, 1f)
+        }
+    }
+    val headerAlpha by animateFloatAsState(
+        targetValue = headerScrollFraction,
+        animationSpec = tween(durationMillis = 200),
+        label = "settingsHeaderAlpha"
+    )
 
     Box(
         modifier = modifier
@@ -121,7 +144,7 @@ fun SettingsScaffold(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .layerBackdrop(sceneBackdrop)
+                .layerBackdrop(effectiveSceneBackdrop)
         ) {
             // Scrollable Content Layer captured in contentBackdrop
             Box(
@@ -135,15 +158,25 @@ fun SettingsScaffold(
                         .background(screenBg)
                 )
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .navigationBarsPadding()
-                        .padding(top = headerBlurHeight + 12.dp, bottom = 96.dp)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    CompositionLocalProvider(LocalLiquidMenuHostState provides menuState) {
-                        content()
+                    val cutoutPadding = rememberCutoutHorizontalPadding()
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 680.dp)
+                            .fillMaxWidth()
+                            .verticalScroll(scrollState)
+                            .navigationBarsPadding()
+                            .padding(horizontal = cutoutPadding)
+                            .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = if (isLandscape) 48.dp else 96.dp)
+                    ) {
+                        CompositionLocalProvider(
+                            LocalLiquidMenuHostState provides menuState
+                        ) {
+                            content()
+                        }
                     }
                 }
             }
@@ -161,6 +194,7 @@ fun SettingsScaffold(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
+                            .graphicsLayer { alpha = headerAlpha }
                             .drawBackdrop(
                                 backdrop = contentBackdrop,
                                 shape = { RectangleShape },
@@ -183,6 +217,7 @@ fun SettingsScaffold(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .graphicsLayer { alpha = headerAlpha }
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
@@ -196,13 +231,14 @@ fun SettingsScaffold(
         }
 
         // Floating TopBar with genuine Liquid Glass Back Button (refracting sceneBackdrop)
-        CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+        CompositionLocalProvider(LocalBackdrop provides effectiveSceneBackdrop) {
+            val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp),
+                    .padding(top = statusBarPadding)
+                    .height(if (isLandscape) 44.dp else 56.dp)
+                    .padding(horizontal = 16.dp + cutoutPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -210,12 +246,13 @@ fun SettingsScaffold(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 60.dp)
                 )
                 onBackClick?.let {
                     LiquidGlassFloatingButton(
                         onClick = it,
-                        backdrop = sceneBackdrop,
+                        backdrop = effectiveSceneBackdrop,
                         shape = CircleShape,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
@@ -242,10 +279,11 @@ fun SettingsScaffold(
 
 @Composable
 fun TopBar(title: String, onBackClick: (() -> Unit)? = null) {
+    val cutoutPadding = rememberCutoutHorizontalPadding()
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp + cutoutPadding, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -338,11 +376,8 @@ fun SettingsSection(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             )
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surface)
+        LiquidGroupedList(
+            modifier = Modifier.fillMaxWidth()
         ) {
             content()
         }
@@ -370,7 +405,7 @@ fun SettingsRadioItem(text: String, selected: Boolean, onClick: () -> Unit) {
         Text(
             text = text,
             fontSize = 16.sp,
-            color = if (selected) SlooshAccent else MaterialTheme.colorScheme.onSurface,
+            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             modifier = Modifier.weight(1f)
         )
@@ -382,7 +417,7 @@ fun SettingsRadioItem(text: String, selected: Boolean, onClick: () -> Unit) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_sf_checkmark_circle_fill),
                 contentDescription = "Выбрано",
-                tint = SlooshAccent,
+                tint = Color.White,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -871,7 +906,7 @@ fun SettingsChoiceDialog(
                         .fillMaxWidth()
                         .height(LiquidMenuTokens.itemHeight)
                         .clip(LiquidMenuTokens.itemShape)
-                        .background(if (isSelected) LiquidMenuTokens.itemHighlightColor else Color.Transparent)
+                        .background(if (isSelected) Color.White.copy(alpha = 0.10f) else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onOptionSelected(option)
@@ -884,8 +919,8 @@ fun SettingsChoiceDialog(
                     Text(
                         text = option,
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = if (isSelected) SlooshAccent else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                         letterSpacing = (-0.3).sp,
                         modifier = Modifier.weight(1f)
                     )
@@ -893,7 +928,7 @@ fun SettingsChoiceDialog(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_sf_checkmark),
                             contentDescription = "Выбрано",
-                            tint = SlooshAccent,
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }

@@ -1,11 +1,17 @@
 package com.slooshfilm.app.ui.settings
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -22,19 +28,24 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.Coil
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.storage.LocalStorage
+import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.components.LiquidGlassAlertDialog
 import com.slooshfilm.app.ui.components.LiquidSlider
+import com.slooshfilm.app.ui.components.LocalGlassEnabled
+import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.theme.SlooshAccent
 import com.slooshfilm.app.utils.AppUpdateInfo
 import com.slooshfilm.app.utils.AppUpdater
@@ -51,10 +62,11 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
-    // Мгновенно применяем переключатель к состоянию приложения, не полагаясь
-    // только на слушатель SharedPreferences: иначе «Режим без стекла» включался
+    // Мгновенно применяем переключатели к состоянию приложения, не полагаясь
+    // только на слушатель SharedPreferences: иначе настройки применялись
     // лишь после перезапуска.
-    onGlassEnabledChange: (Boolean) -> Unit = {}
+    onGlassEnabledChange: (Boolean) -> Unit = {},
+    onProgressiveBlurChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -63,7 +75,10 @@ fun SettingsScreen(
     // --- State variables ---
     var currentThemeMode by remember { mutableIntStateOf(localStorage.getThemeMode()) }
     var liquidGlassBlur by remember { mutableFloatStateOf(localStorage.getLiquidGlassBlur()) }
-    var isGlassEnabled by remember { mutableStateOf(localStorage.getGlassEnabled()) }
+    val globalGlassEnabled = LocalGlassEnabled.current
+    var isGlassEnabled by remember(globalGlassEnabled) { mutableStateOf(globalGlassEnabled) }
+    val globalProgressiveBlur = LocalProgressiveBlur.current
+    var isProgressiveBlurEnabled by remember(globalProgressiveBlur) { mutableStateOf(globalProgressiveBlur) }
     var cardStyle by remember { mutableStateOf(localStorage.getCardStyle()) }
     var cardDensity by remember { mutableStateOf(localStorage.getCardDensity()) }
     var tabBarShowsLabels by remember { mutableStateOf(localStorage.getTabBarShowsLabels()) }
@@ -135,7 +150,7 @@ fun SettingsScreen(
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Ошибка очистки: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Не удалось очистить кэш", Toast.LENGTH_SHORT).show()
                 }
             } finally {
                 withContext(Dispatchers.Main) {
@@ -152,10 +167,17 @@ fun SettingsScreen(
         else -> 2
     }
 
+    val screenBg = MaterialTheme.colorScheme.background
+    val sceneBackdrop = rememberLayerBackdrop {
+        drawRect(screenBg)
+        drawContent()
+    }
+
     SettingsScaffold(
         title = "Настройки",
         onBackClick = { navController.popBackStack() },
-        modifier = modifier
+        modifier = modifier,
+        sceneBackdrop = sceneBackdrop
     ) {
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -163,10 +185,24 @@ fun SettingsScreen(
         SettingsSection(
             title = "Вид каталога"
         ) {
+            val configuration = LocalConfiguration.current
+            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val isTablet = configuration.screenWidthDp >= 600
+
             // Fluid animated density and style dimensions (symmetrical 4-side iOS geometry)
             val isCompact = cardDensity == LocalStorage.CARD_DENSITY_COMPACT
-            val targetPadding = if (isCompact) 14.dp else 22.dp
-            val targetSpacing = if (isCompact) 8.dp else 14.dp
+            val previewCount = if (isTablet || isLandscape) 6 else 3
+
+            val targetPadding = if (previewCount == 6) {
+                if (isCompact) 10.dp else 14.dp
+            } else {
+                if (isCompact) 14.dp else 22.dp
+            }
+            val targetSpacing = if (previewCount == 6) {
+                if (isCompact) 6.dp else 8.dp
+            } else {
+                if (isCompact) 8.dp else 14.dp
+            }
 
             val animatedPadding by animateDpAsState(
                 targetValue = targetPadding,
@@ -186,20 +222,21 @@ fun SettingsScreen(
                     .padding(animatedPadding),
                 contentAlignment = Alignment.Center
             ) {
-                val cardWidth = (this.maxWidth - animatedSpacing * 2) / 3f
+                val effectivePreviewCount = if (this.maxWidth >= 500.dp || previewCount == 6) 6 else 3
+                val cardWidth = (this.maxWidth - animatedSpacing * (effectivePreviewCount - 1)) / effectivePreviewCount.toFloat()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
                     verticalAlignment = Alignment.Top
                 ) {
-                    val titleFills = listOf(0.80f, 0.65f, 0.85f)
-                    val subtitleFills = listOf(0.50f, 0.40f, 0.52f)
-                    for (i in 0 until 3) {
+                    val titleFills = listOf(0.80f, 0.65f, 0.85f, 0.70f, 0.82f, 0.60f)
+                    val subtitleFills = listOf(0.50f, 0.40f, 0.52f, 0.45f, 0.50f, 0.38f)
+                    for (i in 0 until effectivePreviewCount) {
                         PreviewMoviePosterCard(
                             style = cardStyle,
                             width = cardWidth,
-                            titleFill = titleFills[i],
-                            subtitleFill = subtitleFills[i]
+                            titleFill = titleFills[i % titleFills.size],
+                            subtitleFill = subtitleFills[i % subtitleFills.size]
                         )
                     }
                 }
@@ -310,9 +347,9 @@ fun SettingsScreen(
         // 3. ЖИДКОЕ СТЕКЛО (iOS Section("Жидкое стекло"))
         val blurPercentText = "${(liquidGlassBlur * 100).roundToInt()}%"
         val glassFooterText = if (isGlassEnabled) {
-            "Плавная регулировка от абсолютно прозрачного стекла (0%) до сплошного непрозрачного размытия (100%)."
+            "Плавная регулировка от абсолютно прозрачного стекла (0%) до сплошного непрозрачного размытия (100%). Блюр градиентов настраивается независимо."
         } else {
-            "В режиме без стекла преломления, аберрации и размытия отключены для максимальной плавности на слабых устройствах. Все анимации и инерция ползунка сохранены."
+            "В режиме без стекла преломления и аберрации стекла отключены для максимальной плавности. Прогрессивный блюр градиентов может работать независимо."
         }
 
         SettingsSection(
@@ -334,49 +371,71 @@ fun SettingsScreen(
 
             SettingsDivider()
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            SettingsSwitchItem(
+                title = "Прогрессивный блюр градиентов",
+                subtitle = "Плавное оптическое размытие шапки под градиентами",
+                icon = painterResource(id = R.drawable.ic_sf_slider_horizontal_3),
+                checked = isProgressiveBlurEnabled,
+                onCheckedChange = { enabled ->
+                    localStorage.saveProgressiveBlurEnabled(enabled)
+                    isProgressiveBlurEnabled = enabled
+                    onProgressiveBlurChange(enabled)
+                }
+            )
+
+            AnimatedVisibility(
+                visible = isGlassEnabled,
+                enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+                exit = shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SettingsIconBadge(
-                            icon = painterResource(id = R.drawable.ic_sf_sparkles)
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Text(
-                            text = "Размытие стекла",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                Column {
+                    SettingsDivider()
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                SettingsIconBadge(
+                                    icon = painterResource(id = R.drawable.ic_sf_sparkles)
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Text(
+                                    text = "Размытие стекла",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Text(
+                                text = blurPercentText,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (liquidGlassBlur <= 0.01f) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        LiquidSlider(
+                            value = liquidGlassBlur,
+                            onValueChange = { newBlur ->
+                                liquidGlassBlur = newBlur
+                                localStorage.saveLiquidGlassBlur(newBlur)
+                            },
+                            valueRange = 0f..1f,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
                         )
                     }
-                    Text(
-                        text = blurPercentText,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (liquidGlassBlur <= 0.01f) MaterialTheme.colorScheme.onSurfaceVariant else SlooshAccent
-                    )
                 }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                LiquidSlider(
-                    value = liquidGlassBlur,
-                    onValueChange = { newBlur ->
-                        liquidGlassBlur = newBlur
-                        localStorage.saveLiquidGlassBlur(newBlur)
-                    },
-                    valueRange = 0f..1f,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                )
             }
         }
 
@@ -387,7 +446,7 @@ fun SettingsScreen(
             SettingsMenuItem(
                 title = "Качество видео",
                 selectedValue = defaultQuality,
-                options = listOf("Спрашивать", "Авто", "1080p", "720p", "480p", "360p"),
+                options = listOf("Спрашивать", "Авто", "4K (2160p)", "2K (1440p)", "1080p", "720p", "480p", "360p"),
                 icon = painterResource(id = R.drawable.ic_sf_film_fill),
                 onOptionSelected = { quality ->
                     localStorage.saveDefaultQuality(quality)
@@ -489,7 +548,7 @@ fun SettingsScreen(
                             Toast.makeText(context, "У вас установлена актуальная версия", Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Ошибка проверки: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Не удалось проверить обновления. Проверьте интернет-соединение", Toast.LENGTH_SHORT).show()
                     } finally {
                         isCheckingUpdate = false
                     }
@@ -531,8 +590,9 @@ fun SettingsScreen(
             Image(
                 painter = painterResource(id = R.drawable.ic_sloosh_logo),
                 contentDescription = "sloosh",
+                colorFilter = ColorFilter.tint(SlooshAccent),
                 modifier = Modifier
-                    .width(104.dp)
+                    .width(94.dp)
                     .height(26.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -552,10 +612,12 @@ fun SettingsScreen(
         LiquidGlassAlertDialog(
             onDismissRequest = { showClearCacheDialog = false },
             title = "Очистить кэш?",
-            message = "Временные файлы изображений и постеров будут удалены. Ваши загрузки и избранное останутся нетронутыми.",
-            confirmButtonText = "Очистить кэш ($cacheSizeFormatted)",
+            message = "Временные файлы изображений и постеров ($cacheSizeFormatted) будут удалены. Ваши загрузки и избранное останутся нетронутыми.",
+            confirmButtonText = "Очистить",
             dismissButtonText = "Отмена",
             isDestructive = true,
+            icon = painterResource(id = R.drawable.ic_sf_trash_fill),
+            backdrop = sceneBackdrop,
             onConfirm = {
                 clearCache()
             }
@@ -577,7 +639,8 @@ fun SettingsScreen(
             message = updateMessage,
             confirmButtonText = "Скачать",
             dismissButtonText = "Позже",
-            confirmButtonColor = SlooshAccent,
+            icon = painterResource(id = R.drawable.ic_sf_arrow_down_circle_fill),
+            backdrop = sceneBackdrop,
             onConfirm = {
                 val url = info.url
                 availableUpdate = null

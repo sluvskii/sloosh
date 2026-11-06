@@ -1,12 +1,21 @@
 package com.slooshfilm.app.ui.continue_watching
 
+import android.content.res.Configuration
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import androidx.compose.ui.res.painterResource
@@ -22,7 +31,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,8 +39,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.slooshfilm.app.data.storage.PlaybackProgressStore
 import com.slooshfilm.app.data.storage.WatchProgressItem
-import com.slooshfilm.app.ui.components.LiquidGlassAlertDialog
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
+import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import androidx.compose.ui.graphics.RectangleShape
 import com.slooshfilm.app.ui.backdrop.drawBackdrop
@@ -54,11 +61,18 @@ fun ContinueScreen(
     modifier: Modifier = Modifier
 ) {
     val progressItems by progressStore.itemsFlow.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        val authRepo = com.slooshfilm.app.data.repository.AuthRepository.getInstance(context)
+        if (authRepo.isAuthenticated) {
+            com.slooshfilm.app.data.repository.CloudSyncService.getInstance(context).syncAllData()
+        }
+    }
+
     // Одна карточка на тайтл: для сериала хранится прогресс нескольких серий,
     // но в «Продолжить» показываем только последнюю (записи идут от свежих к старым).
     val continueItems = remember(progressItems) { progressItems.distinctBy { it.mediaId } }
-
-    var showClearConfirm by remember { mutableStateOf(false) }
 
     val screenBg = MaterialTheme.colorScheme.background
     val contentBackdrop = rememberLayerBackdrop {
@@ -70,11 +84,33 @@ fun ContinueScreen(
         drawContent()
     }
 
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarPadding = if (rawStatusBarPadding > 0.dp) rawStatusBarPadding else (if (isLandscape) 8.dp else 0.dp)
     val navBarBottomPadding = rememberNavBarBottomPadding()
-    val topHeaderHeight = statusBarPadding + 68.dp
-    val headerBlurHeight = statusBarPadding + 88.dp
-    val bottomTotalPadding = navBarBottomPadding + 72.dp
+    val topHeaderHeight = statusBarPadding + (if (isLandscape) 44.dp else 56.dp)
+    val headerBlurHeight = statusBarPadding + (if (isLandscape) 52.dp else 70.dp)
+    val bottomTotalPadding = if (isLandscape) navBarBottomPadding + 48.dp else navBarBottomPadding + 72.dp
+
+    val gridState = rememberLazyGridState()
+    val density = LocalDensity.current
+    val headerFadeDistancePx = remember(density) { with(density) { 56.dp.toPx() } }
+    val headerScrollFraction by remember(gridState, headerFadeDistancePx) {
+        derivedStateOf {
+            val offsetPx = if (gridState.firstVisibleItemIndex > 0) {
+                headerFadeDistancePx
+            } else {
+                gridState.firstVisibleItemScrollOffset.toFloat()
+            }
+            (offsetPx / headerFadeDistancePx).coerceIn(0f, 1f)
+        }
+    }
+    val headerAlpha by animateFloatAsState(
+        targetValue = headerScrollFraction,
+        animationSpec = tween(durationMillis = 200),
+        label = "continueHeaderAlpha"
+    )
 
     Box(
         modifier = modifier
@@ -108,38 +144,29 @@ fun ContinueScreen(
                             .padding(top = topHeaderHeight, bottom = bottomTotalPadding, start = 32.dp, end = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_clock_arrow_circlepath),
-                                contentDescription = null,
-                                tint = TextTertiaryDark,
-                                modifier = Modifier.size(52.dp)
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Text(
-                                text = "Вы пока ничего не смотрите",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Начните просмотр любого фильма или сериала, и мы сохраним точный таймкод для быстрого продолжения.",
-                                fontSize = 14.sp,
-                                color = TextSecondaryDark,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        EmptyStateView(
+                            iconRes = R.drawable.ic_sf_clock_arrow_circlepath,
+                            title = "Вы пока ничего не смотрите",
+                            message = "Начните просмотр любого фильма или сериала, и мы сохраним точный таймкод для быстрого продолжения."
+                        )
                     }
                 } else {
-                    // List of cinematic 190dp cards
-                    LazyColumn(
+                    val configuration = LocalConfiguration.current
+                    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                    val isTablet = configuration.screenWidthDp >= 600
+                    val cutoutPadding = rememberCutoutHorizontalPadding()
+
+                    // Adaptive Grid: 1 column in portrait, 2 columns in horizontal (landscape) orientation
+                    LazyVerticalGrid(
+                        state = gridState,
+                        columns = GridCells.Fixed(if (isLandscape) 2 else 1),
                         contentPadding = PaddingValues(
-                            start = 16.dp,
-                            end = 16.dp,
-                            top = topHeaderHeight + 12.dp,
+                            start = (if (isTablet) 24.dp else 16.dp) + cutoutPadding,
+                            end = (if (isTablet) 24.dp else 16.dp) + cutoutPadding,
+                            top = topHeaderHeight + 8.dp,
                             bottom = bottomTotalPadding
                         ),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
@@ -160,10 +187,7 @@ fun ContinueScreen(
                             ContinueWatchingCard(
                                 item = effectiveItem,
                                 isNextEpisode = isEpisodeCompleted,
-                                onClick = { onPlayItem(effectiveItem) },
-                                onRemove = {
-                                    progressStore.deleteProgress(item.mediaId, item.season, item.episode)
-                                }
+                                onClick = { onPlayItem(effectiveItem) }
                             )
                         }
                     }
@@ -183,6 +207,7 @@ fun ContinueScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
+                            .graphicsLayer { alpha = headerAlpha }
                             .drawBackdrop(
                                 backdrop = contentBackdrop,
                                 shape = { RectangleShape },
@@ -205,6 +230,7 @@ fun ContinueScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .graphicsLayer { alpha = headerAlpha }
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
@@ -217,40 +243,28 @@ fun ContinueScreen(
             }
         }
 
-        // 2. Floating Top Header with sceneBackdrop
+        // 2. Floating Top Navigation Bar matching iOS SlooshTopBar 1:1
         CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+            val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterStart
+                    .padding(top = statusBarPadding)
+                    .height(if (isLandscape) 44.dp else 56.dp)
+                    .padding(horizontal = 16.dp + cutoutPadding),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Продолжить",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = if (isLandscape) SlooshTypography.titleMedium else SlooshTypography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = TextPrimaryDark,
-                    letterSpacing = (-0.6).sp
+                    letterSpacing = (-0.3).sp,
+                    textAlign = TextAlign.Center
                 )
             }
         }
-    }
-
-    if (showClearConfirm) {
-        LiquidGlassAlertDialog(
-            onDismissRequest = { showClearConfirm = false },
-            title = "Очистить историю?",
-            message = "Все сохранённые таймкоды будут удалены.",
-            confirmButtonText = "Очистить",
-            dismissButtonText = "Отмена",
-            isDestructive = true,
-            onConfirm = {
-                progressStore.clearAll()
-            }
-        )
     }
 }
 
@@ -264,17 +278,18 @@ private fun ContinueWatchingCard(
     item: WatchProgressItem,
     isNextEpisode: Boolean = false,
     onClick: () -> Unit,
-    onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val cardHeight = if (isLandscape) 175.dp else 190.dp
     val imageUrl = item.backdropUrl?.takeIf { it.isNotBlank() } ?: item.posterUrl
     val isFinished = item.progress >= 0.95f
-    val cardBackdrop = rememberLayerBackdrop()
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(190.dp)
+            .height(cardHeight)
             .shadow(
                 elevation = 14.dp,
                 shape = RoundedRectangle(24.dp),
@@ -285,11 +300,9 @@ private fun ContinueWatchingCard(
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedRectangle(24.dp))
             .clickable(onClick = onClick)
     ) {
-        // 1 & 2. Card Artwork and Dark Scrim Gradient captured in cardBackdrop
+        // 1 & 2. Card Artwork and Dark Scrim Gradient
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .layerBackdrop(cardBackdrop)
+            modifier = Modifier.fillMaxSize()
         ) {
             // Full-height Backdrop Image
             if (!imageUrl.isNullOrBlank()) {
@@ -317,26 +330,7 @@ private fun ContinueWatchingCard(
             )
         }
 
-        // 3. Top-Right Delete Button with Liquid Glass (refracting cardBackdrop)
-        LiquidGlassFloatingButton(
-            onClick = onRemove,
-            backdrop = cardBackdrop,
-            shape = CircleShape,
-            tint = LiquidGlassSurfaceDark,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(10.dp)
-                .size(30.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_sf_xmark),
-                contentDescription = "Удалить",
-                tint = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
-        // 4. Content Area at Bottom
+        // 3. Content Area at Bottom
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -381,10 +375,11 @@ private fun ContinueWatchingCard(
                 )
 
                 val subtitle = buildString {
+                    val epLabel = item.episodeLabel
                     if (item.season != null && item.episode != null) {
-                        append("Сезон ${item.season} • Серия ${item.episode}")
-                    } else if (item.episodeLabel != null) {
-                        append(item.episodeLabel)
+                        append("Сезон ${item.season}, Серия ${item.episode}")
+                    } else if (!epLabel.isNullOrBlank()) {
+                        append(epLabel.replace(" • ", ", ").replace(" · ", ", "))
                     }
                 }
 
@@ -435,7 +430,7 @@ private fun ContinueWatchingCard(
                             .fillMaxWidth(fraction = item.progress.coerceIn(0f, 1f))
                             .fillMaxHeight()
                             .clip(Capsule())
-                            .background(SlooshAccent)
+                            .background(Color.White)
                     )
                 }
 
@@ -451,7 +446,8 @@ private fun ContinueWatchingCard(
                         text = "$posText / $durText",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = SlooshFontFamily,
+                        letterSpacing = (-0.2).sp,
                         color = Color.White.copy(alpha = 0.92f)
                     )
 
@@ -461,6 +457,8 @@ private fun ContinueWatchingCard(
                             text = remaining,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
+                            fontFamily = SlooshFontFamily,
+                            letterSpacing = (-0.2).sp,
                             color = Color.White.copy(alpha = 0.72f)
                         )
                     }

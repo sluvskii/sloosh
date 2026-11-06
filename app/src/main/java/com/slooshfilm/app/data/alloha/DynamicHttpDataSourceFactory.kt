@@ -32,11 +32,21 @@ class DynamicHttpDataSource(
 
     companion object {
         private val tokenRecoveryLock = Any()
+        private val masterCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, ByteArray>>()
+
+        fun invalidateMasterCache() {
+            masterCache.clear()
+        }
     }
 
     private var activeDelegate: DefaultHttpDataSource? = null
     private val transferListeners = CopyOnWriteArrayList<TransferListener>()
     private val dynamicProperties = HttpDataSource.RequestProperties()
+
+    private var memoryBuffer: ByteArray? = null
+    private var memoryOffset: Int = 0
+    private var effectiveUri: Uri? = null
+    private var lastResponseHeaders: Map<String, List<String>> = emptyMap()
 
     override fun addTransferListener(transferListener: TransferListener) {
         transferListeners.add(transferListener)
@@ -154,7 +164,7 @@ class DynamicHttpDataSource(
 
         val delegate = createDelegate(effectiveDataSpec.uri)
         activeDelegate = delegate
-        return try {
+        val rawOpen = try {
             delegate.open(effectiveDataSpec)
         } catch (e: HttpDataSource.InvalidResponseCodeException) {
             if (e.responseCode == 403 || e.responseCode == 401) {
@@ -190,53 +200,139 @@ class DynamicHttpDataSource(
                     val freshSpec = effectiveDataSpec.buildUpon().setUri(Uri.parse(recoveredUriString)).build()
                     val freshDelegate = createDelegate(freshSpec.uri)
                     activeDelegate = freshDelegate
-                    return freshDelegate.open(freshSpec)
-                }
+                    freshDelegate.open(freshSpec)
+                } else {
+                    // Fallback: If token recovery didn't succeed, retry once with standard browser navigation headers
+                    android.util.Log.w("DynamicHttpDataSource", "Fallback: Retrying with standard browser navigation headers...")
+                    val iframeUrl = iframeUrlProvider()
+                    val referer = try {
+                        iframeUrl?.let {
+                            val uri = Uri.parse(it)
+                            "${uri.scheme ?: "https"}://${uri.authority}/"
+                        }
+                    } catch (_: Exception) { null }
 
-                // Fallback: If token recovery didn't succeed, retry once with standard browser navigation headers
-                android.util.Log.w("DynamicHttpDataSource", "Fallback: Retrying with standard browser navigation headers...")
-                val iframeUrl = iframeUrlProvider()
-                val referer = try {
-                    iframeUrl?.let {
-                        val uri = Uri.parse(it)
-                        "${uri.scheme ?: "https"}://${uri.authority}/"
+                    val fallbackFactory = DefaultHttpDataSource.Factory()
+                        .setUserAgent(userAgentProvider())
+                        .setAllowCrossProtocolRedirects(true)
+                        .setConnectTimeoutMs(15_000)
+                        .setReadTimeoutMs(30_000)
+                    val fallbackHeaders = HashMap<String, String>()
+                    fallbackHeaders["Accept"] = "*/*"
+                    if (!referer.isNullOrBlank()) {
+                        fallbackHeaders["Referer"] = referer
                     }
-                } catch (_: Exception) { null }
-
-                val fallbackFactory = DefaultHttpDataSource.Factory()
-                    .setUserAgent(userAgentProvider())
-                    .setAllowCrossProtocolRedirects(true)
-                    .setConnectTimeoutMs(15_000)
-                    .setReadTimeoutMs(30_000)
-                val fallbackHeaders = HashMap<String, String>()
-                fallbackHeaders["Accept"] = "*/*"
-                if (!referer.isNullOrBlank()) {
-                    fallbackHeaders["Referer"] = referer
+                    fallbackFactory.setDefaultRequestProperties(fallbackHeaders)
+                    val fallbackDelegate = fallbackFactory.createDataSource()
+                    for (listener in transferListeners) {
+                        fallbackDelegate.addTransferListener(listener)
+                    }
+                    activeDelegate = fallbackDelegate
+                    fallbackDelegate.open(effectiveDataSpec)
                 }
-                fallbackFactory.setDefaultRequestProperties(fallbackHeaders)
-                val fallbackDelegate = fallbackFactory.createDataSource()
-                for (listener in transferListeners) {
-                    fallbackDelegate.addTransferListener(listener)
-                }
-                activeDelegate = fallbackDelegate
-                fallbackDelegate.open(effectiveDataSpec)
             } else {
                 throw e
             }
         }
+
+        val uriString = effectiveDataSpec.uri.toString()
+        val cleanUri = uriString.substringBefore("?")
+        val cleanMaster = AllohaSessionHolder.latestMasterUrl?.substringBefore("?")
+        val isMasterPlaylist = (cleanUri.endsWith("master.m3u8", ignoreCase = true) ||
+                cleanUri.contains("master.m3u8", ignoreCase = true) ||
+                (!cleanMaster.isNullOrBlank() && cleanUri.equals(cleanMaster, ignoreCase = true))) &&
+                effectiveDataSpec.position == 0L
+
+        if (isMasterPlaylist) {
+            val cacheKey = "$cleanUri|${AllohaSessionHolder.currentVoice}|${AllohaSessionHolder.currentQuality}"
+            val cached = masterCache[cacheKey]
+            val now = System.currentTimeMillis()
+            if (cached != null && (now - cached.first) < 30_000L && cached.second.isNotEmpty()) {
+                android.util.Log.d("DynamicHttpDataSource", "Serving cached master playlist for $cacheKey (${cached.second.size} bytes)")
+                memoryBuffer = cached.second
+                memoryOffset = 0
+                effectiveUri = effectiveDataSpec.uri
+                return cached.second.size.toLong()
+            }
+
+            val baos = java.io.ByteArrayOutputStream()
+            val tempBuf = ByteArray(8192)
+            while (true) {
+                val readBytes = activeDelegate?.read(tempBuf, 0, tempBuf.size) ?: -1
+                if (readBytes == androidx.media3.common.C.RESULT_END_OF_INPUT || readBytes <= 0) break
+                baos.write(tempBuf, 0, readBytes)
+            }
+            lastResponseHeaders = activeDelegate?.responseHeaders ?: emptyMap()
+            activeDelegate?.close()
+            activeDelegate = null
+
+            val rawBytes = baos.toByteArray()
+            val rawText = String(rawBytes, Charsets.UTF_8)
+
+            if (rawBytes.isEmpty() || !rawText.contains("#EXT")) {
+                android.util.Log.w("DynamicHttpDataSource", "Master playlist response invalid or empty (${rawBytes.size} bytes). Raw: ${rawText.take(120)}")
+                if (cached != null && cached.second.isNotEmpty()) {
+                    android.util.Log.i("DynamicHttpDataSource", "Falling back to previously cached master playlist")
+                    memoryBuffer = cached.second
+                    memoryOffset = 0
+                    effectiveUri = effectiveDataSpec.uri
+                    return cached.second.size.toLong()
+                }
+                throw java.io.IOException("Invalid master playlist received from CDN: ${rawText.take(100)}")
+            }
+
+            val effectiveBytes = if (rawText.contains("#EXT-X-STREAM-INF")) {
+                android.util.Log.d(
+                    "DynamicHttpDataSource",
+                    "Master playlist intercepted: voices=${AllohaSessionHolder.availableVoiceNames.size}, preferred=${AllohaSessionHolder.currentVoice}, quality=${AllohaSessionHolder.currentQuality}"
+                )
+                val rewritten = AllohaHlsRewriter.rewrite(
+                    master = rawText,
+                    voices = AllohaSessionHolder.availableVoiceNames,
+                    preferredVoiceName = AllohaSessionHolder.currentVoice,
+                    targetQuality = AllohaSessionHolder.currentQuality,
+                    baseUrl = effectiveDataSpec.uri.toString()
+                )
+                rewritten.toByteArray(Charsets.UTF_8)
+            } else {
+                rawBytes
+            }
+
+            masterCache[cacheKey] = Pair(now, effectiveBytes)
+            memoryBuffer = effectiveBytes
+            memoryOffset = 0
+            effectiveUri = effectiveDataSpec.uri
+            return effectiveBytes.size.toLong()
+        }
+
+        effectiveUri = effectiveDataSpec.uri
+        return rawOpen
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+        val mem = memoryBuffer
+        if (mem != null) {
+            if (memoryOffset >= mem.size) return androidx.media3.common.C.RESULT_END_OF_INPUT
+            val toRead = minOf(length, mem.size - memoryOffset)
+            System.arraycopy(mem, memoryOffset, buffer, offset, toRead)
+            memoryOffset += toRead
+            return toRead
+        }
         return activeDelegate?.read(buffer, offset, length) ?: -1
     }
 
-    override fun getUri(): Uri? = activeDelegate?.uri
+    override fun getUri(): Uri? = effectiveUri ?: activeDelegate?.uri
 
-    override fun getResponseHeaders(): Map<String, List<String>> = activeDelegate?.responseHeaders ?: emptyMap()
+    override fun getResponseHeaders(): Map<String, List<String>> =
+        activeDelegate?.responseHeaders ?: lastResponseHeaders
 
-    override fun getResponseCode(): Int = activeDelegate?.responseCode ?: -1
+    override fun getResponseCode(): Int = if (memoryBuffer != null) 200 else activeDelegate?.responseCode ?: -1
 
     override fun close() {
+        memoryBuffer = null
+        memoryOffset = 0
+        effectiveUri = null
+        lastResponseHeaders = emptyMap()
         activeDelegate?.close()
         activeDelegate = null
     }

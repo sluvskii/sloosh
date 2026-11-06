@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,7 +40,23 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = if (isInitialDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = if (isInitialDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val params = window.attributes
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            } else {
+                params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+            window.attributes = params
+        }
         enableHighRefreshRate()
+
+        try {
+            val authRepo = com.slooshfilm.app.data.repository.AuthRepository.getInstance(this)
+            if (authRepo.isAuthenticated) {
+                com.slooshfilm.app.data.repository.CloudSyncService.getInstance(this).syncAllData()
+            }
+        } catch (_: Exception) {}
 
         setContent {
             val localStorage = androidx.compose.runtime.remember { LocalStorage(this) }
