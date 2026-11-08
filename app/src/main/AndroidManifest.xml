@@ -37,10 +37,19 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="false"
+            android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Sloosh.Splash"
             android:hardwareAccelerated="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.DEFAULT" />
+                <category android:name="android.intent.BROWSABLE" />
+                <data android:scheme="sloosh" android:host="pair" />
+            </intent-filter>
+        </activity>|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
             android:windowSoftInputMode="adjustResize" />
 
         <provider

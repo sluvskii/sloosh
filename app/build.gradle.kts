@@ -16,7 +16,7 @@ android {
         applicationId = "com.slooshfilm.app"
         minSdk = 33
         targetSdk = 34
-        versionCode = 21
+        versionCode = 22
         versionName = "2.0.0"
 
         buildConfigField("String", "GITHUB_OWNER", "\"sluvskii\"")

@@ -11,6 +11,7 @@ import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -91,9 +92,34 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { isSplashActive = false }
                         )
                     }
+
+                    // Привязка ТВ-устройства: deep link sloosh://pair?code=XXXX-XXXX
+                    val pairCodeState = remember { androidx.compose.runtime.mutableStateOf(extractPairingCode(intent)) }
+                    pairCodeForwarder = { pairCodeState.value = it }
+                    pairCodeState.value?.let { code ->
+                        com.slooshfilm.app.ui.pairing.PairConfirmScreen(
+                            initialCode = code,
+                            onDismiss = { pairCodeState.value = null }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    private var pairCodeForwarder: ((String?) -> Unit)? = null
+
+    private fun extractPairingCode(intent: android.content.Intent?): String? {
+        val data = intent?.data ?: return null
+        if (data.scheme == "sloosh" && data.host == "pair") {
+            return data.getQueryParameter("code")?.trim()?.takeIf { it.isNotBlank() } ?: ""
+        }
+        return null
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        extractPairingCode(intent)?.let { pairCodeForwarder?.invoke(it) }
     }
 
     override fun onAttachedToWindow() {
