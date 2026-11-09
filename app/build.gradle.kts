@@ -20,7 +20,9 @@ android {
         val buildNum = System.getenv("BUILD_NUMBER")?.toIntOrNull()
             ?: project.findProperty("versionCode")?.toString()?.toIntOrNull()
             ?: 22
-        versionCode = buildNum
+        // Базовый оффсет 20000 гарантирует совместимость с AppUpdater (2.0.x -> 20000 + x)
+        // и защищает от ошибки INSTALL_FAILED_VERSION_DOWNGRADE при обновлении поверх старых версий (versionCode 20-22).
+        versionCode = 20000 + buildNum
         versionName = System.getenv("VERSION_NAME")
             ?: project.findProperty("versionName")?.toString()
             ?: "2.0.$buildNum"
