@@ -258,16 +258,12 @@ fun WatchSelectorSheet(
         shape = UnevenRoundedRectangle(
             topStart = SheetCornerRadius,
             topEnd = SheetCornerRadius
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(sheetHeight)
-            .nestedScroll(sheetDragGate)
+        )
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(),
+                .height(sheetHeight),
             contentAlignment = Alignment.TopCenter
         ) {
             Box(
@@ -287,6 +283,7 @@ fun WatchSelectorSheet(
                     modifier = Modifier
                         .fillMaxSize()
                         .layerBackdrop(sheetContentBackdrop)
+                        .nestedScroll(sheetDragGate)
                 ) {
                     Column(
                         modifier = Modifier

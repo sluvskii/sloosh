@@ -16,8 +16,14 @@ android {
         applicationId = "com.slooshfilm.app"
         minSdk = 33
         targetSdk = 34
-        versionCode = 22
-        versionName = "2.0.0"
+
+        val buildNum = System.getenv("BUILD_NUMBER")?.toIntOrNull()
+            ?: project.findProperty("versionCode")?.toString()?.toIntOrNull()
+            ?: 22
+        versionCode = buildNum
+        versionName = System.getenv("VERSION_NAME")
+            ?: project.findProperty("versionName")?.toString()
+            ?: "2.0.$buildNum"
 
         buildConfigField("String", "GITHUB_OWNER", "\"sluvskii\"")
         buildConfigField("String", "GITHUB_REPO", "\"sloosh\"")
@@ -136,10 +142,4 @@ dependencies {
 
 tasks.matching { it.name.contains("AarMetadata") }.configureEach {
     enabled = false
-}
-
-// Незавершённый WIP glass-библиотеки (io/github/neoruaa/glasmio) исключён из компиляции:
-// файлы остаются в рабочей копии, нижняя панель возвращена к стабильной версии (бэкап в wip-backup/).
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    exclude("io/**")
 }
