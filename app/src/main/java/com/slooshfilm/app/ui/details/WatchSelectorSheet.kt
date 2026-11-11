@@ -1,6 +1,5 @@
 package com.slooshfilm.app.ui.details
 
-import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,7 +21,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +46,7 @@ import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
+import com.slooshfilm.app.ui.components.rememberAdaptiveSheetHeight
 import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.theme.*
 
@@ -120,7 +119,10 @@ fun WatchSelectorSheet(
     }
 
     // iOS: .presentationDetents([.fraction(0.62)]).
-    val sheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.62f
+    // В ландшафте 62% высоты экрана — это ~220dp, из которых шапка (68dp) и нижняя капсула
+    // с отступами (~98dp) съедают почти всё: список сезонов/серий не помещается. Поэтому
+    // в горизонтали шторка поднимается на 92% высоты, а в портрете остаётся 1:1 с iOS.
+    val sheetHeight = rememberAdaptiveSheetHeight(portraitFraction = 0.62f)
 
     // iOS: .safeAreaInset(edge: .top) -> padding horizontal 16 / top 16 / bottom 8 вокруг строки 44dp.
     val headerTopPadding = 16.dp

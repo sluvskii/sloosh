@@ -149,6 +149,10 @@ fun SlooshBottomBar(
     val navBarBottomPadding = rememberNavBarBottomPadding()
     val imeBottomDp = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
 
+    // Адаптивные метрики бара: в ландшафте и на планшете бар compact (44dp) и ограничен
+    // по ширине, в портрете телефона значения совпадают с прежними (54dp, без ограничения).
+    val barMetrics = rememberAdaptiveBarMetrics()
+
     // Smooth keyboard elevation (GPU-accelerated via graphicsLayer translation to prevent remeasurement)
     val animatedImeBottom by animateDpAsState(
         targetValue = imeBottomDp,
@@ -190,8 +194,8 @@ fun SlooshBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(
-                start = 24.dp,
-                end = 24.dp,
+                start = barMetrics.horizontalPadding,
+                end = barMetrics.horizontalPadding,
                 bottom = navBarBottomPadding,
                 top = 4.dp
             )
@@ -203,12 +207,16 @@ fun SlooshBottomBar(
                 }
                 translationY = -lift
             },
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.Center
     ) {
-        val totalWidth = maxWidth
-        val normalButtonSize = 54.dp
+        // В ландшафте и на планшете бар не растягивается на всю ширину, а остаётся компактной
+        // капсулой по центру (как системный таб-бар iOS в landscape). В портрете телефона
+        // maxBarWidth == null, поэтому totalWidth равен прежней ширине во весь экран.
+        val barMaxWidth = barMetrics.maxBarWidth
+        val totalWidth = if (barMaxWidth != null) minOf(maxWidth, barMaxWidth) else maxWidth
+        val normalButtonSize = barMetrics.buttonSize
         val compactButtonSize = 44.dp
-        val normalBarHeight = 54.dp
+        val normalBarHeight = barMetrics.barHeight
         val compactBarHeight = 44.dp
 
         val normalLeftWidth = (totalWidth - normalButtonSize - 10.dp).coerceAtLeast(0.dp)
@@ -247,7 +255,9 @@ fun SlooshBottomBar(
         val animatedSearchHeight = lerp(normalBarHeight, compactBarHeight, searchProgress)
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            // Ширина берётся из totalWidth (а не fillMaxWidth), чтобы при ограничении
+            // maxBarWidth вся внутренняя морф-математика бара совпадала с реальной шириной.
+            modifier = Modifier.width(totalWidth),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // =========================================================================
