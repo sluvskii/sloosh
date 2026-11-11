@@ -131,13 +131,49 @@ Always use the standardized modifiers rather than low-level `drawBackdrop` calls
 ### 5. Bottom Navigation 3-Layer Architecture (`LiquidBottomTabs.kt`)
 
 The bottom bar employs a 3-layer optical composite:
-- **Layer 1 (Navbar Base)**: Height 54dp, `LiquidGlassTokens.Bar`. Renders the main glass bar and inactive tab icons.
-- **Layer 2 (Off-screen Capture)**: Height 46dp, `.alpha(0f).layerBackdrop(tabsBackdrop)`.
+- **Layer 1 (Navbar Base)**: Height `barHeight` (54dp portrait / 44dp landscape, see §6), `LiquidGlassTokens.Bar`. Renders the main glass bar and inactive tab icons.
+- **Layer 2 (Off-screen Capture)**: Height `pillHeight` = `barHeight - 8.dp` (46dp / 36dp), `.alpha(0f).layerBackdrop(tabsBackdrop)`.
   - Captures active tab icons with `LocalLiquidBottomTabTint` (`SlooshAccent` lime).
   - Uses `lens(12.dp, 22.dp)` so that Layer 3 refracts the wallpaper underneath without turning flat gray.
   - Highlight and border scale strictly with `progress > 0f` to keep resting state pristine.
-- **Layer 3 (Dynamic Lens Pill)**: Height 46dp, width `pillWidthDp`.
+- **Layer 3 (Dynamic Lens Pill)**: Height `pillHeight` (46dp / 36dp), width `pillWidthDp`.
   - Samples `rememberCombinedBackdrop(backdrop, tabsBackdrop)`.
   - Features `iosLens` (5/10dp with 0.40 dispersion) only while dragging.
   - Dynamically inflates to `pressedScale = 60f / 44f` during active drag and scales the active tab icon to `1.2f`.
   - In resting state, produces a smooth, unbordered frosted glass tab.
+
+---
+
+### 6. Adaptive Layout: Landscape & Tablets (`AdaptiveLayout.kt`)
+
+`com.slooshfilm.app.ui.components.AdaptiveLayout.kt` is the **single source of truth** for orientation and
+screen-size adaptation. Never re-derive `LocalConfiguration.current.orientation` / `screenWidthDp >= 600`
+inline in new code, and **never hardcode `54.dp` / `24.dp` for the bottom bar** — consume the helpers:
+
+| Helper | Purpose |
+| --- | --- |
+| `rememberSlooshDeviceClass()` | `Compact` < 600dp, `Medium` 600..839dp, `Expanded` >= 840dp (Material 3 breakpoints). |
+| `rememberIsLandscape()` / `rememberIsTablet()` | Orientation and the historical `screenWidthDp >= 600` tablet check. |
+| `rememberIsShortViewport()` | Phone in landscape (height < 600dp): full-screen forms must scroll. |
+| `rememberAdaptiveBarMetrics()` | Bottom bar `barHeight`, `buttonSize`, `horizontalPadding`, `maxBarWidth`. |
+| `rememberAdaptiveSheetHeight(portraitFraction)` | Modal sheet height: 0.62 portrait (iOS 1:1) / 0.92 landscape. |
+
+**Bottom bar contract.** Portrait phone is untouched: 54dp bar, full width, 24dp side padding
+(`maxBarWidth == null`). Landscape and tablets get the compact capsule: `barHeight = 44dp`,
+`buttonSize = 44dp`, side padding `max(24dp, cutout)`, width capped at 420dp and centered.
+This matches what the content screens already reserve — every screen uses
+`bottomTotalPadding = navBarBottomPadding + 48.dp` in landscape, i.e. exactly `44dp bar + 4dp top padding`.
+`pillHeight` follows as `barHeight - 8.dp` (46dp -> 36dp), and the droplet keeps inflating with the same
+`pressedScale = 60f / 44f` / `pressedScaleY = 68f / 44f` ratios (rule 9 is never touched: the ratio is
+applied to the pill, so the droplet scales proportionally by itself).
+
+**Short viewport contract.** Any full-screen form (mandatory `AuthSheet`, TV `PairConfirmScreen`) must stay
+reachable in landscape: add `.verticalScroll(...)` gated on `rememberIsShortViewport()` and replace
+`Spacer(Modifier.weight(1f))` centering with fixed spacers in that mode, because `weight` collapses to 0
+inside a scrolling column. Portrait and tablet layouts must keep the weighted centering.
+
+**Rotation is reactive, not recreating.** `MainActivity` declares
+`android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"`, so the
+activity is **not** recreated on rotation. Everything adaptive must read `LocalConfiguration.current`
+during composition (directly or through these helpers) — values captured once in `remember { }` without the
+configuration as a key will silently freeze at the orientation the screen was opened in.

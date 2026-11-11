@@ -27,7 +27,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -75,6 +77,7 @@ import com.slooshfilm.app.ui.components.LocalGlassBlurMultiplier
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.plusBlendMode
+import com.slooshfilm.app.ui.components.rememberIsShortViewport
 import com.slooshfilm.app.ui.theme.BackgroundDark
 import com.slooshfilm.app.ui.theme.BackgroundLight
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
@@ -206,6 +209,14 @@ private fun AuthContent(
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    // Телефон в горизонтальной ориентации: вертикального места (~320-430dp) не хватает на
+    // логотип, hero-текст и кнопки входа. Вход в sloosh обязательный (NavGraph не монтирует
+    // основной UI без авторизации), поэтому без прокрутки кнопка «Войти через Google» уезжает
+    // за край экрана и приложение становится непригодным до поворота обратно в портрет.
+    // В портрете и на планшете isShortViewport == false — раскладка остаётся прежней.
+    val isShortViewport = rememberIsShortViewport()
+    val authScrollState = rememberScrollState()
+
     // Relatable cinema thoughts & marketing slogans (ChatGPT style, zero cringe)
     val phrases = remember {
         listOf(
@@ -305,6 +316,9 @@ private fun AuthContent(
                 modifier = Modifier
                     .widthIn(max = 480.dp)
                     .fillMaxSize()
+                    // Прокрутка включается только в коротком вьюпорте: в портроте цепочка
+                    // модификаторов остаётся байт-в-байт прежней.
+                    .then(if (isShortViewport) Modifier.verticalScroll(authScrollState) else Modifier)
                     .padding(horizontal = 28.dp)
                     .padding(
                         top = statusBarPadding + 42.dp,
@@ -322,7 +336,13 @@ private fun AuthContent(
                     .widthIn(max = 95.dp)
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            // В коротком вьюпорте weight(1f) внутри scroll-контейнера схлопнулся бы в 0,
+            // поэтому центрирование заменяется фиксированным отступом.
+            if (isShortViewport) {
+                Spacer(modifier = Modifier.height(20.dp))
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
             // MARK: - Center Hero (Word-by-Word Blur Focus Reveal)
             val brandAccent = if (isLightTheme) SlooshAccent else SlooshAccent.copy(alpha = 0.88f)
@@ -412,7 +432,11 @@ private fun AuthContent(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            if (isShortViewport) {
+                Spacer(modifier = Modifier.height(24.dp))
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
             // MARK: - Google Sign-In Button (Claude style bold clean pill)
             val buttonContainerColor = if (isLightTheme) Color.White else Color.White
