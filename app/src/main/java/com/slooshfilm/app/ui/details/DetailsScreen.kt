@@ -1977,7 +1977,10 @@ fun DetailsScreen(
                         contentDescription = "Назад",
                         tint = Color.White,
                         size = 24.dp,
-                        weight = FontWeight.SemiBold
+                        weight = FontWeight.SemiBold,
+                        // Оптическая поправка: глиф chevron.left визуально уползает вправо
+                        // от центра круглой стеклянной кнопки (замер по скриншоту).
+                        modifier = Modifier.offset(x = (-1.5).dp)
                     )
                 }
 

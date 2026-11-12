@@ -382,7 +382,8 @@ fun MediaCatalogScreen(
                         contentDescription = "Назад",
                         tint = Color.White,
                         size = 24.dp,
-                        weight = FontWeight.SemiBold
+                        weight = FontWeight.SemiBold,
+                        modifier = Modifier.offset(x = (-1.5).dp)
                     )
                 }
             }

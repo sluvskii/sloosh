@@ -265,7 +265,9 @@ fun SettingsScaffold(
                         systemName = "chevron.left",
                         contentDescription = "Назад",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        size = 24.dp
+                        size = 24.dp,
+                        weight = FontWeight.SemiBold,
+                        modifier = Modifier.offset(x = (-1.5).dp)
                     )
                     }
                 }
@@ -308,7 +310,9 @@ fun TopBar(title: String, onBackClick: (() -> Unit)? = null) {
                         systemName = "chevron.left",
                         contentDescription = "Назад",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        size = 24.dp
+                        size = 24.dp,
+                        weight = FontWeight.SemiBold,
+                        modifier = Modifier.offset(x = (-1.5).dp)
                     )
             }
         }
