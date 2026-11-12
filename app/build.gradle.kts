@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -55,7 +56,7 @@ android {
             ?: signingProps?.getProperty("SLOOSH_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
             ?: storePass
         if (!storeFile.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
-            val rawFile = java.io.File(storeFile)
+            val rawFile = File(storeFile)
             val keyFile = if (rawFile.isAbsolute && rawFile.exists()) {
                 rawFile
             } else {
@@ -66,13 +67,18 @@ android {
                 ).firstOrNull { it.exists() }
             }
             if (keyFile != null && keyFile.exists()) {
-                println("===> [SIGNING CONFIG] Release keystore configured: ${keyFile.absolutePath}")
-                create("release") {
-                    this.storeFile = keyFile
-                    this.storePassword = storePass
-                    this.keyAlias = keyAlias
-                    this.keyPassword = if (!keyPass.isNullOrBlank()) keyPass else storePass
-                }
+                println("===> [SIGNING CONFIG] Keystore configured: ${keyFile.absolutePath}")
+                val releaseConfig = signingConfigs.findByName("release") ?: signingConfigs.create("release")
+                releaseConfig.storeFile = keyFile
+                releaseConfig.storePassword = storePass
+                releaseConfig.keyAlias = keyAlias
+                releaseConfig.keyPassword = if (!keyPass.isNullOrBlank()) keyPass else storePass
+
+                val debugConfig = signingConfigs.getByName("debug")
+                debugConfig.storeFile = keyFile
+                debugConfig.storePassword = storePass
+                debugConfig.keyAlias = keyAlias
+                debugConfig.keyPassword = if (!keyPass.isNullOrBlank()) keyPass else storePass
             } else {
                 val err = "Keystore file '$storeFile' specified in environment or local.properties was not found! Searched rootProject: ${rootProject.file(storeFile).absolutePath} and project: ${project.file(storeFile).absolutePath}"
                 System.err.println("===> [SIGNING ERROR] $err")

@@ -65,7 +65,7 @@ jobs:
         env:
           BUILD_NUMBER: ${{ github.run_number }}
           VERSION_NAME: 2.0.${{ github.run_number }}
-          SLOOSH_STORE_FILE: ${{ hashFiles('release.keystore') != '' && 'release.keystore' || '' }}
+          SLOOSH_STORE_FILE: release.keystore
           SLOOSH_STORE_PASSWORD: ${{ secrets.SLOOSH_KEYSTORE_PASSWORD || secrets.SLOOSH_STORE_PASSWORD || 'android' }}
           SLOOSH_KEY_ALIAS: ${{ secrets.SLOOSH_KEY_ALIAS || 'androiddebugkey' }}
           SLOOSH_KEY_PASSWORD: ${{ secrets.SLOOSH_KEY_PASSWORD || secrets.SLOOSH_KEYSTORE_PASSWORD || secrets.SLOOSH_STORE_PASSWORD || 'android' }}
@@ -73,11 +73,20 @@ jobs:
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee gradle-build.log
           GRADLE_STATUS=${PIPESTATUS[0]}
           if [ $GRADLE_STATUS -ne 0 ]; then
-            tail -n 35 gradle-build.log | while IFS= read -r line; do
-              echo "::error title=Gradle Failure::$line"
+            echo "::error title=Gradle Build Failed::assembleRelease exited with status $GRADLE_STATUS"
+            grep -E "Script compilation error:|FAILURE:|Unresolved reference:|Caused by:" -A 3 gradle-build.log | while IFS= read -r line; do
+              echo "::error title=Gradle Error::$line"
             done
             exit $GRADLE_STATUS
           fi
+
+      - name: Upload Build Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-failure-log
+          path: gradle-build.log
+          retention-days: 7
 
       - name: Package & Prepare APK
         id: package
@@ -121,7 +130,7 @@ jobs:
             ### Установка:
             Скачайте прикреплённый файл `.apk` и установите на устройство Android.
           files: ${{ steps.package.outputs.apk_path }}
-          draft: ${{ github.event.inputs.publish_release != 'true' }}
+          draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
