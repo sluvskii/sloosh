@@ -1958,7 +1958,7 @@ fun PlayerScreen(
                                         systemName = "xmark",
                                         contentDescription = "Закрыть",
                                         tint = Color.White,
-                                        size = 24.dp,
+                                        size = 20.dp,
                                         weight = FontWeight.SemiBold
                                     )
                                 }

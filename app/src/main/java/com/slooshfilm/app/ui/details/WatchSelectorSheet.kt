@@ -636,7 +636,7 @@ fun WatchSelectorSheet(
                         systemName = "xmark",
                         contentDescription = "Закрыть",
                         tint = Color.White,
-                        size = 28.dp,
+                        size = 20.dp,
                         weight = FontWeight.SemiBold
                     )
                 }

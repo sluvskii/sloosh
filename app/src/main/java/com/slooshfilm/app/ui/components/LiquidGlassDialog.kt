@@ -278,7 +278,7 @@ fun LiquidGlassDialog(
                                 systemName = "xmark",
                                 contentDescription = "Закрыть",
                                 tint = TextPrimary.copy(alpha = 0.85f),
-                                size = 18.dp
+                                size = 16.dp
                             )
                         }
                     }

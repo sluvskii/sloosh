@@ -89,7 +89,7 @@ fun TrailerPlayerSheet(
                         systemName = "xmark",
                         contentDescription = "Закрыть",
                         tint = TextSecondaryDark,
-                        size = 22.dp
+                        size = 20.dp
                     )
                 }
             }

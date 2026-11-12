@@ -609,7 +609,7 @@ fun SlooshBottomBar(
                         systemName = "xmark",
                         contentDescription = "Закрыть",
                         tint = if (isLightTheme) Color.Black else Color.White,
-                        size = 22.dp,
+                        size = 20.dp,
                         modifier = Modifier.graphicsLayer {
                             scaleX = closeIconScale
                             scaleY = closeIconScale
