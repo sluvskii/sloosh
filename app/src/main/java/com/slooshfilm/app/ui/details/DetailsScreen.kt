@@ -571,7 +571,12 @@ fun DetailsScreen(
                     .then(if (isGlassEnabled) Modifier.layerBackdrop(contentBackdrop) else Modifier)
             ) {
             if (isLoading) {
-                DetailsLoadingSkeleton(modifier = Modifier.fillMaxSize(), heroHeight = heroHeight)
+                DetailsLoadingSkeleton(
+                    modifier = Modifier.fillMaxSize(),
+                    heroHeight = heroHeight,
+                    horizontalPadding = detailsHorizontalPadding,
+                    bottomPadding = bottomContentPadding
+                )
             } else if (details != null) {
                 val item = details!!
 
@@ -2260,14 +2265,17 @@ private fun BackdropPageIndicator(
 @Composable
 private fun DetailsLoadingSkeleton(
     modifier: Modifier = Modifier,
-    heroHeight: Dp = 365.dp
+    heroHeight: Dp = 365.dp,
+    horizontalPadding: Dp = 20.dp,
+    bottomPadding: Dp = 28.dp
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(bottom = 28.dp)
+        contentPadding = PaddingValues(bottom = bottomPadding)
     ) {
         item(key = "details-loading-skeleton", contentType = "details-loading-skeleton") {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // 1. Hero Backdrop Placeholder
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2289,14 +2297,20 @@ private fun DetailsLoadingSkeleton(
                     )
                 }
 
+                // 2. Overlay Info & Actions
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .offset(y = (-25).dp)
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = horizontalPadding),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    // Paging dots placeholder
+                    Row(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         repeat(3) { index ->
                             ShimmerPlaceholder(
                                 modifier = Modifier
@@ -2306,39 +2320,99 @@ private fun DetailsLoadingSkeleton(
                             )
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    ShimmerPlaceholder(Modifier.width(230.dp).height(36.dp), cornerRadius = 8.dp)
+
+                    // Logo / Title placeholder (iOS: 230 x 36)
+                    ShimmerPlaceholder(
+                        modifier = Modifier.width(230.dp).height(36.dp),
+                        cornerRadius = 8.dp
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    // Metadata chips row (Rating, Age, Year, Country, Duration)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ShimmerPlaceholder(Modifier.width(32.dp).height(20.dp), cornerRadius = 6.dp)
+                        ShimmerPlaceholder(Modifier.width(28.dp).height(16.dp), cornerRadius = 4.dp)
+                        ShimmerPlaceholder(Modifier.width(38.dp).height(16.dp), cornerRadius = 4.dp)
+                        ShimmerPlaceholder(Modifier.width(64.dp).height(16.dp), cornerRadius = 4.dp)
+                        ShimmerPlaceholder(Modifier.width(56.dp).height(16.dp), cornerRadius = 4.dp)
+                    }
                     Spacer(Modifier.height(20.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(32.dp, 26.dp, 38.dp, 64.dp, 56.dp).forEach { width ->
-                            ShimmerPlaceholder(Modifier.width(width).height(18.dp), cornerRadius = 5.dp)
-                        }
+                    // 4. Action Buttons (iOS 1:1, DetailsHeroActionMetrics: 52dp - 76dp - 52dp, spacing 22dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Download button skeleton (52dp circle)
+                        ShimmerPlaceholder(Modifier.size(52.dp), cornerRadius = 26.dp)
+                        // Play button skeleton (76dp circle)
+                        ShimmerPlaceholder(Modifier.size(76.dp), cornerRadius = 38.dp)
+                        // Favorite button skeleton (52dp circle)
+                        ShimmerPlaceholder(Modifier.size(52.dp), cornerRadius = 26.dp)
                     }
                     Spacer(Modifier.height(28.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ShimmerPlaceholder(Modifier.width(160.dp).height(50.dp), cornerRadius = 25.dp)
-                        ShimmerPlaceholder(Modifier.size(50.dp), cornerRadius = 25.dp)
-                    }
-                    Spacer(Modifier.height(28.dp))
-
+                    // Content sections
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        ShimmerPlaceholder(Modifier.width(88.dp).height(20.dp), cornerRadius = 4.dp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(88.dp, 108.dp, 76.dp).forEach { width ->
-                                ShimmerPlaceholder(Modifier.width(width).height(32.dp), cornerRadius = 16.dp)
+                        // Genres
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ShimmerPlaceholder(Modifier.width(70.dp).height(20.dp), cornerRadius = 4.dp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(88.dp, 108.dp, 76.dp).forEach { width ->
+                                    ShimmerPlaceholder(Modifier.width(width).height(32.dp), cornerRadius = 16.dp)
+                                }
                             }
                         }
-                        ShimmerPlaceholder(Modifier.width(95.dp).height(20.dp), cornerRadius = 4.dp)
-                        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            repeat(3) {
-                                ShimmerPlaceholder(Modifier.fillMaxWidth().height(15.dp), cornerRadius = 4.dp)
+
+                        // Description
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ShimmerPlaceholder(Modifier.width(95.dp).height(20.dp), cornerRadius = 4.dp)
+                            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                repeat(3) {
+                                    ShimmerPlaceholder(Modifier.fillMaxWidth().height(15.dp), cornerRadius = 4.dp)
+                                }
+                                ShimmerPlaceholder(Modifier.width(220.dp).height(15.dp), cornerRadius = 4.dp)
                             }
-                            ShimmerPlaceholder(Modifier.width(220.dp).height(15.dp), cornerRadius = 4.dp)
+                        }
+
+                        // Cast / Actors (iOS 1:1)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ShimmerPlaceholder(Modifier.width(80.dp).height(20.dp), cornerRadius = 4.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                repeat(4) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        ShimmerPlaceholder(Modifier.size(76.dp), cornerRadius = 38.dp)
+                                        ShimmerPlaceholder(Modifier.width(62.dp).height(11.dp), cornerRadius = 3.dp)
+                                        ShimmerPlaceholder(Modifier.width(46.dp).height(9.dp), cornerRadius = 3.dp)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Similar Media (iOS 1:1)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ShimmerPlaceholder(Modifier.width(140.dp).height(20.dp), cornerRadius = 4.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                repeat(3) {
+                                    ShimmerPlaceholder(Modifier.width(120.dp).height(180.dp), cornerRadius = 12.dp)
+                                }
+                            }
                         }
                     }
                 }
