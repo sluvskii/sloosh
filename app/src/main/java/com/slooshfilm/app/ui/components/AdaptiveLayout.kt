@@ -82,23 +82,24 @@ fun rememberIsShortViewport(): Boolean {
  * @param buttonSize размер круглой кнопки поиска справа (совпадает с высотой бара).
  * @param horizontalPadding боковые отступы бара с учётом выреза камеры в ландшафте.
  * @param maxBarWidth ограничение ширины; `null` — бар занимает всю доступную ширину.
+ * @param compactTabsWidth ширина капсулы табов в ландшафте/на планшете; `null` — занимает всё доступное место слева.
  */
 @Immutable
 data class AdaptiveBarMetrics(
     val barHeight: Dp,
     val buttonSize: Dp,
     val horizontalPadding: Dp,
-    val maxBarWidth: Dp?
+    val maxBarWidth: Dp? = null,
+    val compactTabsWidth: Dp? = null
 )
 
 /**
  * Метрики навбара под текущую ориентацию и класс устройства.
  *
- * Портрет телефона не меняется вообще: 54dp бар во всю ширину с отступами 24dp
- * ([AdaptiveBarMetrics.maxBarWidth] == null). В горизонтали и на планшете бар становится
- * компактной капсулой по центру — как системный таб-бар iOS в landscape (49pt -> 32pt):
- * высота переходит на уже существующий в [SlooshBottomBar] compact-токен 44dp, а ширина
- * ограничивается, чтобы бар не растягивался на 700-900dp.
+ * Портрет телефона не меняется вообще: 54dp бар во всю ширину с отступами 24dp.
+ * В горизонтали и на планшете капсула табов остаётся компактной слева (360dp, высота 44dp),
+ * а круглая кнопка поиска (44dp) прижата справа под правый большой палец, освобождая
+ * середину экрана для удобного двухручного хвата и предотвращая наезд на контент.
  *
  * Значения 54dp/44dp и 24dp — существующие токены sloosh, новых чисел не вводится.
  * `pressedScale = 60f / 44f` активной капли при этом не затрагивается: это отношение
@@ -118,7 +119,8 @@ fun rememberAdaptiveBarMetrics(): AdaptiveBarMetrics {
         // В портрете rememberCutoutHorizontalPadding() == 0.dp, поэтому отступ остаётся 24.dp.
         // В ландшафте берём большее из базового отступа и реального инсета выреза камеры.
         horizontalPadding = maxOf(24.dp, cutoutPadding),
-        maxBarWidth = if (isLandscape || isTablet) 420.dp else null
+        maxBarWidth = null,
+        compactTabsWidth = if (isLandscape || isTablet) 360.dp else null
     )
 }
 

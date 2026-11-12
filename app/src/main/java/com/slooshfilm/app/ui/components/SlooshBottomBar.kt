@@ -207,19 +207,18 @@ fun SlooshBottomBar(
                 }
                 translationY = -lift
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.CenterStart
     ) {
-        // В ландшафте и на планшете бар не растягивается на всю ширину, а остаётся компактной
-        // капсулой по центру (как системный таб-бар iOS в landscape). В портрете телефона
-        // maxBarWidth == null, поэтому totalWidth равен прежней ширине во весь экран.
-        val barMaxWidth = barMetrics.maxBarWidth
-        val totalWidth = if (barMaxWidth != null) minOf(maxWidth, barMaxWidth) else maxWidth
+        val totalWidth = maxWidth
         val normalButtonSize = barMetrics.buttonSize
         val compactButtonSize = 44.dp
         val normalBarHeight = barMetrics.barHeight
         val compactBarHeight = 44.dp
 
-        val normalLeftWidth = (totalWidth - normalButtonSize - 10.dp).coerceAtLeast(0.dp)
+        // В ландшафте и на планшетах капсула табов остаётся компактной (360dp) слева,
+        // а кнопка поиска прижата к правому краю. В портрете телефона бар занимает всю ширину.
+        val maxNormalLeftWidth = (totalWidth - normalButtonSize - 10.dp).coerceAtLeast(0.dp)
+        val normalLeftWidth = barMetrics.compactTabsWidth?.let { minOf(it, maxNormalLeftWidth) } ?: maxNormalLeftWidth
         val compactLeftWidth = compactButtonSize // 44.dp
 
         // Fluid droplet elasticity during morphing (organic overshoot and surface tension settling)
@@ -235,8 +234,8 @@ fun SlooshBottomBar(
         val leftRestingWidth = lerp(normalLeftWidth, compactLeftWidth, effectiveSearchProgress)
         val animatedLeftWidth = lerp(leftRestingWidth, 0.dp, focusProgress).coerceAtLeast(0.dp)
 
-        // Spacing between left element and search element
-        val leftSpacing = if (animatedLeftWidth > 0.5.dp) {
+        // Spacing between left element and search element during active search
+        val activeSpacing = if (animatedLeftWidth > 0.5.dp) {
             lerp(10.dp, 8.dp, searchProgress.coerceIn(0f, 1f))
         } else {
             0.dp
@@ -246,18 +245,27 @@ fun SlooshBottomBar(
         val animatedCloseWidth = lerp(0.dp, compactButtonSize, closeButtonProgress).coerceAtLeast(0.dp)
         val closeSpacing = if (closeButtonProgress > 0.01f) (8.dp * closeButtonProgress).coerceAtLeast(0.dp) else 0.dp
 
-        // Search element width: takes all remaining width
-        val animatedSearchWidth = (totalWidth - animatedLeftWidth - leftSpacing - animatedCloseWidth - closeSpacing)
+        // Target search element width when fully active
+        val targetSearchWidth = (totalWidth - animatedLeftWidth - activeSpacing - animatedCloseWidth - closeSpacing)
             .coerceIn(compactButtonSize, totalWidth)
+
+        // Search element width: morphs smoothly from normalButtonSize to targetSearchWidth
+        val animatedSearchWidth = lerp(normalButtonSize, targetSearchWidth, searchProgress.coerceIn(0f, 1f))
+            .coerceIn(compactButtonSize, totalWidth)
+
+        // Flexible spacing between left component and search component (in landscape, separates tabs on left from search on right)
+        val middleSpacing = if (animatedLeftWidth > 0.5.dp) {
+            (totalWidth - animatedLeftWidth - animatedSearchWidth - animatedCloseWidth - closeSpacing).coerceAtLeast(0.dp)
+        } else {
+            0.dp
+        }
 
         // Heights
         val animatedLeftHeight = lerp(normalBarHeight, compactBarHeight, searchProgress)
         val animatedSearchHeight = lerp(normalBarHeight, compactBarHeight, searchProgress)
 
         Row(
-            // Ширина берётся из totalWidth (а не fillMaxWidth), чтобы при ограничении
-            // maxBarWidth вся внутренняя морф-математика бара совпадала с реальной шириной.
-            modifier = Modifier.width(totalWidth),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // =========================================================================
@@ -402,8 +410,8 @@ fun SlooshBottomBar(
                     }
                 }
 
-                if (leftSpacing > 0.dp) {
-                    Spacer(modifier = Modifier.width(leftSpacing))
+                if (middleSpacing > 0.dp) {
+                    Spacer(modifier = Modifier.width(middleSpacing))
                 }
             }
 

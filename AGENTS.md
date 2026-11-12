@@ -155,12 +155,14 @@ inline in new code, and **never hardcode `54.dp` / `24.dp` for the bottom bar** 
 | `rememberSlooshDeviceClass()` | `Compact` < 600dp, `Medium` 600..839dp, `Expanded` >= 840dp (Material 3 breakpoints). |
 | `rememberIsLandscape()` / `rememberIsTablet()` | Orientation and the historical `screenWidthDp >= 600` tablet check. |
 | `rememberIsShortViewport()` | Phone in landscape (height < 600dp): full-screen forms must scroll. |
-| `rememberAdaptiveBarMetrics()` | Bottom bar `barHeight`, `buttonSize`, `horizontalPadding`, `maxBarWidth`. |
+| `rememberAdaptiveBarMetrics()` | Bottom bar `barHeight`, `buttonSize`, `horizontalPadding`, `maxBarWidth`, `compactTabsWidth`. |
 | `rememberAdaptiveSheetHeight(portraitFraction)` | Modal sheet height: 0.62 portrait (iOS 1:1) / 0.92 landscape. |
 
 **Bottom bar contract.** Portrait phone is untouched: 54dp bar, full width, 24dp side padding
-(`maxBarWidth == null`). Landscape and tablets get the compact capsule: `barHeight = 44dp`,
-`buttonSize = 44dp`, side padding `max(24dp, cutout)`, width capped at 420dp and centered.
+(`maxBarWidth == null`). Landscape and tablets get the compact split layout: compact tabs capsule
+on the **left** (`barHeight = 44dp`, `compactTabsWidth = 360dp`), circular search button (44dp)
+on the **right**, side padding `max(24dp, cutout)`. Left thumb controls tabs, right thumb controls
+search, and the center is clear.
 This matches what the content screens already reserve — every screen uses
 `bottomTotalPadding = navBarBottomPadding + 48.dp` in landscape, i.e. exactly `44dp bar + 4dp top padding`.
 `pillHeight` follows as `barHeight - 8.dp` (46dp -> 36dp), and the droplet keeps inflating with the same
