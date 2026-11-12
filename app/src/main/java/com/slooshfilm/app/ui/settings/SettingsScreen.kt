@@ -519,7 +519,7 @@ fun SettingsScreen(
             SettingsNavigationItem(
                 text = "Telegram-канал",
                 detailText = "@slooshapp",
-                icon = painterResource(id = R.drawable.ic_telegram)
+                iconPainter = painterResource(id = R.drawable.ic_telegram)
             ) {
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/slooshapp"))

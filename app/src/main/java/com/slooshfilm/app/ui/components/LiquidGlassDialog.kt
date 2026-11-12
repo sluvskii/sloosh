@@ -325,7 +325,7 @@ fun LiquidGlassAlertDialog(
     dismissButtonText: String = "Отмена",
     confirmButtonColor: Color = SlooshAccent,
     isDestructive: Boolean = false,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
     backdrop: Backdrop? = null,
@@ -342,7 +342,7 @@ fun LiquidGlassAlertDialog(
         backdrop = backdrop,
         showCloseButton = false
     ) { dismiss ->
-        if (icon != null) {
+        if (iconSfName != null) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -351,11 +351,11 @@ fun LiquidGlassAlertDialog(
                     .align(Alignment.CenterHorizontally),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    painter = icon,
+                SfIcon(
+                    systemName = iconSfName,
                     contentDescription = null,
                     tint = if (isDestructive) Color(0xFFFF453A) else Color.White,
-                    modifier = Modifier.size(28.dp)
+                    size = 28.dp
                 )
             }
             Spacer(modifier = Modifier.height(14.dp))

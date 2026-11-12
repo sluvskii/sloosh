@@ -82,6 +82,7 @@ import com.slooshfilm.app.ui.components.LiquidGlassMenuOverlay
 import com.slooshfilm.app.ui.components.SettingsMenuTrigger
 import com.slooshfilm.app.ui.theme.BackgroundDark
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
+import androidx.compose.ui.graphics.painter.Painter
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.theme.SlooshAccent
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -434,6 +435,8 @@ fun SettingsNavigationItem(
     iconTint: Color = SlooshAccent,
     textColor: Color = Color.Unspecified,
     detailText: String = "",
+    // Исключение для брендовых логотипов (ic_telegram, ic_google) — не для SF Symbols.
+    iconPainter: Painter? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -449,6 +452,19 @@ fun SettingsNavigationItem(
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
+            Spacer(modifier = Modifier.width(14.dp))
+        } else if (iconPainter != null) {
+            Box(
+                modifier = Modifier.size(28.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = iconPainter,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = iconTint
+                )
+            }
             Spacer(modifier = Modifier.width(14.dp))
         }
         Text(
