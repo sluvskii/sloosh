@@ -35,11 +35,21 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
+import kotlin.math.min
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -53,11 +63,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.slooshfilm.app.data.alloha.AllohaApiResult
@@ -687,6 +700,11 @@ fun DetailsScreen(
 
                         // 2. Logo or Title (fades out and scales down as user scrolls towards top)
                         val logoUrl = item.displayLogoUrl
+                        // Intrinsic size of the loaded logo: needed to fit it into the 300x110dp frame
+                        // with mandatory scaling (including upscale) — iOS 1:1 (RemoteLogoView).
+                        // Without this, Coil displays small logos in their pixel size, and they
+                        // look "smaller" than large ones.
+                        var logoIntrinsicSize by remember(logoUrl) { mutableStateOf<Size?>(null) }
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.graphicsLayer {
@@ -696,14 +714,31 @@ fun DetailsScreen(
                             }
                         ) {
                             if (!logoUrl.isNullOrBlank()) {
+                                val density = LocalDensity.current
+                                val logoSize = logoIntrinsicSize?.let { intrinsic ->
+                                    val widthDp = intrinsic.width / density.density
+                                    val heightDp = intrinsic.height / density.density
+                                    if (widthDp > 0f && heightDp > 0f) {
+                                        val scale = min(300f / widthDp, 110f / heightDp)
+                                        Pair((widthDp * scale).dp, (heightDp * scale).dp)
+                                    } else {
+                                        null
+                                    }
+                                }
                                 AsyncImage(
                                     model = logoUrl,
                                     contentDescription = item.title,
                                     contentScale = ContentScale.Fit,
+                                    onSuccess = { state -> logoIntrinsicSize = state.painter.intrinsicSize },
                                     modifier = Modifier
-                                        .widthIn(max = 280.dp)
-                                        .heightIn(max = 85.dp)
-                                        .padding(bottom = 6.dp)
+                                        .then(
+                                            if (logoSize != null) {
+                                                Modifier.size(logoSize.first, logoSize.second)
+                                            } else {
+                                                Modifier.widthIn(max = 300.dp).heightIn(max = 110.dp)
+                                            }
+                                        )
+                                        .padding(bottom = 8.dp)
                                 )
                             } else {
                                 Text(
@@ -727,7 +762,7 @@ fun DetailsScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         // 3. Primary Metadata Row: Rating, Age, Year, Country, Duration (iOS 1:1)
                         Row(
@@ -794,51 +829,107 @@ fun DetailsScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // 4. Action Buttons: "Смотреть" (50dp capsule) + Trailer (if available) + Download (50dp circular glass) (iOS 1:1)
+                        // 4. Action row (iOS 1:1, DetailsHeroActionMetrics): download 52dp —
+                        // play 72dp — favorite 52dp, spacing 22dp. The play button has no text:
+                        // the triangle is cut out of the white disc (BlendMode.Clear inside an
+                        // offscreen layer), so the real backdrop shows through it, as on iOS.
+                        val playInteractionSource = remember { MutableInteractionSource() }
+                        val playPressed by playInteractionSource.collectIsPressedAsState()
+                        val playScale by animateFloatAsState(
+                            targetValue = if (playPressed) 0.94f else 1f,
+                            label = "playScale"
+                        )
+                        // The triangle for the cutout is rasterized once from the SF vector:
+                        // in Compose 1.7 Modifier.paint does not have a blendMode, so the "hole"
+                        // is made with drawImage(blendMode = Clear).
+                        val playPainter = painterResource(R.drawable.ic_sf_play_fill)
+                        val playDensity = LocalDensity.current
+                        val playCutoutSizePx = with(playDensity) { 34.dp.toPx() }
+                        val playCutout = remember(playPainter, playCutoutSizePx) {
+                            val px = playCutoutSizePx.roundToInt().coerceAtLeast(1)
+                            val bitmap = ImageBitmap(px, px)
+                            CanvasDrawScope().draw(
+                                density = playDensity,
+                                layoutDirection = LayoutDirection.Ltr,
+                                canvas = Canvas(bitmap),
+                                size = Size(px.toFloat(), px.toFloat())
+                            ) {
+                                with(playPainter) {
+                                    draw(size, colorFilter = ColorFilter.tint(Color.White))
+                                }
+                            }
+                            bitmap
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Primary "Смотреть" Button (compact horizontal width ~150dp, 24dp play icon, heavy black text)
-                            Button(
-                                onClick = { loadAndShowWatchSelector() },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color.Black
-                                ),
-                                shape = Capsule(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
-                                modifier = Modifier.defaultMinSize(minHeight = 50.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_play_fill),
-                                    contentDescription = "Смотреть",
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Смотреть",
-                                    fontSize = 19.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.Black
-                                )
-                            }
-
-                            // Circular Download Button with Liquid Glass styling & SF Symbol arrow.down.circle (iOS: 50x50)
+                            // Download — to the left of play (iOS: DetailsHeroDownloadButton)
                             LiquidGlassFloatingButton(
                                 onClick = { showOfflineDownloadDialog = true },
                                 backdrop = glassBackdrop,
                                 shape = CircleShape,
                                 tint = LiquidGlassSurfaceDark,
-                                modifier = Modifier.size(50.dp)
+                                modifier = Modifier.size(52.dp)
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
                                     contentDescription = "Скачать",
                                     tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            // Play — 72dp disc with a cut-out triangle (iOS: primaryDiameter 72, symbol 34pt)
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                        scaleX = playScale
+                                        scaleY = playScale
+                                    }
+                                    .drawBehind {
+                                        drawCircle(
+                                            color = Color.White.copy(alpha = 0.85f),
+                                            radius = size.minDimension / 2f
+                                        )
+                                        val cut = playCutoutSizePx
+                                        drawImage(
+                                            image = playCutout,
+                                            topLeft = Offset(
+                                                (size.width - cut) / 2f,
+                                                (size.height - cut) / 2f
+                                            ),
+                                            blendMode = BlendMode.Clear
+                                        )
+                                    }
+                                    .clickable(
+                                        interactionSource = playInteractionSource,
+                                        indication = null,
+                                        onClick = { loadAndShowWatchSelector() }
+                                    )
+                                    .semantics { contentDescription = "Смотреть" }
+                            )
+
+                            // Favorite — to the right of play (iOS: favoriteButton in the hero row)
+                            LiquidGlassFloatingButton(
+                                onClick = {
+                                    details?.let { mediaItem ->
+                                        favoritesStore.toggleFavorite(mediaItem.toMediaDto())
+                                    }
+                                },
+                                backdrop = glassBackdrop,
+                                shape = CircleShape,
+                                tint = LiquidGlassSurfaceDark,
+                                modifier = Modifier.size(52.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(if (isFavorite) R.drawable.ic_sf_heart_fill else R.drawable.ic_sf_heart),
+                                    contentDescription = if (isFavorite) "В избранном" else "В избранное",
+                                    tint = if (isFavorite) SlooshAccent else Color.White,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
@@ -1881,14 +1972,33 @@ fun DetailsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     val topLogoUrl = details?.displayLogoUrl
+                    var topLogoIntrinsicSize by remember(topLogoUrl) { mutableStateOf<Size?>(null) }
                     if (!topLogoUrl.isNullOrBlank()) {
+                        // iOS 1:1 (RemoteLogoView isTopBar): fixed height 32dp with proportional
+                        // scaling, width capped by the center slot (160dp).
+                        val density = LocalDensity.current
+                        val topLogoSize = topLogoIntrinsicSize?.let { intrinsic ->
+                            val widthDp = intrinsic.width / density.density
+                            val heightDp = intrinsic.height / density.density
+                            if (widthDp > 0f && heightDp > 0f) {
+                                val scale = min(160f / widthDp, 32f / heightDp)
+                                Pair((widthDp * scale).dp, (heightDp * scale).dp)
+                            } else {
+                                null
+                            }
+                        }
                         AsyncImage(
                             model = topLogoUrl,
                             contentDescription = details?.title,
                             contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .widthIn(max = 160.dp)
+                            onSuccess = { state -> topLogoIntrinsicSize = state.painter.intrinsicSize },
+                            modifier = Modifier.then(
+                                if (topLogoSize != null) {
+                                    Modifier.size(topLogoSize.first, topLogoSize.second)
+                                } else {
+                                    Modifier.fillMaxHeight().widthIn(max = 160.dp)
+                                }
+                            )
                         )
                     } else {
                         Text(
@@ -1903,11 +2013,21 @@ fun DetailsScreen(
                     }
                 }
 
-                // Trailing Action: Circular Favorite Button with Liquid Glass backdrop & touch stretch (iOS 1:1)
+                // Trailing Action: circular Share button (iOS 1:1: square.and.arrow.up in the
+                // navigation bar). Favorite has moved to the hero row, next to play, as on iOS.
                 LiquidGlassFloatingButton(
                     onClick = {
-                        details?.let { item ->
-                            favoritesStore.toggleFavorite(item.toMediaDto())
+                        val shareTitle = details?.title ?: details?.originalTitle
+                        if (!shareTitle.isNullOrBlank()) {
+                            val shareYear = details?.year?.takeIf { it > 0 }?.let { " ($it)" } ?: ""
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, shareTitle)
+                                putExtra(Intent.EXTRA_TEXT, "$shareTitle$shareYear")
+                            }
+                            runCatching {
+                                context.startActivity(Intent.createChooser(shareIntent, "Поделиться"))
+                            }
                         }
                     },
                     backdrop = sceneBackdrop,
@@ -1916,10 +2036,10 @@ fun DetailsScreen(
                     modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
-                        painter = painterResource(if (isFavorite) R.drawable.ic_sf_heart_fill else R.drawable.ic_sf_heart),
-                        contentDescription = if (isFavorite) "В избранном" else "В избранное",
-                        tint = if (isFavorite) SlooshAccent else Color.White,
-                        modifier = Modifier.size(24.dp)
+                        painter = painterResource(R.drawable.ic_sf_square_arrow_up),
+                        contentDescription = "Поделиться",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
