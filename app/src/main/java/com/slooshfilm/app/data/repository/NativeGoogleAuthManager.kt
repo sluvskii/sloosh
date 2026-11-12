@@ -45,7 +45,7 @@ class NativeGoogleAuthManager private constructor(private val context: Context) 
         // Clear previous selection so account chooser always prompts if needed
         try {
             googleSignInClient.signOut()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {}
         return googleSignInClient.signInIntent
     }
 
@@ -163,7 +163,7 @@ class NativeGoogleAuthManager private constructor(private val context: Context) 
             val md = java.security.MessageDigest.getInstance("SHA-1")
             val digest = md.digest(cert)
             digest.joinToString(":") { "%02X".format(it) }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             "не определён"
         }
     }

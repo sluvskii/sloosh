@@ -44,9 +44,16 @@ android {
             Properties().apply { props.inputStream().use { load(it) } }
         } else null
         val storeFile = System.getenv("SLOOSH_STORE_FILE") ?: signingProps?.getProperty("SLOOSH_STORE_FILE")
-        val storePass = System.getenv("SLOOSH_STORE_PASSWORD") ?: signingProps?.getProperty("SLOOSH_STORE_PASSWORD")
-        val keyAlias = System.getenv("SLOOSH_KEY_ALIAS") ?: signingProps?.getProperty("SLOOSH_KEY_ALIAS")
-        val keyPass = System.getenv("SLOOSH_KEY_PASSWORD") ?: signingProps?.getProperty("SLOOSH_KEY_PASSWORD")
+        val storePass = System.getenv("SLOOSH_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+            ?: System.getenv("SLOOSH_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+            ?: signingProps?.getProperty("SLOOSH_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+            ?: "android"
+        val keyAlias = System.getenv("SLOOSH_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+            ?: signingProps?.getProperty("SLOOSH_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+            ?: "androiddebugkey"
+        val keyPass = System.getenv("SLOOSH_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+            ?: signingProps?.getProperty("SLOOSH_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+            ?: storePass
         if (!storeFile.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
             val rawFile = java.io.File(storeFile)
             val keyFile = if (rawFile.isAbsolute && rawFile.exists()) {
