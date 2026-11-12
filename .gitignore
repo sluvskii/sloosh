@@ -16,6 +16,9 @@ local.properties
 
 # Signing keys — never commit
 /key/
+*.keystore
+*.jks
+*_base64.txt
 
 # iOS reference app is its own repository
 /iOS-sloosh/

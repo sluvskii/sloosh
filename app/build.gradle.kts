@@ -37,24 +37,25 @@ android {
     }
 
     signingConfigs {
-        // Release keystore lives in key/sloosh-release.keystore; credentials are read from
-        // local.properties (gitignored). Falls back to the debug key when the entries are
-        // missing so the project keeps building on fresh clones — a debug-signed release
-        // is still installable, it just can't update over release-signed installs.
+        // Release keystore credentials can be passed via environment variables (CI/CD)
+        // or local.properties (local builds, gitignored). Falls back to debug key when missing.
         val props = rootProject.file("local.properties")
         val signingProps = if (props.exists()) {
             Properties().apply { props.inputStream().use { load(it) } }
         } else null
-        val storeFile = signingProps?.getProperty("SLOOSH_STORE_FILE")
-        val storePass = signingProps?.getProperty("SLOOSH_STORE_PASSWORD")
-        val keyAlias = signingProps?.getProperty("SLOOSH_KEY_ALIAS")
-        val keyPass = signingProps?.getProperty("SLOOSH_KEY_PASSWORD")
+        val storeFile = System.getenv("SLOOSH_STORE_FILE") ?: signingProps?.getProperty("SLOOSH_STORE_FILE")
+        val storePass = System.getenv("SLOOSH_STORE_PASSWORD") ?: signingProps?.getProperty("SLOOSH_STORE_PASSWORD")
+        val keyAlias = System.getenv("SLOOSH_KEY_ALIAS") ?: signingProps?.getProperty("SLOOSH_KEY_ALIAS")
+        val keyPass = System.getenv("SLOOSH_KEY_PASSWORD") ?: signingProps?.getProperty("SLOOSH_KEY_PASSWORD")
         if (!storeFile.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
-            create("release") {
-                this.storeFile = rootProject.file(storeFile)
-                this.storePassword = storePass
-                this.keyAlias = keyAlias
-                this.keyPassword = keyPass ?: storePass
+            val keyFile = file(storeFile).let { if (it.isAbsolute) it else rootProject.file(storeFile) }
+            if (keyFile.exists()) {
+                create("release") {
+                    this.storeFile = keyFile
+                    this.storePassword = storePass
+                    this.keyAlias = keyAlias
+                    this.keyPassword = keyPass ?: storePass
+                }
             }
         }
     }
