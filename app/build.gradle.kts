@@ -64,7 +64,7 @@ android {
                     this.storeFile = keyFile
                     this.storePassword = storePass
                     this.keyAlias = keyAlias
-                    this.keyPassword = keyPass ?: storePass
+                    this.keyPassword = if (!keyPass.isNullOrBlank()) keyPass else storePass
                 }
             } else {
                 val err = "Keystore file '$storeFile' specified in environment or local.properties was not found! Searched rootProject: ${rootProject.file(storeFile).absolutePath} and project: ${project.file(storeFile).absolutePath}"

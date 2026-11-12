@@ -50,26 +50,41 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.SLOOSH_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SLOOSH_KEY_ALIAS }}
         run: |
+          echo "### 🔑 Keystore Decode Summary" >> $GITHUB_STEP_SUMMARY
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > release.keystore
             cp release.keystore app/release.keystore
-            echo "Keystore decoded successfully (size: $(wc -c < release.keystore) bytes)"
-            echo "=== Verifying decoded keystore certificate ==="
-            keytool -list -v -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | grep -E "Alias name|SHA1:|SHA256:" || true
+            SIZE=$(wc -c < release.keystore)
+            echo "- Keystore decoded: $SIZE bytes" >> $GITHUB_STEP_SUMMARY
+            echo "- Certificate info:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            keytool -list -v -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | grep -E "Alias name|SHA1:|SHA256:" >> $GITHUB_STEP_SUMMARY 2>&1 || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
           else
-            echo "::warning::No SLOOSH_KEYSTORE_BASE64 secret found! Build will fall back to debug key."
+            echo "- ⚠️ **Warning**: SLOOSH_KEYSTORE_BASE64 is empty or not set in Repository Secrets!" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Build Release APK
         env:
           BUILD_NUMBER: ${{ github.run_number }}
           VERSION_NAME: 2.0.${{ github.run_number }}
-          SLOOSH_STORE_FILE: release.keystore
+          SLOOSH_STORE_FILE: ${{ hashFiles('release.keystore') != '' && 'release.keystore' || '' }}
           SLOOSH_STORE_PASSWORD: ${{ secrets.SLOOSH_KEYSTORE_PASSWORD }}
           SLOOSH_KEY_ALIAS: ${{ secrets.SLOOSH_KEY_ALIAS }}
           SLOOSH_KEY_PASSWORD: ${{ secrets.SLOOSH_KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee gradle-build.log
+
+      - name: Report Build Failure Output
+        if: failure()
+        run: |
+          echo "### ❌ Build Failed Log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f gradle-build.log ]; then
+            tail -n 80 gradle-build.log >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Package & Prepare APK
         id: package
