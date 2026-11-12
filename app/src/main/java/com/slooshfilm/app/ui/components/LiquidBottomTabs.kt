@@ -72,6 +72,9 @@ import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberCombinedBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import io.github.neoruaa.glasmio.glass.NativeControlLensStyle
+import io.github.neoruaa.glasmio.glass.nativeControlLens
+import io.github.neoruaa.glasmio.glass.render.drawPlainBackdrop
 import com.slooshfilm.app.ui.backdrop.effects.blur
 import com.slooshfilm.app.ui.backdrop.effects.colorControls
 import com.slooshfilm.app.ui.backdrop.effects.lens
@@ -502,27 +505,8 @@ fun LiquidBottomTabs(
                                         refractionHeight = LiquidGlassTokens.Bar.refractionHeight.toPx(),
                                         refractionAmount = LiquidGlassTokens.Bar.refractionAmount.toPx()
                                     )
-                                    // Адаптивное тело ползунка (glasmio NativeTabIdle):
-                                    // цвет из материала бара через UIKit-матрицы, живёт от контента.
-                                    if (isLtr) {
-                                        iosTabIdleBody(
-                                            pillLeft = insetPx + dampedDragAnimation.value * normalStepPx + dampedDragAnimation.inertialShiftPx,
-                                            pillTop = (size.height - pillHeightPx * dampedDragAnimation.scaleY) / 2f,
-                                            pillWidth = normalPillWidthPx * dampedDragAnimation.scaleX,
-                                            pillHeight = pillHeightPx * dampedDragAnimation.scaleY,
-                                            isLight = isLightTheme,
-                                            liftProgress = progress
-                                        )
-                                    } else {
-                                        iosTabIdleBody(
-                                            pillLeft = size.width - (insetPx + normalPillWidthPx + dampedDragAnimation.value * normalStepPx) - dampedDragAnimation.inertialShiftPx,
-                                            pillTop = (size.height - pillHeightPx * dampedDragAnimation.scaleY) / 2f,
-                                            pillWidth = normalPillWidthPx * dampedDragAnimation.scaleX,
-                                            pillHeight = pillHeightPx * dampedDragAnimation.scaleY,
-                                            isLight = isLightTheme,
-                                            liftProgress = progress
-                                        )
-                                    }
+                                    // Тело ползунка больше НЕ рисуется здесь: покой и лифт
+                                    // целиком считает аутентичный nativeControlLens в Layer 3.
                                 }
                             },
                             highlight = null,
@@ -574,11 +558,15 @@ fun LiquidBottomTabs(
             }
         }
 
-        // Layer 3: Dynamic sliding active tab liquid lens pill
+        // Layer 3: Dynamic sliding active tab liquid lens pill.
+        // Стеклянная ветка целиком на вендоренном движке glasmio-glass: покой и лифт
+        // считает дословный nativeControlLens (NativeControlLens.kt, TabBarIndicator).
         val isSelectedTabValid = selectedTabIndex() in 0 until tabsCount
         if (sliderAlpha > 0f) {
-            if (isGlassEnabled) {
+            if (isGlassEnabled && !isStaticBar) {
                 val activeBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
+                val glasmioSource = rememberGlasmioBackdrop(activeBackdrop)
+                val glasmioTabs = rememberGlasmioBackdrop(tabsBackdrop)
                 Box(
                     Modifier
                         .layout { measurable, _ ->
@@ -613,59 +601,16 @@ fun LiquidBottomTabs(
                             alpha = (if (isSelectedTabValid) 1f else 0f) * sliderAlpha
                         }
                         .then(if (searchProgress < 0.01f) dampedDragAnimation.modifier else Modifier)
-                        .drawBackdrop(
-                            backdrop = activeBackdrop,
+                        .drawPlainBackdrop(
+                            backdrop = glasmioSource,
                             shape = { SharedCapsule },
                             effects = {
-                                val progress = dampedDragAnimation.pressProgress * sliderAlpha
-                                val activity = dampedDragAnimation.fluidActivity
-                                if (progress > 0f) {
-                                    val baseHeight = LiquidGlassTokens.Slider.refractionHeight.value
-                                    val baseAmount = LiquidGlassTokens.Slider.refractionAmount.value
-                                    val dynHeight = (baseHeight + 1.2f * activity).dp.toPx() * progress
-                                    val dynAmount = (baseAmount + 3.5f * activity).dp.toPx() * progress
-                                    val dynAberration = (LiquidGlassTokens.Slider.chromaticAberration + 0.04f * activity) * progress
-                                    val dynFishEye = (LiquidGlassTokens.Slider.fishEyeStrength + 0.03f * activity) * progress
-                                    iosLens(
-                                        refractionHeight = dynHeight,
-                                        refractionAmount = dynAmount,
-                                        chromaticAberration = dynAberration,
-                                        fishEyeStrength = dynFishEye
-                                    )
-                                    // Портальная деформация контента + френелевское кольцо
-                                    // (glasmio NativeControlLens, TabBarIndicator lift).
-                                    iosTabLift(lift = progress)
-                                }
-                            },
-                            highlight = {
-                                val progress = dampedDragAnimation.pressProgress * sliderAlpha
-                                val activity = dampedDragAnimation.fluidActivity
-                                if (progress > 0f) {
-                                    Highlight(
-                                        alpha = (0.50f + 0.25f * activity) * progress,
-                                        style = ConcentratedHighlightStyle(
-                                            angle = 90f,
-                                            falloff = 2.2f,
-                                            lengthFactor = 0.55f + 0.15f * activity
-                                        )
-                                    )
-                                } else null
-                            },
-                            shadow = {
-                                val progress = dampedDragAnimation.pressProgress * sliderAlpha
-                                if (progress > 0f) {
-                                    Shadow(
-                                        color = if (isLightTheme) Color.Black.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.35f),
-                                        alpha = progress * (if (isLightTheme) 0.10f else 0.35f)
-                                    )
-                                } else null
-                            },
-                            layerBlock = null
-                        )
-                        .glassBorder(
-                            shape = SharedCapsule,
-                            alpha = {
-                                dampedDragAnimation.pressProgress * sliderAlpha * (if (isLightTheme) 0.30f else 0.55f)
+                                nativeControlLens(
+                                    style = NativeControlLensStyle.TabBarIndicator,
+                                    liftProgress = dampedDragAnimation.pressProgress * sliderAlpha,
+                                    isDark = !isLightTheme,
+                                    liftedContent = glasmioTabs
+                                )
                             }
                         )
                 )

@@ -168,6 +168,8 @@ dependencies {
 
     // iOS Shapes (Backdrop engine is now fully in-tree in com.slooshfilm.app.ui.backdrop)
     implementation("io.github.kyant0:shapes:1.2.1")
+    // Continuous capsule geometry — требуется вендоренному движку glasmio-glass (ползунок навбара)
+    implementation("io.github.kyant0:capsule:2.1.3")
 
     // Google Play Services Auth for Native System Bottom Sheet Sign-In
     implementation("com.google.android.gms:play-services-auth:21.2.0")
