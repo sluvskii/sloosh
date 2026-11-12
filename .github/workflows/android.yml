@@ -49,11 +49,7 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           VERSION_NAME: 2.0.${{ github.run_number }}
         run: |
-          set +e
-          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/build.log
-          status=${PIPESTATUS[0]}
-          grep -E "^e: " /tmp/build.log | head -60 | sed 's/^/::error::/'
-          exit $status
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Package & Prepare APK
         id: package
