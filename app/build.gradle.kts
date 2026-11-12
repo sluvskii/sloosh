@@ -44,17 +44,21 @@ android {
         val signingProps = if (props.exists()) {
             Properties().apply { props.inputStream().use { load(it) } }
         } else null
-        val storeFile = System.getenv("SLOOSH_STORE_FILE") ?: signingProps?.getProperty("SLOOSH_STORE_FILE")
+
+        val isCi = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null
+        val storeFile = System.getenv("SLOOSH_STORE_FILE")
+            ?: signingProps?.getProperty("SLOOSH_STORE_FILE")?.takeIf { it.isNotBlank() }
         val storePass = System.getenv("SLOOSH_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
             ?: System.getenv("SLOOSH_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
             ?: signingProps?.getProperty("SLOOSH_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
-            ?: "android"
+            ?: if (isCi) "android" else null
         val keyAlias = System.getenv("SLOOSH_KEY_ALIAS")?.takeIf { it.isNotBlank() }
             ?: signingProps?.getProperty("SLOOSH_KEY_ALIAS")?.takeIf { it.isNotBlank() }
-            ?: "androiddebugkey"
+            ?: if (isCi) "androiddebugkey" else null
         val keyPass = System.getenv("SLOOSH_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
             ?: signingProps?.getProperty("SLOOSH_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
             ?: storePass
+
         if (!storeFile.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
             val rawFile = File(storeFile)
             val keyFile = if (rawFile.isAbsolute && rawFile.exists()) {
@@ -67,18 +71,12 @@ android {
                 ).firstOrNull { it.exists() }
             }
             if (keyFile != null && keyFile.exists()) {
-                println("===> [SIGNING CONFIG] Keystore configured: ${keyFile.absolutePath}")
+                println("===> [SIGNING CONFIG] Release keystore configured: ${keyFile.absolutePath}")
                 val releaseConfig = signingConfigs.findByName("release") ?: signingConfigs.create("release")
                 releaseConfig.storeFile = keyFile
                 releaseConfig.storePassword = storePass
                 releaseConfig.keyAlias = keyAlias
-                releaseConfig.keyPassword = if (!keyPass.isNullOrBlank()) keyPass else storePass
-
-                val debugConfig = signingConfigs.getByName("debug")
-                debugConfig.storeFile = keyFile
-                debugConfig.storePassword = storePass
-                debugConfig.keyAlias = keyAlias
-                debugConfig.keyPassword = if (!keyPass.isNullOrBlank()) keyPass else storePass
+                releaseConfig.keyPassword = keyPass
             } else {
                 val err = "Keystore file '$storeFile' specified in environment or local.properties was not found! Searched rootProject: ${rootProject.file(storeFile).absolutePath} and project: ${project.file(storeFile).absolutePath}"
                 System.err.println("===> [SIGNING ERROR] $err")
