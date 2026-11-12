@@ -841,47 +841,32 @@ fun DetailsScreen(
                         // scaled to 34dp as on iOS). The triangle becomes a hole in the fill, so
                         // the real backdrop shows through it on any GPU/driver.
                         val playDensity = LocalDensity.current
-                        val playDiscPx = with(playDensity) { 72.dp.toPx() }
-                        val playGlyphPx = with(playDensity) { 34.dp.toPx() }
+                        val playDiscPx = with(playDensity) { 76.dp.toPx() }
+                        val playGlyphPx = with(playDensity) { 42.dp.toPx() }
                         val playDiscPath = remember(playDiscPx, playGlyphPx) {
                             val u = playGlyphPx / 56f
                             val o = (playDiscPx - playGlyphPx) / 2f
                             Path().apply {
                                 fillType = PathFillType.EvenOdd
                                 addOval(Rect(0f, 0f, playDiscPx, playDiscPx))
-                                moveTo(o + 13.0937f * u, o + 47.8398f * u)
+                                moveTo(o + 15.0000f * u, o + 14.0600f * u)
+                                lineTo(o + 15.0000f * u, o + 41.9400f * u)
                                 cubicTo(
-                                    o + 14.0313f * u, o + 47.8398f * u,
-                                    o + 14.8281f * u, o + 47.4648f * u,
-                                    o + 15.7656f * u, o + 46.9258f * u
+                                    o + 15.0000f * u, o + 45.2700f * u,
+                                    o + 17.3500f * u, o + 46.6200f * u,
+                                    o + 20.2200f * u, o + 44.9300f * u
                                 )
-                                lineTo(o + 43.0937f * u, o + 31.1289f * u)
+                                lineTo(o + 43.7800f * u, o + 31.0700f * u)
                                 cubicTo(
-                                    o + 45.0391f * u, o + 29.9805f * u,
-                                    o + 45.7187f * u, o + 29.2305f * u,
-                                    o + 45.7187f * u, o + 27.9883f * u
+                                    o + 46.6500f * u, o + 29.3800f * u,
+                                    o + 46.6500f * u, o + 26.6200f * u,
+                                    o + 43.7800f * u, o + 24.9300f * u
                                 )
+                                lineTo(o + 20.2200f * u, o + 11.0700f * u)
                                 cubicTo(
-                                    o + 45.7187f * u, o + 26.7461f * u,
-                                    o + 45.0391f * u, o + 25.9961f * u,
-                                    o + 43.0937f * u, o + 24.8711f * u
-                                )
-                                lineTo(o + 15.7656f * u, o + 9.0508f * u)
-                                cubicTo(
-                                    o + 14.8281f * u, o + 8.5118f * u,
-                                    o + 14.0313f * u, o + 8.1602f * u,
-                                    o + 13.0937f * u, o + 8.1602f * u
-                                )
-                                cubicTo(
-                                    o + 11.3594f * u, o + 8.1602f * u,
-                                    o + 10.2813f * u, o + 9.4727f * u,
-                                    o + 10.2813f * u, o + 11.5118f * u
-                                )
-                                lineTo(o + 10.2813f * u, o + 44.4649f * u)
-                                cubicTo(
-                                    o + 10.2813f * u, o + 46.5039f * u,
-                                    o + 11.3594f * u, o + 47.8398f * u,
-                                    o + 13.0937f * u, o + 47.8398f * u
+                                    o + 17.3500f * u, o + 9.3800f * u,
+                                    o + 15.0000f * u, o + 10.7300f * u,
+                                    o + 15.0000f * u, o + 14.0600f * u
                                 )
                                 close()
                             }
@@ -900,17 +885,17 @@ fun DetailsScreen(
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
+                                    painter = painterResource(R.drawable.ic_sf_arrow_down_to_line),
                                     contentDescription = "Скачать",
                                     tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
 
-                            // Play — 72dp disc with a cut-out triangle (iOS: primaryDiameter 72, symbol 34pt)
+                            // Play — 76dp disc with a softly rounded cut-out triangle (iOS: primaryDiameter 72+, symbol ~40pt)
                             Box(
                                 modifier = Modifier
-                                    .size(72.dp)
+                                    .size(76.dp)
                                     .graphicsLayer {
                                         scaleX = playScale
                                         scaleY = playScale
@@ -945,7 +930,7 @@ fun DetailsScreen(
                                     painter = painterResource(if (isFavorite) R.drawable.ic_sf_heart_fill else R.drawable.ic_sf_heart),
                                     contentDescription = if (isFavorite) "В избранном" else "В избранное",
                                     tint = if (isFavorite) SlooshAccent else Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                         }
@@ -2055,7 +2040,7 @@ fun DetailsScreen(
                         painter = painterResource(R.drawable.ic_sf_square_arrow_up),
                         contentDescription = "Поделиться",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -2114,7 +2099,7 @@ fun DetailsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
+                            painter = painterResource(R.drawable.ic_sf_arrow_down_to_line),
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(28.dp)

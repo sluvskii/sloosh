@@ -105,7 +105,7 @@ Always use the standardized modifiers rather than low-level `drawBackdrop` calls
 - **Top Floating Navigation Bar**:
   - Leading: Back button (`44.dp` `LiquidGlassFloatingButton`, icon `24.dp`).
   - Center: Compact Title / Logo (`graphicsLayer { alpha = topLogoAlpha }`), smoothly appearing when scrolled past `370.dp` while content logo fades out.
-- **Action Buttons**: Primary Watch capsule (white 50dp capsule, compact width ~150dp, padding start 16dp / end 20dp, unified 24dp play icon, 19sp Black text) and Download button (`50.dp` circular glass `LiquidGlassFloatingButton`, unified 24dp download icon), spaced by `8.dp` horizontally 1:1 matching iOS.
+- **Action Buttons (iOS 1:1, DetailsHeroActionMetrics)**: Hero row with 22dp spacing: Download button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` `ic_sf_arrow_down_to_line` icon), Primary Play disc (`76.dp` white 85% disc with `42.dp` softly rounded cut-out triangle and built-in optical centering), and Favorite button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` heart icon).
 
 #### Home Screen (`HomeScreen.kt`)
 - **Top Header**: Category text tabs with soft 2-stop vertical gradient (`BackgroundDark` to transparent) with `statusBarsPadding()`.

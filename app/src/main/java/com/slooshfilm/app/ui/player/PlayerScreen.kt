@@ -3059,9 +3059,7 @@ private fun PlayerPlayPauseButton(
                         painter = painterResource(id = R.drawable.ic_sf_play_fill),
                         contentDescription = "Воспроизвести",
                         tint = Color.White,
-                        modifier = Modifier
-                            .padding(start = 3.dp)
-                            .size(38.dp)
+                        modifier = Modifier.size(38.dp)
                     )
                 }
             }
