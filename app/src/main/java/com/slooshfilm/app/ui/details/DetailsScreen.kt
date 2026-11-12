@@ -2306,6 +2306,7 @@ private fun DetailsLoadingSkeleton(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(heroHeight)
+                        .background(Color(0xFF1A1C20))
                         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                         .drawWithContent {
                             drawContent()
@@ -2323,11 +2324,11 @@ private fun DetailsLoadingSkeleton(
                     )
                 }
 
-                // 2. Overlay Info & Actions
+                // 2. Overlay Info & Actions (iOS 1:1, exact alignment with loaded DetailsScreen)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset(y = (-25).dp)
+                        .offset(y = (-30).dp)
                         .padding(horizontal = horizontalPadding),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -2337,33 +2338,33 @@ private fun DetailsLoadingSkeleton(
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        repeat(3) { index ->
+                        repeat(5) { index ->
                             ShimmerPlaceholder(
                                 modifier = Modifier
-                                    .width(if (index == 0) 20.dp else 14.dp)
-                                    .height(3.dp),
+                                    .width(if (index == 0) 18.dp else 5.dp)
+                                    .height(5.dp),
                                 cornerRadius = 3.dp
                             )
                         }
                     }
 
-                    // Logo / Title placeholder (iOS: 230 x 36)
+                    // Logo / Title placeholder (authentic size ~220x76dp, matching ~80dp logo frame)
                     ShimmerPlaceholder(
-                        modifier = Modifier.width(230.dp).height(36.dp),
-                        cornerRadius = 8.dp
+                        modifier = Modifier.width(220.dp).height(76.dp),
+                        cornerRadius = 14.dp
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(14.dp))
 
                     // Metadata chips row (Rating, Age, Year, Country, Duration)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ShimmerPlaceholder(Modifier.width(32.dp).height(20.dp), cornerRadius = 6.dp)
-                        ShimmerPlaceholder(Modifier.width(28.dp).height(16.dp), cornerRadius = 4.dp)
+                        ShimmerPlaceholder(Modifier.width(34.dp).height(20.dp), cornerRadius = 6.dp)
+                        ShimmerPlaceholder(Modifier.width(26.dp).height(16.dp), cornerRadius = 4.dp)
                         ShimmerPlaceholder(Modifier.width(38.dp).height(16.dp), cornerRadius = 4.dp)
-                        ShimmerPlaceholder(Modifier.width(64.dp).height(16.dp), cornerRadius = 4.dp)
-                        ShimmerPlaceholder(Modifier.width(56.dp).height(16.dp), cornerRadius = 4.dp)
+                        ShimmerPlaceholder(Modifier.width(42.dp).height(16.dp), cornerRadius = 4.dp)
+                        ShimmerPlaceholder(Modifier.width(54.dp).height(16.dp), cornerRadius = 4.dp)
                     }
                     Spacer(Modifier.height(20.dp))
 
@@ -2380,18 +2381,28 @@ private fun DetailsLoadingSkeleton(
                         // Favorite button skeleton (52dp circle)
                         ShimmerPlaceholder(Modifier.size(52.dp), cornerRadius = 26.dp)
                     }
-                    Spacer(Modifier.height(28.dp))
+                    Spacer(Modifier.height(22.dp))
 
                     // Content sections
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                        verticalArrangement = Arrangement.spacedBy(22.dp)
                     ) {
                         // Genres
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ShimmerPlaceholder(Modifier.width(70.dp).height(20.dp), cornerRadius = 4.dp)
+                            ShimmerPlaceholder(Modifier.width(70.dp).height(18.dp), cornerRadius = 4.dp)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(88.dp, 108.dp, 76.dp).forEach { width ->
+                                listOf(80.dp, 96.dp).forEach { width ->
+                                    ShimmerPlaceholder(Modifier.width(width).height(32.dp), cornerRadius = 16.dp)
+                                }
+                            }
+                        }
+
+                        // Studios
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ShimmerPlaceholder(Modifier.width(80.dp).height(18.dp), cornerRadius = 4.dp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(110.dp, 160.dp).forEach { width ->
                                     ShimmerPlaceholder(Modifier.width(width).height(32.dp), cornerRadius = 16.dp)
                                 }
                             }
@@ -2399,21 +2410,21 @@ private fun DetailsLoadingSkeleton(
 
                         // Description
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ShimmerPlaceholder(Modifier.width(95.dp).height(20.dp), cornerRadius = 4.dp)
+                            ShimmerPlaceholder(Modifier.width(95.dp).height(18.dp), cornerRadius = 4.dp)
                             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 repeat(3) {
-                                    ShimmerPlaceholder(Modifier.fillMaxWidth().height(15.dp), cornerRadius = 4.dp)
+                                    ShimmerPlaceholder(Modifier.fillMaxWidth().height(14.dp), cornerRadius = 4.dp)
                                 }
-                                ShimmerPlaceholder(Modifier.width(220.dp).height(15.dp), cornerRadius = 4.dp)
+                                ShimmerPlaceholder(Modifier.width(200.dp).height(14.dp), cornerRadius = 4.dp)
                             }
                         }
 
                         // Cast / Actors (iOS 1:1)
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ShimmerPlaceholder(Modifier.width(80.dp).height(20.dp), cornerRadius = 4.dp)
+                            ShimmerPlaceholder(Modifier.width(80.dp).height(18.dp), cornerRadius = 4.dp)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
                                 repeat(4) {
                                     Column(
@@ -2430,13 +2441,13 @@ private fun DetailsLoadingSkeleton(
 
                         // Similar Media (iOS 1:1)
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ShimmerPlaceholder(Modifier.width(140.dp).height(20.dp), cornerRadius = 4.dp)
+                            ShimmerPlaceholder(Modifier.width(140.dp).height(18.dp), cornerRadius = 4.dp)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 repeat(3) {
-                                    ShimmerPlaceholder(Modifier.width(120.dp).height(180.dp), cornerRadius = 12.dp)
+                                    ShimmerPlaceholder(Modifier.width(110.dp).height(165.dp), cornerRadius = 12.dp)
                                 }
                             }
                         }
