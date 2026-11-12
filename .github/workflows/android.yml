@@ -50,18 +50,15 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.SLOOSH_KEYSTORE_PASSWORD || secrets.SLOOSH_STORE_PASSWORD || 'android' }}
           KEY_ALIAS: ${{ secrets.SLOOSH_KEY_ALIAS || 'androiddebugkey' }}
         run: |
-          echo "### 🔑 Keystore Decode Summary" >> $GITHUB_STEP_SUMMARY
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > release.keystore
             cp release.keystore app/release.keystore
             SIZE=$(wc -c < release.keystore)
-            echo "- Keystore decoded: $SIZE bytes" >> $GITHUB_STEP_SUMMARY
-            echo "- Certificate info:" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            keytool -list -v -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | grep -E "Alias name|SHA1:|SHA256:" >> $GITHUB_STEP_SUMMARY 2>&1 || true
-            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "::notice title=Keystore::Decoded keystore size: $SIZE bytes"
+            KEYTOOL_OUT=$(keytool -list -v -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>&1 | grep -E "Alias name|SHA1:|SHA256:" | tr '\n' ' ' || true)
+            echo "::notice title=Keystore Certificate::$KEYTOOL_OUT"
           else
-            echo "- ⚠️ **Warning**: SLOOSH_KEYSTORE_BASE64 is empty or not set in Repository Secrets!" >> $GITHUB_STEP_SUMMARY
+            echo "::error title=Keystore Warning::SLOOSH_KEYSTORE_BASE64 secret is empty or not found in repository secrets!"
           fi
 
       - name: Build Release APK
@@ -74,23 +71,24 @@ jobs:
           SLOOSH_KEY_PASSWORD: ${{ secrets.SLOOSH_KEY_PASSWORD || secrets.SLOOSH_KEYSTORE_PASSWORD || secrets.SLOOSH_STORE_PASSWORD || 'android' }}
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee gradle-build.log
-
-      - name: Upload Build Log Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-build-log-run-${{ github.run_number }}
-          path: gradle-build.log
-          retention-days: 7
+          GRADLE_STATUS=${PIPESTATUS[0]}
+          if [ $GRADLE_STATUS -ne 0 ]; then
+            tail -n 35 gradle-build.log | while IFS= read -r line; do
+              echo "::error title=Gradle Failure::$line"
+            done
+            exit $GRADLE_STATUS
+          fi
 
       - name: Package & Prepare APK
         id: package
         run: |
-          APK_FILE=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          APK_FILE=$(find app/build/outputs -name "*.apk" -not -name "*unaligned*" | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK file found in app/build/outputs/apk/release!"
+            ALL_FILES=$(find app/build/outputs -type f 2>/dev/null | tr '\n' ', ')
+            echo "::error title=Package Error::No APK found in app/build/outputs. Files present: $ALL_FILES"
             exit 1
           fi
+          echo "::notice title=Found APK::Selected $APK_FILE"
           OUTPUT_NAME="sloosh-v2.0.${{ github.run_number }}.apk"
           cp "$APK_FILE" "$OUTPUT_NAME"
           echo "apk_path=$OUTPUT_NAME" >> $GITHUB_OUTPUT
