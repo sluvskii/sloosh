@@ -70,9 +70,11 @@ class NativeGoogleAuthManager private constructor(private val context: Context) 
             if (statusCode == CommonStatusCodes.SIGN_IN_REQUIRED || statusCode == 12501 || statusCode == 4) {
                 Result.failure(Exception("Вход отменён"))
             } else if (statusCode == 10) {
-                Result.failure(Exception("Ошибка Google (код 10): отпечаток SHA-1 этого билда не зарегистрирован в Firebase Console"))
+                val sha1 = getAppCertificateSha1()
+                Result.failure(Exception("Ошибка Google (код 10): отпечаток SHA-1 ($sha1) не зарегистрирован в Firebase Console"))
             } else if (statusCode == 12500) {
-                Result.failure(Exception("Ошибка Google (код 12500): сбой авторизации. Проверьте SHA-1 в Firebase Console"))
+                val sha1 = getAppCertificateSha1()
+                Result.failure(Exception("Ошибка Google (код 12500): сбой авторизации. Проверьте SHA-1 ($sha1) в Firebase Console"))
             } else if (statusCode == 7) {
                 Result.failure(Exception("Ошибка сети Google Play Services (код 7). Проверьте интернет"))
             } else {
@@ -135,6 +137,35 @@ class NativeGoogleAuthManager private constructor(private val context: Context) 
             idToken = firebaseIdToken,
             refreshToken = refreshToken
         )
+    }
+
+    private fun getAppCertificateSha1(): String {
+        return try {
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.GET_SIGNATURES
+                )
+            }
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+            val cert = signatures?.firstOrNull()?.toByteArray() ?: return "не определён"
+            val md = java.security.MessageDigest.getInstance("SHA-1")
+            val digest = md.digest(cert)
+            digest.joinToString(":") { "%02X".format(it) }
+        } catch (_: Exception) {
+            "не определён"
+        }
     }
 
     companion object {

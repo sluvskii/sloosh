@@ -47,12 +47,17 @@ jobs:
       - name: Decode Signing Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.SLOOSH_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SLOOSH_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SLOOSH_KEY_ALIAS }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
-            echo "Keystore decoded successfully"
+            echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > release.keystore
+            cp release.keystore app/release.keystore
+            echo "Keystore decoded successfully (size: $(wc -c < release.keystore) bytes)"
+            echo "=== Verifying decoded keystore certificate ==="
+            keytool -list -v -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | grep -E "Alias name|SHA1:|SHA256:" || true
           else
-            echo "No custom keystore secret provided, continuing with fallback"
+            echo "::warning::No SLOOSH_KEYSTORE_BASE64 secret found! Build will fall back to debug key."
           fi
 
       - name: Build Release APK

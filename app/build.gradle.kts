@@ -48,13 +48,29 @@ android {
         val keyAlias = System.getenv("SLOOSH_KEY_ALIAS") ?: signingProps?.getProperty("SLOOSH_KEY_ALIAS")
         val keyPass = System.getenv("SLOOSH_KEY_PASSWORD") ?: signingProps?.getProperty("SLOOSH_KEY_PASSWORD")
         if (!storeFile.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
-            val keyFile = file(storeFile).let { if (it.isAbsolute) it else rootProject.file(storeFile) }
-            if (keyFile.exists()) {
+            val rawFile = java.io.File(storeFile)
+            val keyFile = if (rawFile.isAbsolute && rawFile.exists()) {
+                rawFile
+            } else {
+                listOf(
+                    rootProject.file(storeFile),
+                    project.file(storeFile),
+                    rootProject.file("app/$storeFile")
+                ).firstOrNull { it.exists() }
+            }
+            if (keyFile != null && keyFile.exists()) {
+                println("===> [SIGNING CONFIG] Release keystore configured: ${keyFile.absolutePath}")
                 create("release") {
                     this.storeFile = keyFile
                     this.storePassword = storePass
                     this.keyAlias = keyAlias
                     this.keyPassword = keyPass ?: storePass
+                }
+            } else {
+                val err = "Keystore file '$storeFile' specified in environment or local.properties was not found! Searched rootProject: ${rootProject.file(storeFile).absolutePath} and project: ${project.file(storeFile).absolutePath}"
+                System.err.println("===> [SIGNING ERROR] $err")
+                if (System.getenv("SLOOSH_STORE_FILE") != null) {
+                    throw GradleException(err)
                 }
             }
         }
@@ -68,7 +84,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning != null) {
+                println("===> [BUILD TYPE] release build is using 'release' signingConfig!")
+                signingConfig = releaseSigning
+            } else {
+                println("===> [BUILD TYPE WARNING] release build is falling back to 'debug' signingConfig!")
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
