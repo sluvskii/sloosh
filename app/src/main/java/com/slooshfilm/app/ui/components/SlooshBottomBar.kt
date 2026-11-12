@@ -420,8 +420,10 @@ fun SlooshBottomBar(
             // =========================================================================
             val searchBarShape = SharedCapsule
             val textAlpha = (searchProgress * 2.2f - 0.2f).coerceIn(0f, 1f)
-            val searchIconSize = lerp(26.dp, 20.dp, searchProgress)
-            val iconPaddingStart = lerp(13.5.dp, 14.dp, searchProgress)
+            val restingIconSize = if (normalButtonSize <= 48.dp) 22.dp else 24.dp
+            val searchIconSize = lerp(restingIconSize, 20.dp, searchProgress)
+            val restingIconPaddingStart = ((normalButtonSize - restingIconSize) / 2).coerceAtLeast(0.dp)
+            val iconPaddingStart = lerp(restingIconPaddingStart, 14.dp, searchProgress)
 
             Box(
                 modifier = Modifier

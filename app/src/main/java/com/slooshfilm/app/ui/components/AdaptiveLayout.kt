@@ -97,11 +97,13 @@ data class AdaptiveBarMetrics(
  * Метрики навбара под текущую ориентацию и класс устройства.
  *
  * Портрет телефона не меняется вообще: 54dp бар во всю ширину с отступами 24dp.
- * В горизонтали и на планшете капсула табов остаётся компактной слева (360dp, высота 44dp),
+ * В горизонтали и на планшете капсула табов остаётся компактной слева (280dp, высота 44dp),
  * а круглая кнопка поиска (44dp) прижата справа под правый большой палец, освобождая
  * середину экрана для удобного двухручного хвата и предотвращая наезд на контент.
  *
  * Значения 54dp/44dp и 24dp — существующие токены sloosh, новых чисел не вводится.
+ * Боковой отступ в ландшафте строго `16.dp + cutoutPadding`, выравнивая капсулу слева
+ * и кнопку поиска справа в одну вертикаль с топбаром (кнопка назад, шапки экранов).
  * `pressedScale = 60f / 44f` активной капли при этом не затрагивается: это отношение
  * применяется к высоте пилюли (`barHeight - 8.dp`), поэтому капля масштабируется
  * пропорционально автоматически.
@@ -116,11 +118,12 @@ fun rememberAdaptiveBarMetrics(): AdaptiveBarMetrics {
     return AdaptiveBarMetrics(
         barHeight = if (isLandscape) 44.dp else 54.dp,
         buttonSize = if (isLandscape) 44.dp else 54.dp,
-        // В портрете rememberCutoutHorizontalPadding() == 0.dp, поэтому отступ остаётся 24.dp.
-        // В ландшафте берём большее из базового отступа и реального инсета выреза камеры.
-        horizontalPadding = maxOf(24.dp, cutoutPadding),
+        // В портрете базовый отступ 24.dp.
+        // В ландшафте выравниваем по верхнему бару (16.dp + cutoutPadding),
+        // чтобы левый край табов и правый край кнопки поиска совпадали с топбаром.
+        horizontalPadding = if (isLandscape) 16.dp + cutoutPadding else 24.dp,
         maxBarWidth = null,
-        compactTabsWidth = if (isLandscape || isTablet) 360.dp else null
+        compactTabsWidth = if (isLandscape || isTablet) 280.dp else null
     )
 }
 

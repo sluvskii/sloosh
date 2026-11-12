@@ -160,9 +160,9 @@ inline in new code, and **never hardcode `54.dp` / `24.dp` for the bottom bar** 
 
 **Bottom bar contract.** Portrait phone is untouched: 54dp bar, full width, 24dp side padding
 (`maxBarWidth == null`). Landscape and tablets get the compact split layout: compact tabs capsule
-on the **left** (`barHeight = 44dp`, `compactTabsWidth = 360dp`), circular search button (44dp)
-on the **right**, side padding `max(24dp, cutout)`. Left thumb controls tabs, right thumb controls
-search, and the center is clear.
+on the **left** (`barHeight = 44dp`, `compactTabsWidth = 280dp`), circular search button (44dp)
+on the **right**, side padding `16.dp + cutoutPadding` (aligning 1:1 with top bar buttons across screens).
+Left thumb controls tabs, right thumb controls search, and the center is clear.
 This matches what the content screens already reserve — every screen uses
 `bottomTotalPadding = navBarBottomPadding + 48.dp` in landscape, i.e. exactly `44dp bar + 4dp top padding`.
 `pillHeight` follows as `barHeight - 8.dp` (46dp -> 36dp), and the droplet keeps inflating with the same
