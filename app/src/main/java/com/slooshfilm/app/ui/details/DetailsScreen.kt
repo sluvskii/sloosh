@@ -2306,7 +2306,6 @@ private fun DetailsLoadingSkeleton(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(heroHeight)
-                        .background(Color(0xFF1A1C20))
                         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                         .drawWithContent {
                             drawContent()
