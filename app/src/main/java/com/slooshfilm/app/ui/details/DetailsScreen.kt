@@ -1294,7 +1294,7 @@ fun DetailsScreen(
 
                 item(key = "details-crew", contentType = "details-crew") {
                     Column(
-                        modifier = Modifier.fillMaxWidth().offset(y = (-30).dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // 2. Crew horizontal list (iOS 1:1)
@@ -1400,7 +1400,7 @@ fun DetailsScreen(
 
                 item(key = "details-trailers", contentType = "details-trailers") {
                     Column(
-                        modifier = Modifier.fillMaxWidth().offset(y = (-30).dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // 3. Trailers horizontal list (iOS 1:1)
@@ -1540,7 +1540,7 @@ fun DetailsScreen(
 
                 item(key = "details-seasons", contentType = "details-seasons") {
                     Column(
-                        modifier = Modifier.fillMaxWidth().offset(y = (-30).dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // 4. TV Series: Seasons & Episodes (iOS 1:1)
@@ -1738,7 +1738,7 @@ fun DetailsScreen(
 
                 item(key = "details-collection", contentType = "details-collection") {
                     Column(
-                        modifier = Modifier.fillMaxWidth().offset(y = (-30).dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // 5. Franchise collection list (iOS 1:1)
@@ -1793,7 +1793,7 @@ fun DetailsScreen(
 
                 item(key = "details-similar", contentType = "details-similar") {
                     Column(
-                        modifier = Modifier.fillMaxWidth().offset(y = (-30).dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // 6. Similar media list (iOS 1:1)
@@ -1831,7 +1831,7 @@ fun DetailsScreen(
 
                 item(key = "details-studio-releases", contentType = "details-studio-releases") {
                     Column(
-                        modifier = Modifier.fillMaxWidth().offset(y = (-30).dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // 7. Other releases by studio (iOS 1:1)
