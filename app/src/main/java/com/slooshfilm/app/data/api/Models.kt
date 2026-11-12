@@ -66,7 +66,8 @@ data class MediaDto(
     @SerializedName("poster_path") val posterPath: String? = null,
     @SerializedName("backdrop") val backdrop: String? = null,
     @SerializedName("backdrop_path") val backdropPath: String? = null,
-    @SerializedName("countries") val countries: List<String>? = null
+    @SerializedName("countries") val countries: List<String>? = null,
+    @SerializedName("logo") val logo: String? = null
 ) {
     val identifier: String
         get() {
@@ -93,6 +94,13 @@ data class MediaDto(
     fun getDisplayBackdropUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
         val rawUrl = backdrop ?: backdropPath
         return normalizeImageUrl(path = rawUrl, id = originalId, isLowQuality = isLowQuality, quality = quality, isBackdrop = true) ?: getDisplayPosterUrl(isLowQuality = isLowQuality, quality = quality)
+    }
+
+    val displayLogoUrl: String?
+        get() = normalizeImageUrl(path = logo, id = originalId, isLowQuality = false, isLogo = true)
+
+    fun getDisplayLogoUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
+        return normalizeImageUrl(path = logo, id = originalId, isLowQuality = isLowQuality, quality = quality, isLogo = true)
     }
 
     val isTvSeries: Boolean
@@ -276,7 +284,11 @@ data class MediaDetailsDto(
         }
 
     val displayLogoUrl: String?
-        get() = normalizeImageUrl(path = logo, id = id, isLowQuality = false)
+        get() = normalizeImageUrl(path = logo, id = id, isLowQuality = false, isLogo = true)
+
+    fun getDisplayLogoUrl(isLowQuality: Boolean = false, quality: String? = null): String? {
+        return normalizeImageUrl(path = logo, id = id, isLowQuality = isLowQuality, quality = quality, isLogo = true)
+    }
 
     val formattedBudget: String?
         get() = formatMoney(budget)
@@ -318,7 +330,8 @@ data class MediaDetailsDto(
         poster = poster,
         description = description,
         type = type,
-        backdrop = backdrop
+        backdrop = backdrop,
+        logo = logo
     )
 
     companion object {
@@ -478,26 +491,37 @@ fun normalizeImageUrl(
     id: String? = null,
     isLowQuality: Boolean = false,
     quality: String? = null,
-    isBackdrop: Boolean = false
+    isBackdrop: Boolean = false,
+    isLogo: Boolean = false
 ): String? {
     if (path.isNullOrBlank()) return null
     val base = MoviesApi.activeImagesBaseUrl
     val proxyBase = "$base/api/v1/images/tmdb"
 
     // Map quality options ("Низкое", "Среднее", "Высокое") to native TMDB sizes supported by sloosh-api proxy
-    val size = if (isBackdrop) {
-        when {
-            quality == "Низкое" || isLowQuality -> "w780"
-            quality == "Среднее" -> "w1280"
-            quality == "Высокое" -> "w1280"
-            else -> "w1280"
+    val size = when {
+        isLogo -> {
+            when {
+                quality == "Низкое" || isLowQuality -> "w300"
+                quality == "Среднее" -> "w500"
+                else -> "original"
+            }
         }
-    } else {
-        when {
-            quality == "Низкое" || isLowQuality -> "w185" // 20 KB ultra-fast thumbnail
-            quality == "Среднее" -> "w342"               // 60 KB crisp retina card
-            quality == "Высокое" -> "w500"               // 119 KB high-res
-            else -> "w342"
+        isBackdrop -> {
+            when {
+                quality == "Низкое" || isLowQuality -> "w780"
+                quality == "Среднее" -> "w1280"
+                quality == "Высокое" -> "w1280"
+                else -> "w1280"
+            }
+        }
+        else -> {
+            when {
+                quality == "Низкое" || isLowQuality -> "w185" // 20 KB ultra-fast thumbnail
+                quality == "Среднее" -> "w342"               // 60 KB crisp retina card
+                quality == "Высокое" -> "w500"               // 119 KB high-res
+                else -> "w342"
+            }
         }
     }
 
@@ -520,6 +544,10 @@ fun normalizeImageUrl(
         if (path.contains("image.tmdb.org/t/p/")) {
             val tmdbPath = path.substringAfter("image.tmdb.org/t/p/").substringAfter("/")
             return "$proxyBase/$size/$tmdbPath"
+        }
+        if (path.contains("/api/v1/images/logos/")) {
+            val targetSegment = if (size == "w300") "small" else "original"
+            return path.replace(Regex("/api/v1/images/logos/([^/]+)/(original|small|w\\d+)"), "/api/v1/images/logos/$1/$targetSegment")
         }
         return path
     }

@@ -22,6 +22,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -591,8 +593,16 @@ fun WatchSelectorSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     if (!logoUrl.isNullOrBlank()) {
+                        val sheetContext = LocalContext.current
+                        val sheetImageRequest = remember(logoUrl) {
+                            ImageRequest.Builder(sheetContext)
+                                .data(logoUrl)
+                                .size(coil.size.Size.ORIGINAL)
+                                .crossfade(true)
+                                .build()
+                        }
                         AsyncImage(
-                            model = logoUrl,
+                            model = sheetImageRequest,
                             contentDescription = title,
                             contentScale = ContentScale.Fit,
                             modifier = Modifier

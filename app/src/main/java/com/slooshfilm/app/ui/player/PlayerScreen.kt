@@ -114,6 +114,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.alloha.*
 import com.slooshfilm.app.data.repository.MoviesRepository
@@ -1913,8 +1914,16 @@ fun PlayerScreen(
                             ) {
                                 val logo = activeLogoUrl
                                 if (!logo.isNullOrBlank()) {
+                                    val context = LocalContext.current
+                                    val playerLogoRequest = remember(logo) {
+                                        ImageRequest.Builder(context)
+                                            .data(logo)
+                                            .size(coil.size.Size.ORIGINAL)
+                                            .crossfade(true)
+                                            .build()
+                                    }
                                     AsyncImage(
-                                        model = logo,
+                                        model = playerLogoRequest,
                                         contentDescription = activeTitle,
                                         contentScale = ContentScale.Fit,
                                         modifier = Modifier

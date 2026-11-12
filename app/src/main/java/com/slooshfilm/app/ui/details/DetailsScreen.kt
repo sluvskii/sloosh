@@ -69,6 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.slooshfilm.app.ui.components.LocalPosterQuality
 import com.slooshfilm.app.data.alloha.AllohaApiResult
 import com.slooshfilm.app.data.alloha.AllohaRepository
 import com.slooshfilm.app.data.alloha.AllohaSessionHolder
@@ -700,7 +702,11 @@ fun DetailsScreen(
                         }
 
                         // 2. Logo or Title (fades out and scales down as user scrolls towards top)
-                        val logoUrl = item.displayLogoUrl
+                        val posterQuality = LocalPosterQuality.current
+                        val isLowQuality = posterQuality == "Низкое"
+                        val logoUrl = remember(item, posterQuality) {
+                            item.getDisplayLogoUrl(isLowQuality = isLowQuality, quality = posterQuality)
+                        }
                         // Intrinsic size of the loaded logo: needed to fit it into the 300x110dp frame
                         // with mandatory scaling (including upscale) — iOS 1:1 (RemoteLogoView).
                         // Without this, Coil displays small logos in their pixel size, and they
@@ -726,8 +732,16 @@ fun DetailsScreen(
                                         null
                                     }
                                 }
+                                val context = LocalContext.current
+                                val logoImageRequest = remember(logoUrl) {
+                                    ImageRequest.Builder(context)
+                                        .data(logoUrl)
+                                        .size(coil.size.Size.ORIGINAL)
+                                        .crossfade(true)
+                                        .build()
+                                }
                                 AsyncImage(
-                                    model = logoUrl,
+                                    model = logoImageRequest,
                                     contentDescription = item.title,
                                     contentScale = ContentScale.Fit,
                                     onSuccess = { state -> logoIntrinsicSize = state.painter.intrinsicSize },
@@ -1977,7 +1991,11 @@ fun DetailsScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val topLogoUrl = details?.displayLogoUrl
+                    val topPosterQuality = LocalPosterQuality.current
+                    val isTopLowQuality = topPosterQuality == "Низкое"
+                    val topLogoUrl = remember(details, topPosterQuality) {
+                        details?.getDisplayLogoUrl(isLowQuality = isTopLowQuality, quality = topPosterQuality)
+                    }
                     var topLogoIntrinsicSize by remember(topLogoUrl) { mutableStateOf<Size?>(null) }
                     if (!topLogoUrl.isNullOrBlank()) {
                         // iOS 1:1 (RemoteLogoView isTopBar): fixed height 32dp with proportional
@@ -1993,8 +2011,16 @@ fun DetailsScreen(
                                 null
                             }
                         }
+                        val topContext = LocalContext.current
+                        val topImageRequest = remember(topLogoUrl) {
+                            ImageRequest.Builder(topContext)
+                                .data(topLogoUrl)
+                                .size(coil.size.Size.ORIGINAL)
+                                .crossfade(true)
+                                .build()
+                        }
                         AsyncImage(
-                            model = topLogoUrl,
+                            model = topImageRequest,
                             contentDescription = details?.title,
                             contentScale = ContentScale.Fit,
                             onSuccess = { state -> topLogoIntrinsicSize = state.painter.intrinsicSize },
