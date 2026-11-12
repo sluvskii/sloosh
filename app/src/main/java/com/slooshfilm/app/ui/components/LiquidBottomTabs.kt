@@ -632,6 +632,9 @@ fun LiquidBottomTabs(
                                         chromaticAberration = dynAberration,
                                         fishEyeStrength = dynFishEye
                                     )
+                                    // Портальная деформация контента + френелевское кольцо
+                                    // (glasmio NativeControlLens, TabBarIndicator lift).
+                                    iosTabLift(lift = progress)
                                 }
                             },
                             highlight = {

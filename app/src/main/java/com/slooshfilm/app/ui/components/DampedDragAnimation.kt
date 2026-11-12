@@ -65,6 +65,7 @@ class DampedDragAnimation(
 
     @Volatile
     private var liftStartedElapsedMs: Long = 0L
+    private var pendingReleaseJob: kotlinx.coroutines.Job? = null
 
     val value: Float get() = valueAnimation.value
     val progress: Float get() = (value - valueRange.start) / (valueRange.endInclusive - valueRange.start)
@@ -96,6 +97,8 @@ class DampedDragAnimation(
     }
 
     fun press() {
+        pendingReleaseJob?.cancel()
+        pendingReleaseJob = null
         velocityTracker.resetTracking()
         liftStartedElapsedMs = android.os.SystemClock.elapsedRealtime()
         animationScope.launch {
@@ -106,7 +109,7 @@ class DampedDragAnimation(
     }
 
     fun release() {
-        animationScope.launch {
+        pendingReleaseJob = animationScope.launch {
             if (liftHangTimeMs > 0L) {
                 // Hang time — минимальное время удержания в поднятом состоянии
                 // (UIKit-поведение), а не задержка после отпускания.

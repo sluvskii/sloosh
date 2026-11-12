@@ -554,6 +554,99 @@ fun BackdropEffectScope.iosTabIdleBody(
     }
 }
 
+@Language("AGSL")
+private const val NativeTabLiftShaderString = """
+uniform shader content;
+uniform float2 size;
+uniform float2 offset;
+uniform float uLift;
+uniform float uPortalPx;   // 17.5dp * lift — амплитуда портальной деформации
+uniform float uMapHeightPx; // 11.2dp — высота карты смещения портала
+uniform float uRingBandPx;  // 3dp — ширина френелевского кольца
+uniform float uRingShiftPx; // 8dp — сдвиг кольца вниз (свет сверху)
+uniform float uRingOpacity; // 0.1 * lift
+
+float sdRoundedRectL(float2 coord, float2 halfSize, float radius) {
+    float2 cornerCoord = abs(coord) - (halfSize - float2(radius));
+    float outside = length(max(cornerCoord, 0.0)) - radius;
+    float inside = min(max(cornerCoord.x, cornerCoord.y), 0.0);
+    return outside + inside;
+}
+
+float2 gradSdRoundedRectL(float2 coord, float2 halfSize, float radius) {
+    float2 cornerCoord = abs(coord) - (halfSize - float2(radius));
+    if (cornerCoord.x >= 0.0 || cornerCoord.y >= 0.0) {
+        return sign(coord) * normalize(max(cornerCoord, 0.0));
+    } else {
+        float gradX = step(cornerCoord.y, cornerCoord.x);
+        return sign(coord) * float2(gradX, 1.0 - gradX);
+    }
+}
+
+float gaussTailL(float x) {
+    return exp(-x * x);
+}
+
+half4 main(float2 coord) {
+    half4 src = content.eval(coord);
+    if (uLift <= 0.003) {
+        return src;
+    }
+    float2 halfSize = size * 0.5;
+    float2 centered = (coord + offset) - halfSize;
+    float radius = halfSize.y;
+    float sd = sdRoundedRectL(centered, halfSize, radius);
+    if (sd > 0.0) {
+        return src;
+    }
+    // Карта смещения портала (glasmio nativeControlMap: curvature 1, angle (1,0)):
+    // максимальна у кромки, нулевая в глубине — контент у краёв «втягивается» внутрь.
+    float depth = -sd;
+    float u = clamp(depth / max(uMapHeightPx, 0.000001), 0.0, 1.0);
+    float profile = sqrt(1.0 - (1.0 - u) * (1.0 - u));
+    float edge = clamp((-sd + uMapHeightPx) + 0.5, 0.0, 1.0);
+    float2 mapRG = gradSdRoundedRectL(centered, halfSize, radius) * (1.0 - profile) * edge;
+    // Портал: контент семплируется изнутри (q = p + map.rg * -17.5dp * progress).
+    half4 lifted = content.eval(coord + mapRG * (-uPortalPx));
+    // Френелевское кольцо: два гауссовых хвоста вокруг полосы 3dp, сдвинутой на 8dp вниз.
+    float shiftedSd = sdRoundedRectL(centered - float2(0.0, uRingShiftPx), halfSize, radius);
+    float ring = clamp(
+        gaussTailL(shiftedSd / uRingBandPx * 0.70710678) -
+        gaussTailL((shiftedSd + 4.0 * uRingBandPx) / uRingBandPx * 0.70710678),
+        0.0, 1.0) * uRingOpacity;
+    float3 outRgb = lifted.rgb + ring;
+    return half4(outRgb, max(lifted.a, ring));
+}
+"""
+
+/**
+ * Поднятое (нажатое/перетаскиваемое) состояние ползунка — порт формул лифта
+ * glasmio NativeControlLens (TabBarIndicator): портальная деформация контента
+ * (карта смещения 11.2dp, амплитуда −17.5dp×lift, максимум у кромок) и
+ * френелевское кольцо (полоса 3dp, сдвинутая на 8dp вниз, opacity 0.1×lift).
+ * Фоновая рефракция остаётся в iosLens — как разделение планов в оригинале
+ * (below/portal). Всё затухает с lift до нуля.
+ */
+fun BackdropEffectScope.iosTabLift(
+    lift: Float
+) {
+    if (lift <= 0.003f) return
+    runtimeShaderEffect(
+        key = "NativeTabLiftShader",
+        shaderString = NativeTabLiftShaderString,
+        uniformShaderName = "content"
+    ) {
+        setFloatUniform("size", size.width, size.height)
+        setFloatUniform("offset", -padding, -padding)
+        setFloatUniform("uLift", lift)
+        setFloatUniform("uPortalPx", 17.5f * density * lift)
+        setFloatUniform("uMapHeightPx", 11.2f * density)
+        setFloatUniform("uRingBandPx", 3f * density)
+        setFloatUniform("uRingShiftPx", 8f * density)
+        setFloatUniform("uRingOpacity", 0.1f * lift)
+    }
+}
+
 /**
  * Аутентичный полупрозрачный блюр в стиле iOS:
  * Размытие подмешивается поверх резкого исходного фона с пониженной плотностью (80% блюра + 20% резкости),

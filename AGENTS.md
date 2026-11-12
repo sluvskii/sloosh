@@ -52,6 +52,7 @@ All optics, refractions, glints, and borders are configured through `@Immutable 
   - Glint: Soft glint `0.50f` during drag.
   - **Zero-border resting rule**: In resting state (`progress == 0f`), the active tab strictly has zero highlights, zero borders, and zero refraction. The resting body is NOT a static dark tint: it is computed by the `iosTabIdleBody` shader (ported glasmio/iOS-27 `NativeTabIdle` UIKit matrices) from the bar's own material — content-adaptive contrast-boosted pane — with the lime icon composited above it. Body strength fades with press lift (`1 - lift`), handing over to the Layer-3 lens.
   - **Lift kinematics**: `DampedDragAnimation(liftSpringStiffness = 631.65468f, liftHangTimeMs = 220)` — native iOS lift/unlift springs and the 220 ms hang time. `pressedScale = 60f / 44f` (rule 9) is never replaced by glasmio's `78/56`.
+  - **Lifted (drag) state**: Layer 3 chains `iosTabLift` after `iosLens` — port of glasmio `NativeControlLens` TabBarIndicator lift: portal content warp (SDF map height 11.2dp, amplitude −17.5dp×lift, max at edges) + Fresnel ring (3dp band shifted 8dp down, opacity 0.1×lift). Background refraction stays in `iosLens` (the below/portal plane split of the original).
 - **`LiquidGlassTokens.Button` / `ButtonActive`**:
   - Floating action buttons (Search button in navbar, media controls, close/back/favorite buttons).
   - Optics: `14.dp` height, `28.dp` amount, inner shadow radius `8.dp`, drop shadow.
