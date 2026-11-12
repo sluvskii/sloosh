@@ -36,23 +36,20 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlin.math.min
-import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Canvas
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.Rect
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -70,7 +67,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.slooshfilm.app.data.alloha.AllohaApiResult
@@ -839,26 +835,56 @@ fun DetailsScreen(
                             targetValue = if (playPressed) 0.94f else 1f,
                             label = "playScale"
                         )
-                        // The triangle for the cutout is rasterized once from the SF vector:
-                        // in Compose 1.7 Modifier.paint does not have a blendMode, so the "hole"
-                        // is made with drawImage(blendMode = Clear).
-                        val playPainter = painterResource(R.drawable.ic_sf_play_fill)
+                        // The cutout is pure geometry, no blend modes or rasters: a single Path
+                        // with PathFillType.EvenOdd — the disc contour plus the triangle contour
+                        // transcribed from the ic_sf_play_fill path data (SF viewport 56, glyph
+                        // scaled to 34dp as on iOS). The triangle becomes a hole in the fill, so
+                        // the real backdrop shows through it on any GPU/driver.
                         val playDensity = LocalDensity.current
-                        val playCutoutSizePx = with(playDensity) { 34.dp.toPx() }
-                        val playCutout = remember(playPainter, playCutoutSizePx) {
-                            val px = playCutoutSizePx.roundToInt().coerceAtLeast(1)
-                            val bitmap = ImageBitmap(px, px)
-                            CanvasDrawScope().draw(
-                                density = playDensity,
-                                layoutDirection = LayoutDirection.Ltr,
-                                canvas = Canvas(bitmap),
-                                size = Size(px.toFloat(), px.toFloat())
-                            ) {
-                                with(playPainter) {
-                                    draw(size, colorFilter = ColorFilter.tint(Color.White))
-                                }
+                        val playDiscPx = with(playDensity) { 72.dp.toPx() }
+                        val playGlyphPx = with(playDensity) { 34.dp.toPx() }
+                        val playDiscPath = remember(playDiscPx, playGlyphPx) {
+                            val u = playGlyphPx / 56f
+                            val o = (playDiscPx - playGlyphPx) / 2f
+                            Path().apply {
+                                fillType = PathFillType.EvenOdd
+                                addOval(Rect(0f, 0f, playDiscPx, playDiscPx))
+                                moveTo(o + 13.0937f * u, o + 47.8398f * u)
+                                cubicTo(
+                                    o + 14.0313f * u, o + 47.8398f * u,
+                                    o + 14.8281f * u, o + 47.4648f * u,
+                                    o + 15.7656f * u, o + 46.9258f * u
+                                )
+                                lineTo(o + 43.0937f * u, o + 31.1289f * u)
+                                cubicTo(
+                                    o + 45.0391f * u, o + 29.9805f * u,
+                                    o + 45.7187f * u, o + 29.2305f * u,
+                                    o + 45.7187f * u, o + 27.9883f * u
+                                )
+                                cubicTo(
+                                    o + 45.7187f * u, o + 26.7461f * u,
+                                    o + 45.0391f * u, o + 25.9961f * u,
+                                    o + 43.0937f * u, o + 24.8711f * u
+                                )
+                                lineTo(o + 15.7656f * u, o + 9.0508f * u)
+                                cubicTo(
+                                    o + 14.8281f * u, o + 8.5118f * u,
+                                    o + 14.0313f * u, o + 8.1602f * u,
+                                    o + 13.0937f * u, o + 8.1602f * u
+                                )
+                                cubicTo(
+                                    o + 11.3594f * u, o + 8.1602f * u,
+                                    o + 10.2813f * u, o + 9.4727f * u,
+                                    o + 10.2813f * u, o + 11.5118f * u
+                                )
+                                lineTo(o + 10.2813f * u, o + 44.4649f * u)
+                                cubicTo(
+                                    o + 10.2813f * u, o + 46.5039f * u,
+                                    o + 11.3594f * u, o + 47.8398f * u,
+                                    o + 13.0937f * u, o + 47.8398f * u
+                                )
+                                close()
                             }
-                            bitmap
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -886,23 +912,13 @@ fun DetailsScreen(
                                 modifier = Modifier
                                     .size(72.dp)
                                     .graphicsLayer {
-                                        compositingStrategy = CompositingStrategy.Offscreen
                                         scaleX = playScale
                                         scaleY = playScale
                                     }
                                     .drawBehind {
-                                        drawCircle(
-                                            color = Color.White.copy(alpha = 0.85f),
-                                            radius = size.minDimension / 2f
-                                        )
-                                        val cut = playCutoutSizePx
-                                        drawImage(
-                                            image = playCutout,
-                                            topLeft = Offset(
-                                                (size.width - cut) / 2f,
-                                                (size.height - cut) / 2f
-                                            ),
-                                            blendMode = BlendMode.Clear
+                                        drawPath(
+                                            path = playDiscPath,
+                                            color = Color.White.copy(alpha = 0.85f)
                                         )
                                     }
                                     .clickable(
