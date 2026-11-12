@@ -25,3 +25,5 @@ local.properties
 .kotlin/
 wip-backup/
 логи
+.agents/
+.idea/appInsightsSettings.xml

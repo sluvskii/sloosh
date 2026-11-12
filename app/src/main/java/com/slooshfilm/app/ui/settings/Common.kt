@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
+import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -163,6 +164,8 @@ fun SettingsScaffold(
                     contentAlignment = Alignment.TopCenter
                 ) {
                     val cutoutPadding = rememberCutoutHorizontalPadding()
+                    val navBarBottomPadding = rememberNavBarBottomPadding()
+                    val bottomTotalPadding = navBarBottomPadding + (if (isLandscape) 48.dp else 70.dp)
                     Column(
                         modifier = Modifier
                             .widthIn(max = 680.dp)
@@ -170,7 +173,7 @@ fun SettingsScaffold(
                             .verticalScroll(scrollState)
                             .navigationBarsPadding()
                             .padding(horizontal = cutoutPadding)
-                            .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = if (isLandscape) 48.dp else 96.dp)
+                            .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = bottomTotalPadding)
                     ) {
                         CompositionLocalProvider(
                             LocalLiquidMenuHostState provides menuState
