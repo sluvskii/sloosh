@@ -934,7 +934,7 @@ fun DetailsScreen(
                                 Icon(
                                     painter = painterResource(if (isFavorite) R.drawable.ic_sf_heart_fill else R.drawable.ic_sf_heart),
                                     contentDescription = if (isFavorite) "В избранном" else "В избранное",
-                                    tint = if (isFavorite) SlooshAccent else Color.White,
+                                    tint = Color.White,
                                     modifier = Modifier.size(26.dp)
                                 )
                             }
