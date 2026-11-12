@@ -1,7 +1,5 @@
 package io.github.neoruaa.glasmio.glass.render.highlight
 
-import android.graphics.RuntimeXfermode
-import androidx.annotation.RequiresApi
 import io.github.neoruaa.glasmio.glass.render.GlassColorSpaceShaderFunctions
 
 /** Native CAColorMatrix rows, evaluated on sampled backdrop color rather than mask RGB. */
@@ -117,38 +115,4 @@ float4 nativeVibrantColorMatrixOver(float4 mask, float4 sampledBackdrop, float4 
 }
 """
 
-@RequiresApi(36)
-internal class NativeVibrantColorMatrixBlender {
-    // Compiled on the first prepare/draw; an unused morph or highlight renderer never needs it.
-    val shader by lazy(LazyThreadSafetyMode.NONE) { RuntimeXfermode(GlassColorSpaceShaderFunctions + NativeVibrantColorMatrixFunctions + """
-half4 main(half4 source, half4 destination) {
-    if (source.a <= 0.0) return destination;
-    float4 target = float4(destination);
-    float3 nativeRgb = glassWorkingToNativeGamma(target.rgb / max(target.a, 0.000001));
-    float4 sampled = float4(nativeRgb * target.a, target.a);
-    float4 vibrant = nativeVibrantColorMatrixOver(float4(source), sampled, sampled);
-    float3 working = glassNativeGammaToWorking(vibrant.rgb / max(vibrant.a, 0.000001));
-    return half4(working * vibrant.a, vibrant.a);
-}
-""") }
-    private var configured: NativeVibrantColorMatrix? = null
-    private var configuredFraction = Float.NaN
-    private val interpolation = NativeVibrantColorMatrix.HighlightInterpolation()
-
-    fun prepare(matrix: NativeVibrantColorMatrix) {
-        if (configured !== matrix || !configuredFraction.isNaN()) {
-            matrix.configure(shader::setFloatUniform)
-            configured = matrix
-            configuredFraction = Float.NaN
-        }
-    }
-
-    fun prepareHighlight(clearFraction: Float) {
-        val t = clearFraction.coerceIn(0f, 1f)
-        if (configured != null || configuredFraction != t) {
-            interpolation.configure(t, shader::setFloatUniform)
-            configured = null
-            configuredFraction = t
-        }
-    }
-}
+/* VENDOR-PATCH(sloosh): класс NativeVibrantColorMatrixBlender (API 36+, RuntimeXfermode) удалён — compileSdk 35; для API 33-35 вибранси применяется в material-шейдере (см. HighlightModifier). */

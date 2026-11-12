@@ -13,11 +13,18 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.core.view.WindowCompat
+import io.github.neoruaa.glasmio.core.GlassColors
+import io.github.neoruaa.glasmio.core.GlassAppearance
+import io.github.neoruaa.glasmio.core.GlassDimensions
+import io.github.neoruaa.glasmio.core.LocalGlassColors
+import io.github.neoruaa.glasmio.core.LocalGlassAppearance
+import io.github.neoruaa.glasmio.core.LocalGlassDimensions
 
 @Immutable
 data class SlooshColors(
@@ -141,9 +148,39 @@ fun SlooshTheme(
         }
     }
 
+    val glassColors = remember(darkTheme, slooshColors) {
+        GlassColors(
+            isDark = darkTheme,
+            accent = slooshColors.primary,
+            content = slooshColors.textPrimary,
+            secondaryContent = slooshColors.textSecondary,
+            container = slooshColors.liquidGlassSurface,
+            prominentContainer = if (darkTheme) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+            subtleStroke = slooshColors.liquidGlassBorder,
+            groupedBackground = slooshColors.background,
+            elevatedBackground = slooshColors.surface,
+            separator = slooshColors.outlineVariant,
+            tertiaryContent = slooshColors.textTertiary,
+            destructive = RatingIosRed,
+        )
+    }
+    val glassAppearance = remember {
+        GlassAppearance(
+            liquidGlassEnabled = true,
+            reduceTransparency = false,
+            adaptiveColorScheme = false
+        )
+    }
+    val glassDimensions = remember {
+        GlassDimensions()
+    }
+
     CompositionLocalProvider(
         LocalIndication provides ripple(),
-        LocalSlooshColors provides slooshColors
+        LocalSlooshColors provides slooshColors,
+        LocalGlassColors provides glassColors,
+        LocalGlassAppearance provides glassAppearance,
+        LocalGlassDimensions provides glassDimensions,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

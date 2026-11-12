@@ -70,11 +70,17 @@ enum class SfSymbol(
     Clock("clock", 0x10042B),
     ClockFilled("clock.fill", 0x10042C),
     ArrowClockwise("arrow.clockwise", 0x100148),
+    ClockArrowCirclepath("clock.arrow.circlepath", 0x1008D4),
     Warning("exclamationmark.triangle", 0x1001FE),
     Search("magnifyingglass", 0x1002AB),
     Settings("gear", 0x10035F),
     Gearshape("gearshape", 0x1008CB),
+    Person("person", 0x100269),
     PersonFilled("person.fill", 0x10026A),
+    BubbleLeftAndBubbleRight("bubble.left.and.bubble.right", 0x1004A4),
+    BubbleLeftAndBubbleRightFilled("bubble.left.and.bubble.right.fill", 0x100632),
+    PlayCircle("play.circle", 0x100295),
+    PlayCircleFilled("play.circle.fill", 0x100296),
     Waveform("waveform", 0x10066B),
     PlayFilled("play.fill", 0x100284),
     PauseFilled("pause.fill", 0x100286),
@@ -82,7 +88,7 @@ enum class SfSymbol(
     BackwardFilled("backward.fill", 0x10028A),
     Ellipsis("ellipsis", 0x100360),
     Close("xmark", 0x100184),
-    ChevronBack("chevron.left", 0x100189, autoMirrored = true),
+    ChevronBack("chevron.left", 0x100189, autoMirrored = true);
 }
 
 private data class SfGlyphDrawCache(

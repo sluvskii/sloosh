@@ -3,7 +3,6 @@ package io.github.neoruaa.glasmio.glass
 import android.graphics.Paint
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
-import android.graphics.RuntimeXfermode
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Offset
@@ -40,7 +39,6 @@ class NavigationInnerShadowRenderer(
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var lastMaskShader: RuntimeShader? = null
     private var lastEffectShader: RuntimeShader? = null
-    private val blender = if (Build.VERSION.SDK_INT >= 36) NativeEdgeBlender() else null
     private val path = Path()
     private var geometry: Geometry? = null
     private var effectGeometry: Geometry? = null
@@ -146,41 +144,8 @@ class NavigationInnerShadowRenderer(
         field: NativeGlassFilterField? = null,
         clearFraction: Float? = null,
     ) {
-        val canvas = scope.drawContext.canvas.nativeCanvas
-        if (!canvas.isHardwareAccelerated || bounds.isEmpty) return
-        val scopedRecipe = recipe?.let { materialRenderer.recipeForSize(it, bounds.size.minDimension / scope.density) }
-        // Older HWUI receives the same material/edge function in materialEffect on its sampled input.
-        if (Build.VERSION.SDK_INT < 36) return
-        val renderer = blender ?: return
-        val sourceField = field ?: (shape as? LiquidContactShape)?.let { navigationContainerGlassField(it) }
-        val edgeShader = obtainShader(sourceField, effect = false)
-        val nextGeometry = Geometry(shape, bounds.size, scope.layoutDirection, scope.density, scope.fontScale,
-            scopedRecipe?.darkFraction ?: if (isDark) 1f else 0f, clearFraction?.coerceIn(0f, 1f) ?: if (scopedRecipe?.isClear == true) 1f else 0f,
-            fieldSource = sourceField?.shaderFunctions)
-        if (nextGeometry != geometry || lastMaskShader !== edgeShader) {
-            prepareGeometry(edgeShader, nextGeometry, sourceField)
-            path.rewind()
-            when (val outline = shape.createOutline(bounds.size, scope.layoutDirection, scope)) {
-                is Outline.Rectangle -> path.addRect(outline.rect)
-                is Outline.Rounded -> path.addRoundRect(outline.roundRect)
-                is Outline.Generic -> path.addPath(outline.path)
-            }
-            geometry = nextGeometry
-            lastMaskShader = edgeShader
-            edgePaint.shader = edgeShader
-        }
-        sourceField?.configure?.invoke(edgeShader)
-        edgeShader.setFloatUniform("nativeEdgeOpacity", alpha.coerceIn(0f, 1f))
-        renderer.prepare(scopedRecipe, materialAlpha)
-        edgePaint.xfermode = renderer.shader
-        val save = canvas.save()
-        try {
-            canvas.translate(bounds.left, bounds.top)
-            canvas.clipPath(path.asAndroidPath())
-            canvas.drawRect(0f, 0f, bounds.width, bounds.height, edgePaint)
-        } finally {
-            canvas.restoreToCount(save)
-        }
+        // На API 33-35 граничные эффекты применяются в materialEffect на сэмплированном входе.
+        return
     }
 
     private fun obtainShader(field: NativeGlassFilterField?, effect: Boolean): RuntimeShader {
@@ -244,25 +209,6 @@ class NavigationInnerShadowRenderer(
         val origin: Offset = Offset.Zero,
         val fieldSource: String? = null,
     )
-
-    @RequiresApi(36)
-    private class NativeEdgeBlender {
-        // Complete native materials keep this renderer only as a capability. Compile the
-        // blender on its first draw; the uniform sequence starts from the same defaults.
-        val shader by lazy(LazyThreadSafetyMode.NONE) { RuntimeXfermode(MaterialEdgeBlenderShader) }
-        private var recipe: NavigationMaterialRecipe? = null
-        private var opacity = Float.NaN
-
-        fun prepare(value: NavigationMaterialRecipe?, alpha: Float) {
-            val nextOpacity = alpha.coerceIn(0f, 1f)
-            val changed = if (value == null) recipe != null else !value.matches(recipe)
-            if (changed || opacity != nextOpacity) {
-                updateNavigationMaterialUniforms(value, nextOpacity, shader::setFloatUniform)
-                recipe = value
-                opacity = nextOpacity
-            }
-        }
-    }
 
     private companion object {
         val NavigationMaterialRecipe.isClear: Boolean get() = nativeFace && saturation == 1.06f && white == 1.08f
