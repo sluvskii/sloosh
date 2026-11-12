@@ -1,14 +1,15 @@
 package com.slooshfilm.app.ui.navigation
 
-import androidx.annotation.DrawableRes
-import com.slooshfilm.app.R
-
-sealed class Screen(val route: String, val title: String, @DrawableRes val iconRes: Int? = null) {
-    object Home : Screen("home", "Главная", R.drawable.ic_sf_house_fill)
-    object Search : Screen("search", "Поиск", R.drawable.ic_sf_magnifyingglass)
-    object Messenger : Screen("messenger", "Чаты", R.drawable.ic_sf_bubble_fill)
-    object ContinueWatching : Screen("continue", "Продолжить", R.drawable.ic_sf_clock_arrow_circlepath)
-    object Profile : Screen("profile", "Профиль", R.drawable.ic_sf_person_fill)
+/**
+ * Точный Apple SF Symbol name для иконки экрана (рендер через SfIcon, шрифт SF Pro).
+ * null — у экрана нет иконки (детальные маршруты).
+ */
+sealed class Screen(val route: String, val title: String, val iconSfName: String? = null) {
+    object Home : Screen("home", "Главная", "house.fill")
+    object Search : Screen("search", "Поиск", "magnifyingglass")
+    object Messenger : Screen("messenger", "Чаты", "bubble.fill")
+    object ContinueWatching : Screen("continue", "Продолжить", "clock.arrow.circlepath")
+    object Profile : Screen("profile", "Профиль", "person.fill")
 
     object Details : Screen("details/{id}/{type}", "Подробнее") {
         fun createRoute(id: String, type: String = "movie") = "details/$id/$type"

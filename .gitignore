@@ -27,3 +27,6 @@ wip-backup/
 логи
 .agents/
 .idea/appInsightsSettings.xml
+
+# ZCode session artifacts
+.zcode/

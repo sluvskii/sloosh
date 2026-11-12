@@ -169,6 +169,16 @@ fun SlooshApp() {
         Modifier.fillMaxSize()
     }
 
+    // SF Symbols шрифт (официальный SF Pro, переменный): единый источник глифов для SfIcon.
+    // Покрытие 61/61 необходимых кодпоинтов проверено (гейт шага 0). Fallback для редких
+    // имён — вендорные ic_sf_* drawables через SlooshIconFallback.
+    val symbolTypeface = remember(context) {
+        runCatching {
+            androidx.core.content.res.ResourcesCompat.getFont(context, com.slooshfilm.app.R.font.sf_pro_symbols)
+        }.getOrNull()
+    }
+
+    com.slooshfilm.app.ui.sficons.GlasmioIconProvider(symbolTypeface = symbolTypeface) {
     CompositionLocalProvider(
         LocalCardStyle provides currentCardStyle,
         LocalCardDensity provides currentCardDensity,
@@ -560,4 +570,5 @@ fun SlooshApp() {
         )
     }
 }
+} // com.slooshfilm.app.ui.sficons.GlasmioIconProvider
 }

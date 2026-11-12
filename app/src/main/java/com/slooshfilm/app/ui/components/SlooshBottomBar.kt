@@ -52,6 +52,7 @@ import com.kyant.shapes.Capsule
 import com.slooshfilm.app.ui.backdrop.Backdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.emptyBackdrop
 import com.slooshfilm.app.ui.navigation.Screen
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.search.SearchState
 import com.slooshfilm.app.ui.search.rememberSearchState
 import com.slooshfilm.app.ui.theme.LiquidGlassSurfaceDark
@@ -351,7 +352,7 @@ fun SlooshBottomBar(
                             ) {
                                 val iconSize = if (showLabels) 22.dp else 26.dp
                                 val tabIcon: @Composable () -> Unit = {
-                                    tab.iconRes?.let { iconRes ->
+                                    tab.iconSfName?.let { sfName ->
                                         if (tab == Screen.Messenger && unreadMessageCount > 0) {
                                             BadgedBox(
                                                 badge = {
@@ -367,19 +368,19 @@ fun SlooshBottomBar(
                                                     }
                                                 }
                                             ) {
-                                                Icon(
-                                                    painter = painterResource(iconRes),
+                                                SfIcon(
+                                                    systemName = sfName,
                                                     contentDescription = tab.title,
                                                     tint = LocalContentColor.current,
-                                                    modifier = Modifier.size(iconSize)
+                                                    size = iconSize
                                                 )
                                             }
                                         } else {
-                                            Icon(
-                                                painter = painterResource(iconRes),
+                                            SfIcon(
+                                                systemName = sfName,
                                                 contentDescription = tab.title,
                                                 tint = LocalContentColor.current,
-                                                modifier = Modifier.size(iconSize)
+                                                size = iconSize
                                             )
                                         }
                                     }
@@ -486,11 +487,11 @@ fun SlooshBottomBar(
                         .height(animatedSearchHeight)
                         .padding(start = iconPaddingStart)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_magnifyingglass),
+                    SfIcon(
+                        systemName = "magnifyingglass",
                         contentDescription = "Поиск",
                         tint = lerpColor(if (isLightTheme) Color.Black else Color.White, TextSecondaryDark, searchProgress),
-                        modifier = Modifier.size(searchIconSize)
+                        size = searchIconSize
                     )
 
                     if (textAlpha > 0f) {
@@ -604,16 +605,15 @@ fun SlooshBottomBar(
                     contentAlignment = Alignment.Center
                 ) {
                     val closeIconScale = closeButtonProgress.coerceIn(0f, 1f)
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_xmark),
+                    SfIcon(
+                        systemName = "xmark",
                         contentDescription = "Закрыть",
                         tint = if (isLightTheme) Color.Black else Color.White,
-                        modifier = Modifier
-                            .size(22.dp)
-                            .graphicsLayer {
-                                scaleX = closeIconScale
-                                scaleY = closeIconScale
-                            }
+                        size = 22.dp,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = closeIconScale
+                            scaleY = closeIconScale
+                        }
                     )
                 }
             }

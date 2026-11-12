@@ -106,6 +106,7 @@ import com.slooshfilm.app.ui.components.LocalBackdrop
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.MediaCard
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
 import com.slooshfilm.app.ui.components.liquidGlassSurface
@@ -903,11 +904,12 @@ fun DetailsScreen(
                                 tint = LiquidGlassSurfaceDark,
                                 modifier = Modifier.size(52.dp)
                             ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_arrow_down_to_line),
+                                SfIcon(
+                                    systemName = "arrow.down.to.line",
                                     contentDescription = "Скачать",
                                     tint = Color.White,
-                                    modifier = Modifier.size(26.dp)
+                                    size = 26.dp,
+                                    weight = FontWeight.SemiBold
                                 )
                             }
 
@@ -945,11 +947,12 @@ fun DetailsScreen(
                                 tint = LiquidGlassSurfaceDark,
                                 modifier = Modifier.size(52.dp)
                             ) {
-                                Icon(
-                                    painter = painterResource(if (isFavorite) R.drawable.ic_sf_heart_fill else R.drawable.ic_sf_heart),
+                                SfIcon(
+                                    systemName = if (isFavorite) "heart.fill" else "heart",
                                     contentDescription = if (isFavorite) "В избранном" else "В избранное",
                                     tint = Color.White,
-                                    modifier = Modifier.size(26.dp)
+                                    size = 26.dp,
+                                    weight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -1165,13 +1168,12 @@ fun DetailsScreen(
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White
                                             )
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_chevron_down),
+                                            SfIcon(
+                                                systemName = "chevron.down",
                                                 contentDescription = null,
                                                 tint = Color.White,
-                                                modifier = Modifier
-                                                    .size(12.dp)
-                                                    .graphicsLayer { rotationZ = chevronRotation }
+                                                size = 12.dp,
+                                                modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
                                             )
                                         }
                                     }
@@ -1244,11 +1246,11 @@ fun DetailsScreen(
                                                 }
                                             )
                                         } else {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_person_fill),
+                                            SfIcon(
+                                                systemName = "person.fill",
                                                 contentDescription = null,
                                                 tint = Color.White.copy(alpha = 0.35f),
-                                                modifier = Modifier.size(28.dp)
+                                                size = 28.dp
                                             )
                                         }
                                         if (isPhotoLoading) {
@@ -1350,11 +1352,11 @@ fun DetailsScreen(
                                                 }
                                             )
                                         } else {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_person_fill),
+                                            SfIcon(
+                                                systemName = "person.fill",
                                                 contentDescription = null,
                                                 tint = Color.White.copy(alpha = 0.35f),
-                                                modifier = Modifier.size(28.dp)
+                                                size = 28.dp
                                             )
                                         }
                                         if (isPhotoLoading) {
@@ -1473,11 +1475,11 @@ fun DetailsScreen(
                                                     modifier = Modifier.fillMaxSize(),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.ic_sf_film_fill),
+                                                    SfIcon(
+                                                        systemName = "film.fill",
                                                         contentDescription = null,
                                                         tint = Color.White.copy(alpha = 0.35f),
-                                                        modifier = Modifier.size(28.dp)
+                                                        size = 28.dp
                                                     )
                                                 }
                                             }
@@ -1507,11 +1509,11 @@ fun DetailsScreen(
                                                 ),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_play_fill),
+                                            SfIcon(
+                                                systemName = "play.fill",
                                                 contentDescription = "Воспроизвести",
                                                 tint = Color.White,
-                                                modifier = Modifier.size(18.dp)
+                                                size = 18.dp
                                             )
                                         }
                                     }
@@ -1678,11 +1680,11 @@ fun DetailsScreen(
                                                         ),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.ic_sf_play_fill),
+                                                    SfIcon(
+                                                        systemName = "play.fill",
                                                         contentDescription = null,
                                                         tint = Color.White,
-                                                        modifier = Modifier.size(18.dp)
+                                                        size = 18.dp
                                                     )
                                                 }
                                             }
@@ -1970,11 +1972,12 @@ fun DetailsScreen(
                     tint = LiquidGlassSurfaceDark,
                     modifier = Modifier.size(44.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_chevron_left),
+                    SfIcon(
+                        systemName = "chevron.left",
                         contentDescription = "Назад",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        size = 24.dp,
+                        weight = FontWeight.SemiBold
                     )
                 }
 
@@ -2067,11 +2070,12 @@ fun DetailsScreen(
                     tint = LiquidGlassSurfaceDark,
                     modifier = Modifier.size(44.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_square_arrow_up),
+                    SfIcon(
+                        systemName = "square.and.arrow.up",
                         contentDescription = "Поделиться",
                         tint = Color.White,
-                        modifier = Modifier.size(22.dp)
+                        size = 22.dp,
+                        weight = FontWeight.SemiBold
                     )
                 }
             }
@@ -2129,11 +2133,11 @@ fun DetailsScreen(
                             .background(Color.White.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_arrow_down_to_line),
+                        SfIcon(
+                            systemName = "arrow.down.to.line",
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                            size = 28.dp
                         )
                     }
 
