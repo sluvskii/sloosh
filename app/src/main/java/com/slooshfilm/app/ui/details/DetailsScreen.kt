@@ -1899,7 +1899,7 @@ fun DetailsScreen(
             title = "Не удалось загрузить",
             message = errorMessage ?: "Проверьте интернет-соединение и попробуйте снова.",
             onRetry = ::requestDetailsRefresh,
-            iconRes = R.drawable.ic_sf_antenna_radiowaves,
+            iconSfName = "antenna.radiowaves.left.and.right",
             modifier = Modifier.fillMaxSize()
         )
     }

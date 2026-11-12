@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.painterResource
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -273,11 +274,11 @@ fun LiquidGlassDialog(
                                 .align(Alignment.CenterEnd)
                                 .size(32.dp)
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_xmark),
+                            SfIcon(
+                                systemName = "xmark",
                                 contentDescription = "Закрыть",
                                 tint = TextPrimary.copy(alpha = 0.85f),
-                                modifier = Modifier.size(18.dp)
+                                size = 18.dp
                             )
                         }
                     }

@@ -38,10 +38,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -84,6 +82,7 @@ import com.slooshfilm.app.ui.components.LiquidGlassMenuOverlay
 import com.slooshfilm.app.ui.components.SettingsMenuTrigger
 import com.slooshfilm.app.ui.theme.BackgroundDark
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.theme.SlooshAccent
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -261,12 +260,12 @@ fun SettingsScaffold(
                             .align(Alignment.CenterStart)
                             .size(44.dp)
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_sf_chevron_left),
-                            contentDescription = "Назад",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        SfIcon(
+                        systemName = "chevron.left",
+                        contentDescription = "Назад",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        size = 24.dp
+                    )
                     }
                 }
             }
@@ -304,12 +303,12 @@ fun TopBar(title: String, onBackClick: (() -> Unit)? = null) {
                     .align(Alignment.CenterStart)
                     .size(44.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_sf_chevron_left),
-                    contentDescription = "Назад",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
+                SfIcon(
+                        systemName = "chevron.left",
+                        contentDescription = "Назад",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        size = 24.dp
+                    )
             }
         }
     }
@@ -320,7 +319,7 @@ fun TopBar(title: String, onBackClick: (() -> Unit)? = null) {
  */
 @Composable
 fun SettingsIconBadge(
-    icon: Painter,
+    iconSfName: String,
     badgeColor: Color = Color.Transparent,
     iconTint: Color = SlooshAccent,
     modifier: Modifier = Modifier
@@ -339,10 +338,10 @@ fun SettingsIconBadge(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            painter = icon,
+        SfIcon(
+            systemName = iconSfName,
             contentDescription = null,
-            modifier = Modifier.size(22.dp),
+            size = 22.dp,
             tint = iconTint
         )
     }
@@ -417,11 +416,11 @@ fun SettingsRadioItem(text: String, selected: Boolean, onClick: () -> Unit) {
             enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
             exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut()
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_sf_checkmark_circle_fill),
+            SfIcon(
+                systemName = "checkmark.circle.fill",
                 contentDescription = "Выбрано",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                size = 24.dp
             )
         }
     }
@@ -430,7 +429,7 @@ fun SettingsRadioItem(text: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 fun SettingsNavigationItem(
     text: String,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     badgeColor: Color = Color.Transparent,
     iconTint: Color = SlooshAccent,
     textColor: Color = Color.Unspecified,
@@ -444,9 +443,9 @@ fun SettingsNavigationItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (iconSfName != null) {
             SettingsIconBadge(
-                icon = icon,
+                iconSfName = iconSfName,
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
@@ -466,10 +465,10 @@ fun SettingsNavigationItem(
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
-        Icon(
-            painter = painterResource(id = R.drawable.ic_sf_chevron_right),
+        SfIcon(
+            systemName = "chevron.right",
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
+            size = 14.dp,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
         )
     }
@@ -479,7 +478,7 @@ fun SettingsNavigationItem(
 fun SettingsInfoRow(
     title: String,
     value: String,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     badgeColor: Color = Color.Transparent,
     iconTint: Color = SlooshAccent,
     modifier: Modifier = Modifier
@@ -490,9 +489,9 @@ fun SettingsInfoRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (iconSfName != null) {
             SettingsIconBadge(
-                icon = icon,
+                iconSfName = iconSfName,
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
@@ -516,7 +515,7 @@ fun SettingsInfoRow(
 fun SettingsValueItem(
     title: String,
     value: String,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     subtitle: String = "",
     badgeColor: Color = Color.Transparent,
     iconTint: Color = SlooshAccent,
@@ -529,9 +528,9 @@ fun SettingsValueItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (iconSfName != null) {
             SettingsIconBadge(
-                icon = icon,
+                iconSfName = iconSfName,
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
@@ -559,10 +558,10 @@ fun SettingsValueItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.width(6.dp))
-        Icon(
-            painter = painterResource(id = R.drawable.ic_sf_chevron_right),
+        SfIcon(
+            systemName = "chevron.right",
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
+            size = 14.dp,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
         )
     }
@@ -579,7 +578,7 @@ fun SettingsMenuItem(
     selectedValue: String,
     options: List<String>,
     onOptionSelected: (String) -> Unit,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     subtitle: String = "",
     badgeColor: Color = Color.Transparent,
     iconTint: Color = SlooshAccent,
@@ -591,9 +590,9 @@ fun SettingsMenuItem(
             .padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (iconSfName != null) {
             SettingsIconBadge(
-                icon = icon,
+                iconSfName = iconSfName,
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
@@ -626,7 +625,7 @@ fun SettingsMenuItem(
 @Composable
 fun SettingsSegmentedRow(
     title: String,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     options: List<String>,
     selectedIndex: Int,
     onOptionSelected: (Int) -> Unit,
@@ -656,8 +655,8 @@ fun SettingsSegmentedRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            if (icon != null) {
-                SettingsIconBadge(icon = icon)
+            if (iconSfName != null) {
+                SettingsIconBadge(iconSfName = iconSfName)
                 Spacer(modifier = Modifier.width(14.dp))
             }
             Text(
@@ -704,7 +703,7 @@ fun SettingsSegmentedRow(
 fun SettingsSwitchItem(
     title: String,
     subtitle: String = "",
-    icon: Painter? = null,
+    iconSfName: String? = null,
     badgeColor: Color = Color.Transparent,
     iconTint: Color = SlooshAccent,
     checked: Boolean,
@@ -718,9 +717,9 @@ fun SettingsSwitchItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        if (icon != null) {
+        if (iconSfName != null) {
             SettingsIconBadge(
-                icon = icon,
+                iconSfName = iconSfName,
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
@@ -751,7 +750,7 @@ fun SettingsSwitchItem(
 @Composable
 fun SettingsActionItem(
     text: String,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     iconTint: Color = Color(0xFFFF453A),
     badgeColor: Color = Color.Transparent,
     textColor: Color = Color(0xFFFF453A),
@@ -766,9 +765,9 @@ fun SettingsActionItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon != null) {
+        if (iconSfName != null) {
             SettingsIconBadge(
-                icon = icon,
+                iconSfName = iconSfName,
                 badgeColor = badgeColor,
                 iconTint = iconTint
             )
@@ -801,7 +800,7 @@ fun SettingsActionItem(
 fun IntervalStepper(
     label: String,
     value: Int,
-    icon: Painter? = null,
+    iconSfName: String? = null,
     onValueChange: (Int) -> Unit
 ) {
     Row(
@@ -815,8 +814,8 @@ fun IntervalStepper(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
         ) {
-            if (icon != null) {
-                SettingsIconBadge(icon = icon)
+            if (iconSfName != null) {
+                SettingsIconBadge(iconSfName = iconSfName)
                 Spacer(modifier = Modifier.width(14.dp))
             }
             Text(
@@ -827,10 +826,10 @@ fun IntervalStepper(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             StepperButton(enabled = value > 5, onStep = { onValueChange(-5) }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_sf_minus),
+                SfIcon(
+                    systemName = "minus",
                     contentDescription = "Уменьшить",
-                    modifier = Modifier.size(16.dp)
+                    size = 16.dp
                 )
             }
             Text(
@@ -841,10 +840,10 @@ fun IntervalStepper(
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
             StepperButton(enabled = value < 60, onStep = { onValueChange(5) }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_sf_plus),
+                SfIcon(
+                    systemName = "plus",
                     contentDescription = "Увеличить",
-                    modifier = Modifier.size(16.dp)
+                    size = 16.dp
                 )
             }
         }
@@ -928,11 +927,11 @@ fun SettingsChoiceDialog(
                         modifier = Modifier.weight(1f)
                     )
                     if (isSelected) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_sf_checkmark),
+                        SfIcon(
+                            systemName = "checkmark",
                             contentDescription = "Выбрано",
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                     }
                 }

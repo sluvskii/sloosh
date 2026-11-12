@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.UnevenRoundedRectangle
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.alloha.AllohaApiResult
 import com.slooshfilm.app.data.alloha.AllohaTranslationMatcher
@@ -327,7 +328,7 @@ fun WatchSelectorSheet(
                         } else if (result == null || (result.movie == null && result.seasons.isEmpty())) {
                             // Empty state matching unified EmptyStateView
                             EmptyStateView(
-                                iconRes = R.drawable.ic_sf_rectangle_stack_fill,
+                                iconSfName = "rectangle.stack.fill",
                                 title = "Видео пока недоступно",
                                 message = errorMessage ?: "Этот проект пока отсутствует в источниках стриминга или еще не вышел в релиз.",
                                 modifier = Modifier.padding(vertical = 48.dp)
@@ -631,11 +632,12 @@ fun WatchSelectorSheet(
                         .size(44.dp)
                         .align(Alignment.CenterStart)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_xmark),
+                    SfIcon(
+                        systemName = "xmark",
                         contentDescription = "Закрыть",
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        size = 28.dp,
+                        weight = FontWeight.SemiBold
                     )
                 }
             }
@@ -680,11 +682,11 @@ fun WatchSelectorSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_play_fill),
+                        SfIcon(
+                            systemName = "play.fill",
                             contentDescription = null,
                             tint = Color.Black,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                         Text(
                             text = "Смотреть",

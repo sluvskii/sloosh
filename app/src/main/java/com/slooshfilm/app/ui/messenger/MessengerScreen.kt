@@ -82,7 +82,7 @@ fun MessengerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 EmptyStateView(
-                    iconRes = R.drawable.ic_sf_bubble_fill,
+                    iconSfName = "bubble.fill",
                     title = "Скоро будет доступно",
                     message = "Общение с друзьями и обсуждение фильмов появятся в следующем обновлении."
                 )

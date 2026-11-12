@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import com.slooshfilm.app.data.alloha.LanguageFlag
 import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
 import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.ui.components.InteractiveHighlight
@@ -1803,11 +1804,11 @@ fun PlayerScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(32.dp)
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_exclamationmark_triangle_fill),
+                        SfIcon(
+                            systemName = "exclamationmark.triangle.fill",
                             contentDescription = null,
                             tint = Color.Red,
-                            modifier = Modifier.size(48.dp)
+                            size = 48.dp
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -1953,11 +1954,11 @@ fun PlayerScreen(
                                     shape = CircleShape,
                                     modifier = Modifier.size(44.dp)
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_sf_xmark),
+                                    SfIcon(
+                                        systemName = "xmark",
                                         contentDescription = "Закрыть",
                                         tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
+                                        size = 24.dp
                                     )
                                 }
 
@@ -1973,11 +1974,11 @@ fun PlayerScreen(
                                         shape = CircleShape,
                                         modifier = Modifier.size(44.dp)
                                     ) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_sf_dock_rectangle),
+                                        SfIcon(
+                                            systemName = "dock.rectangle",
                                             contentDescription = "PiP",
                                             tint = Color.White,
-                                            modifier = Modifier.size(24.dp)
+                                            size = 24.dp
                                         )
                                     }
                                 }
@@ -1998,11 +1999,11 @@ fun PlayerScreen(
                                     shape = CircleShape,
                                     modifier = Modifier.size(44.dp)
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_sf_lock_open),
+                                    SfIcon(
+                                        systemName = "lock.open",
                                         contentDescription = "Заблокировать экран",
                                         tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
+                                        size = 20.dp
                                     )
                                 }
                             }
@@ -2070,11 +2071,11 @@ fun PlayerScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.5.dp)
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_sf_rectangle_stack_fill),
+                                    SfIcon(
+                                        systemName = "rectangle.stack.fill",
                                         contentDescription = null,
                                         tint = Color.White.copy(alpha = 0.85f),
-                                        modifier = Modifier.size(11.dp)
+                                        size = 11.dp
                                     )
                                     Text(
                                         text = "$currentSeason сезон, $currentEpisode серия",
@@ -2082,13 +2083,11 @@ fun PlayerScreen(
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color.White.copy(alpha = 0.92f)
                                     )
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_sf_chevron_up_chevron_down),
+                                    SfIcon(
+                                        systemName = "chevron.up.chevron.down",
                                         contentDescription = null,
                                         tint = Color.White.copy(alpha = 0.50f),
-                                        modifier = Modifier
-                                            .width(10.dp)
-                                            .height(13.dp)
+                                        size = 13.dp
                                     )
                                 }
                             }
@@ -2109,11 +2108,11 @@ fun PlayerScreen(
                                 shape = CircleShape,
                                 modifier = Modifier.size(56.dp)
                             ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_backward_end_fill),
+                                SfIcon(
+                                    systemName = "backward.end.fill",
                                     contentDescription = "Предыдущая серия",
                                     tint = if (hasPreviousEpisode) Color.White else Color.White.copy(alpha = 0.35f),
-                                    modifier = Modifier.size(24.dp)
+                                    size = 24.dp
                                 )
                             }
                         }
@@ -2129,11 +2128,11 @@ fun PlayerScreen(
                                 shape = CircleShape,
                                 modifier = Modifier.size(56.dp)
                             ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_forward_end_fill),
+                                SfIcon(
+                                    systemName = "forward.end.fill",
                                     contentDescription = "Следующая серия",
                                     tint = if (hasNextEpisode) Color.White else Color.White.copy(alpha = 0.35f),
-                                    modifier = Modifier.size(24.dp)
+                                    size = 24.dp
                                 )
                             }
                         }
@@ -2365,11 +2364,11 @@ fun PlayerScreen(
                                                 )
                                             }
                                         } else {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_waveform),
+                                            SfIcon(
+                                                systemName = "waveform",
                                                 contentDescription = "Озвучка",
                                                 tint = Color.White.copy(alpha = 0.85f),
-                                                modifier = Modifier.size(20.dp)
+                                                size = 20.dp
                                             )
                                         }
                                         Text(
@@ -2381,13 +2380,11 @@ fun PlayerScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         if (chip.canSwitch) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_chevron_up_chevron_down),
+                                            SfIcon(
+                                                systemName = "chevron.up.chevron.down",
                                                 contentDescription = null,
                                                 tint = Color.White.copy(alpha = 0.45f),
-                                                modifier = Modifier
-                                                    .width(12.dp)
-                                                    .height(16.dp)
+                                                size = 16.dp
                                             )
                                         }
                                     }
@@ -2411,11 +2408,11 @@ fun PlayerScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_forward_end_fill),
+                                            SfIcon(
+                                                systemName = "forward.end.fill",
                                                 contentDescription = null,
                                                 tint = Color.White,
-                                                modifier = Modifier.size(15.dp)
+                                                size = 15.dp
                                             )
                                             Text(
                                                 text = skipLabel,
@@ -2466,11 +2463,11 @@ fun PlayerScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_gauge_with_needle),
+                                            SfIcon(
+                                                systemName = "gauge.with.needle",
                                                 contentDescription = null,
                                                 tint = Color.White.copy(alpha = 0.92f),
-                                                modifier = Modifier.size(18.dp)
+                                                size = 18.dp
                                             )
                                             Text(
                                                 text = "${currentSpeed}x",
@@ -2554,11 +2551,11 @@ fun PlayerScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_sf_gearshape),
+                                            SfIcon(
+                                                systemName = "gearshape",
                                                 contentDescription = null,
                                                 tint = Color.White.copy(alpha = 0.92f),
-                                                modifier = Modifier.size(18.dp)
+                                                size = 18.dp
                                             )
                                             Text(
                                                 text = currentQualityKey,
@@ -2628,11 +2625,11 @@ fun PlayerScreen(
                                 .size(44.dp)
                                 .align(Alignment.TopEnd)
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_lock_fill),
+                            SfIcon(
+                                systemName = "lock.fill",
                                 contentDescription = "Разблокировать экран",
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                size = 20.dp
                             )
                         }
                     }
@@ -2951,16 +2948,12 @@ private fun IosTopGestureHud(
         label = "hudProgressAnimation"
     )
 
-    val iconRes = when (type) {
-        GestureHudType.BRIGHTNESS -> when {
-            clampedProgress < 0.35f -> R.drawable.ic_sf_sun_min_fill
-            clampedProgress < 0.75f -> R.drawable.ic_sf_sun_max_fill
-            else -> R.drawable.ic_sf_sun_max_fill
-        }
+    val iconSfName = when (type) {
+        GestureHudType.BRIGHTNESS -> if (clampedProgress < 0.35f) "sun.min.fill" else "sun.max.fill"
         GestureHudType.VOLUME -> when {
-            clampedProgress <= 0.001f -> R.drawable.ic_sf_speaker_slash_fill
-            clampedProgress < 0.40f -> R.drawable.ic_sf_speaker_wave_1_fill
-            else -> R.drawable.ic_sf_speaker_wave_3_fill
+            clampedProgress <= 0.001f -> "speaker.slash.fill"
+            clampedProgress < 0.40f -> "speaker.wave.1.fill"
+            else -> "speaker.wave.3.fill"
         }
     }
 
@@ -2980,17 +2973,17 @@ private fun IosTopGestureHud(
             .padding(horizontal = 14.dp)
     ) {
         AnimatedContent(
-            targetState = iconRes,
+            targetState = iconSfName,
             transitionSpec = {
                 fadeIn(tween(90)).togetherWith(fadeOut(tween(90)))
             },
             label = "hudIconTransition"
-        ) { currentIconRes ->
-            Icon(
-                painter = painterResource(currentIconRes),
+        ) { currentSfName ->
+            SfIcon(
+                systemName = currentSfName,
                 contentDescription = label,
                 tint = Color.White,
-                modifier = Modifier.size(19.dp)
+                size = 19.dp
             )
         }
 
@@ -3057,18 +3050,18 @@ private fun PlayerPlayPauseButton(
                 label = "PlayPauseTransition"
             ) { playing ->
                 if (playing) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_sf_pause_fill),
+                    SfIcon(
+                        systemName = "pause.fill",
                         contentDescription = "Пауза",
                         tint = Color.White,
-                        modifier = Modifier.size(38.dp)
+                        size = 38.dp
                     )
                 } else {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_sf_play_fill),
+                    SfIcon(
+                        systemName = "play.fill",
                         contentDescription = "Воспроизвести",
                         tint = Color.White,
-                        modifier = Modifier.size(38.dp)
+                        size = 38.dp
                     )
                 }
             }

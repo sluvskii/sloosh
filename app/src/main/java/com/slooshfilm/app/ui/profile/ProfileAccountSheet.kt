@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kyant.shapes.Capsule
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.models.auth.UserProfile
 import com.slooshfilm.app.ui.backdrop.Backdrop
@@ -148,11 +149,11 @@ fun ProfileAccountDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_rectangle_portrait_and_arrow_right),
+                    SfIcon(
+                        systemName = "rectangle.portrait.and.arrow.right",
                         contentDescription = null,
                         tint = Color(0xFFFF453A),
-                        modifier = Modifier.size(18.dp)
+                        size = 18.dp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(

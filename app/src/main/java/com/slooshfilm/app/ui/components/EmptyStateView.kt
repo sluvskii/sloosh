@@ -1,6 +1,5 @@
 package com.slooshfilm.app.ui.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,18 +8,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.theme.TextPrimaryDark
 import com.slooshfilm.app.ui.theme.TextSecondaryDark
 import com.slooshfilm.app.ui.theme.TextTertiaryDark
@@ -34,7 +32,7 @@ import com.slooshfilm.app.ui.theme.TextTertiaryDark
  */
 @Composable
 fun EmptyStateView(
-    @DrawableRes iconRes: Int,
+    iconSfName: String,
     title: String,
     message: String,
     modifier: Modifier = Modifier,
@@ -48,11 +46,11 @@ fun EmptyStateView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            painter = painterResource(iconRes),
+        SfIcon(
+            systemName = iconSfName,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(iconSize)
+            size = iconSize
         )
 
         Spacer(modifier = Modifier.height(14.dp))

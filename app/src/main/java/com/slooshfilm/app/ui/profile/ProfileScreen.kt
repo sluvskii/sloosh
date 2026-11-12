@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.kyant.shapes.Capsule
 import androidx.compose.ui.geometry.Offset
@@ -187,7 +188,7 @@ fun ProfileScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         EmptyStateView(
-                            iconRes = R.drawable.ic_sf_bookmark_fill,
+                            iconSfName = "bookmark.fill",
                             title = "Пока ничего не добавлено",
                             message = "Сохраняйте фильмы и сериалы в избранное, чтобы быстро возвращаться к ним позже."
                         )
@@ -201,7 +202,7 @@ fun ProfileScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         EmptyStateView(
-                            iconRes = R.drawable.ic_sf_film_fill,
+                            iconSfName = "film.fill",
                             title = "В этой подборке пока пусто",
                             message = "Попробуйте открыть другую вкладку или добавьте что-нибудь в избранное."
                         )
@@ -381,11 +382,11 @@ fun ProfileScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                     } else {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_sf_person_fill),
+                                        SfIcon(
+                                            systemName = "person.fill",
                                             contentDescription = "Профиль",
                                             tint = LocalContentColor.current,
-                                            modifier = Modifier.size(22.dp)
+                                            size = 22.dp
                                         )
                                     }
                                 }
@@ -442,19 +443,19 @@ fun ProfileScreen(
                                 .align(Alignment.CenterEnd)
                                 .height(44.dp),
                             firstContent = {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
+                                SfIcon(
+                                    systemName = "arrow.down.circle.fill",
                                     contentDescription = "Загрузки",
                                     tint = LocalContentColor.current,
-                                    modifier = Modifier.size(24.dp)
+                                    size = 24.dp
                                 )
                             },
                             secondContent = {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_sf_gearshape_fill),
+                                SfIcon(
+                                    systemName = "gearshape.fill",
                                     contentDescription = "Настройки",
                                     tint = LocalContentColor.current,
-                                    modifier = Modifier.size(24.dp)
+                                    size = 24.dp
                                 )
                             }
                         )
@@ -530,11 +531,11 @@ fun ProfileScreen(
                             .background(Color.White.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_arrow_down_circle_fill),
+                        SfIcon(
+                            systemName = "arrow.down.circle.fill",
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                            size = 28.dp
                         )
                     }
 
@@ -611,11 +612,11 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_info_circle_fill),
+                            SfIcon(
+                                systemName = "info.circle.fill",
                                 contentDescription = null,
                                 tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
+                                size = 20.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -644,11 +645,11 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_sf_trash_fill),
+                            SfIcon(
+                                systemName = "trash.fill",
                                 contentDescription = null,
                                 tint = RatingIosRed,
-                                modifier = Modifier.size(20.dp)
+                                size = 20.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(

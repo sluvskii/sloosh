@@ -26,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -34,7 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.shapes.RoundedRectangle
-import com.slooshfilm.app.R
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.backdrop.Backdrop
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
 import com.slooshfilm.app.ui.theme.SlooshAccent
@@ -114,7 +113,7 @@ fun LiquidListRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     detail: String? = null,
-    iconRes: Int? = null,
+    iconSfName: String? = null,
     iconTint: Color = SlooshAccent,
     iconBackground: Color? = null,
     showTopSeparator: Boolean = false,
@@ -126,7 +125,7 @@ fun LiquidListRow(
     val haptic = LocalHapticFeedback.current
     val isDark = LocalSlooshColors.current.isDark
     val separatorColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
-    val hasLeadingIcon = iconRes != null
+    val hasLeadingIcon = iconSfName != null
 
     Column(
         modifier = modifier
@@ -161,7 +160,7 @@ fun LiquidListRow(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (iconRes != null) {
+            if (iconSfName != null) {
                 if (iconBackground != null) {
                     Box(
                         modifier = Modifier
@@ -170,19 +169,19 @@ fun LiquidListRow(
                             .background(iconBackground),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            painter = painterResource(iconRes),
+                        SfIcon(
+                            systemName = iconSfName,
                             contentDescription = null,
                             tint = iconTint,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                     }
                 } else {
-                    Icon(
-                        painter = painterResource(iconRes),
+                    SfIcon(
+                        systemName = iconSfName,
                         contentDescription = null,
                         tint = iconTint,
-                        modifier = Modifier.size(22.dp)
+                        size = 22.dp
                     )
                 }
                 Spacer(modifier = Modifier.width(14.dp))
@@ -231,11 +230,11 @@ fun LiquidListRow(
                 trailing()
             } else if (showDisclosure || onClick != null) {
                 Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    painter = painterResource(R.drawable.ic_sf_chevron_right),
+                SfIcon(
+                    systemName = "chevron.right",
                     contentDescription = null,
                     tint = TextTertiary,
-                    modifier = Modifier.size(14.dp)
+                    size = 14.dp
                 )
             }
         }
@@ -252,7 +251,7 @@ fun LiquidListSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    iconRes: Int? = null,
+    iconSfName: String? = null,
     iconTint: Color = SlooshAccent,
     iconBackground: Color? = null,
     showTopSeparator: Boolean = false,
@@ -261,7 +260,7 @@ fun LiquidListSwitchRow(
     LiquidListRow(
         title = title,
         subtitle = subtitle,
-        iconRes = iconRes,
+        iconSfName = iconSfName,
         iconTint = iconTint,
         iconBackground = iconBackground,
         showTopSeparator = showTopSeparator,

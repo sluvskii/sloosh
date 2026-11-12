@@ -67,6 +67,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import com.kyant.shapes.Capsule
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.repository.AuthRepository
 import com.slooshfilm.app.data.repository.NativeGoogleAuthManager
@@ -414,11 +415,11 @@ private fun AuthContent(
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_exclamationmark_triangle_fill),
+                        SfIcon(
+                            systemName = "exclamationmark.triangle.fill",
                             contentDescription = null,
                             tint = Color(0xFFFF453A),
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(

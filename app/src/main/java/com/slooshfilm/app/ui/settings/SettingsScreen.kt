@@ -246,7 +246,7 @@ fun SettingsScreen(
 
             SettingsSegmentedRow(
                 title = "Отображение названий",
-                icon = painterResource(id = R.drawable.ic_sf_rectangle_grid_1x2),
+                iconSfName = "rectangle.grid.1x2",
                 options = listOf("Под постером", "Поверх постера"),
                 selectedIndex = if (cardStyle == LocalStorage.CARD_STYLE_CLASSIC) 0 else 1,
                 onOptionSelected = { index ->
@@ -260,7 +260,7 @@ fun SettingsScreen(
 
             SettingsSegmentedRow(
                 title = "Плотность сетки",
-                icon = painterResource(id = R.drawable.ic_sf_square_grid_2x2),
+                iconSfName = "square.grid.2x2",
                 options = listOf("Стандартная", "Компактная"),
                 selectedIndex = if (cardDensity == LocalStorage.CARD_DENSITY_REGULAR) 0 else 1,
                 onOptionSelected = { index ->
@@ -277,7 +277,7 @@ fun SettingsScreen(
         SettingsSection(title = "Интерфейс") {
             SettingsSegmentedRow(
                 title = "Тема",
-                icon = painterResource(id = R.drawable.ic_sf_paintpalette_fill),
+                iconSfName = "paintpalette.fill",
                 options = themeOptions,
                 selectedIndex = selectedThemeIndex,
                 onOptionSelected = { index ->
@@ -296,7 +296,7 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = "Названия вкладок",
-                icon = painterResource(id = R.drawable.ic_sf_dock_rectangle),
+                iconSfName = "dock.rectangle",
                 checked = tabBarShowsLabels,
                 onCheckedChange = { checked ->
                     localStorage.saveTabBarShowsLabels(checked)
@@ -310,7 +310,7 @@ fun SettingsScreen(
                 title = "Качество постеров",
                 selectedValue = posterQuality,
                 options = listOf("Высокое", "Среднее", "Низкое"),
-                icon = painterResource(id = R.drawable.ic_sf_rectangle_stack_fill),
+                iconSfName = "rectangle.stack.fill",
                 onOptionSelected = { quality ->
                     localStorage.putString("poster_quality", quality)
                     posterQuality = quality
@@ -321,7 +321,7 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = "Оригинальное название",
-                icon = painterResource(id = R.drawable.ic_sf_doc_text_fill),
+                iconSfName = "doc.text.fill",
                 checked = showOriginalTitle,
                 onCheckedChange = { checked ->
                     localStorage.saveShowOriginalTitle(checked)
@@ -333,7 +333,7 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = "Автоперелистывание постеров",
-                icon = painterResource(id = R.drawable.ic_sf_rectangle_stack_fill),
+                iconSfName = "rectangle.stack.fill",
                 checked = autoAdvanceBackdrops,
                 onCheckedChange = { checked ->
                     localStorage.saveAutoAdvanceBackdrops(checked)
@@ -359,7 +359,7 @@ fun SettingsScreen(
             SettingsSwitchItem(
                 title = "Режим без стекла",
                 subtitle = "Отключает эффекты стекла для слабых устройств",
-                icon = painterResource(id = R.drawable.ic_sf_waveform),
+                iconSfName = "waveform",
                 checked = !isGlassEnabled,
                 onCheckedChange = { noGlass ->
                     val enabled = !noGlass
@@ -374,7 +374,7 @@ fun SettingsScreen(
             SettingsSwitchItem(
                 title = "Прогрессивный блюр градиентов",
                 subtitle = "Плавное оптическое размытие шапки под градиентами",
-                icon = painterResource(id = R.drawable.ic_sf_slider_horizontal_3),
+                iconSfName = "slider.horizontal.3",
                 checked = isProgressiveBlurEnabled,
                 onCheckedChange = { enabled ->
                     localStorage.saveProgressiveBlurEnabled(enabled)
@@ -403,7 +403,7 @@ fun SettingsScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 SettingsIconBadge(
-                                    icon = painterResource(id = R.drawable.ic_sf_sparkles)
+                                    iconSfName = "sparkles"
                                 )
                                 Spacer(modifier = Modifier.width(14.dp))
                                 Text(
@@ -447,7 +447,7 @@ fun SettingsScreen(
                 title = "Качество видео",
                 selectedValue = defaultQuality,
                 options = listOf("Спрашивать", "Авто", "4K (2160p)", "2K (1440p)", "1080p", "720p", "480p", "360p"),
-                icon = painterResource(id = R.drawable.ic_sf_film_fill),
+                iconSfName = "film.fill",
                 onOptionSelected = { quality ->
                     localStorage.saveDefaultQuality(quality)
                     defaultQuality = quality
@@ -458,7 +458,7 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = "Автопереход к серии",
-                icon = painterResource(id = R.drawable.ic_sf_forward_end_fill),
+                iconSfName = "forward.end.fill",
                 checked = autoNext,
                 onCheckedChange = { checked ->
                     localStorage.saveAutoNextEnabled(checked)
@@ -470,7 +470,7 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = "Жесты яркости и громкости",
-                icon = painterResource(id = R.drawable.ic_sf_slider_horizontal_3),
+                iconSfName = "slider.horizontal.3",
                 checked = playerVolumeBrightnessGestures,
                 onCheckedChange = { checked ->
                     localStorage.savePlayerVolumeBrightnessGestures(checked)
@@ -484,7 +484,7 @@ fun SettingsScreen(
                 title = "Размер субтитров",
                 selectedValue = subtitleSize,
                 options = listOf("Маленький", "Стандартный", "Крупный"),
-                icon = painterResource(id = R.drawable.ic_sf_captions_bubble_fill),
+                iconSfName = "captions.bubble.fill",
                 onOptionSelected = { size ->
                     localStorage.putString("subtitle_size", size)
                     subtitleSize = size
@@ -499,14 +499,14 @@ fun SettingsScreen(
             SettingsInfoRow(
                 title = "Кэш приложения",
                 value = cacheSizeFormatted,
-                icon = painterResource(id = R.drawable.ic_sf_internaldrive_fill)
+                iconSfName = "internaldrive.fill"
             )
 
             SettingsDivider()
 
             SettingsActionItem(
                 text = "Очистить кэш",
-                icon = painterResource(id = R.drawable.ic_sf_trash_fill),
+                iconSfName = "trash.fill",
                 isLoading = isClearingCache,
                 onClick = { showClearCacheDialog = true }
             )
@@ -534,7 +534,7 @@ fun SettingsScreen(
             SettingsNavigationItem(
                 text = if (isCheckingUpdate) "Проверка..." else "Проверить обновление",
                 detailText = if (isCheckingUpdate) "" else "v$versionName",
-                icon = painterResource(id = R.drawable.ic_sf_info_circle_fill)
+                iconSfName = "info.circle.fill"
             ) {
                 if (isCheckingUpdate) return@SettingsNavigationItem
                 isCheckingUpdate = true
@@ -562,7 +562,7 @@ fun SettingsScreen(
         SettingsSection(title = "Диагностика") {
             SettingsNavigationItem(
                 text = "Поделиться логами",
-                icon = painterResource(id = R.drawable.ic_sf_doc_text_fill),
+                iconSfName = "doc.text.fill",
                 detailText = "",
                 onClick = {
                     val report = com.slooshfilm.app.utils.Diagnostics.collectReport(context)
@@ -616,7 +616,7 @@ fun SettingsScreen(
             confirmButtonText = "Очистить",
             dismissButtonText = "Отмена",
             isDestructive = true,
-            icon = painterResource(id = R.drawable.ic_sf_trash_fill),
+            iconSfName = "trash.fill",
             backdrop = sceneBackdrop,
             onConfirm = {
                 clearCache()
@@ -639,7 +639,7 @@ fun SettingsScreen(
             message = updateMessage,
             confirmButtonText = "Скачать",
             dismissButtonText = "Позже",
-            icon = painterResource(id = R.drawable.ic_sf_arrow_down_circle_fill),
+            iconSfName = "arrow.down.circle.fill",
             backdrop = sceneBackdrop,
             onConfirm = {
                 val url = info.url

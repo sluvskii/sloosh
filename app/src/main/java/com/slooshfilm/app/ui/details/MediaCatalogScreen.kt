@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -258,12 +259,12 @@ fun MediaCatalogScreen(
                                         title = "Не удалось загрузить",
                                         message = state.errorMessage ?: "Проверьте интернет-соединение и попробуйте снова.",
                                         onRetry = { state.loadInitial(force = true) },
-                                        iconRes = R.drawable.ic_sf_antenna_radiowaves,
+                                        iconSfName = "antenna.radiowaves.left.and.right",
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 } else {
                                     EmptyStateView(
-                                        iconRes = R.drawable.ic_sf_film_fill,
+                                        iconSfName = "film.fill",
                                         title = "Ничего не найдено",
                                         message = if (kind == CATALOG_KIND_GENRE) {
                                             "В категории «$title» пока нет доступных фильмов"
@@ -376,11 +377,12 @@ fun MediaCatalogScreen(
                         .size(44.dp)
                         .align(Alignment.CenterStart)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_chevron_left),
+                    SfIcon(
+                        systemName = "chevron.left",
                         contentDescription = "Назад",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        size = 24.dp,
+                        weight = FontWeight.SemiBold
                     )
                 }
             }

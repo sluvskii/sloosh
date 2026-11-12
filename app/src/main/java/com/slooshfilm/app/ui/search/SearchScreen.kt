@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.CircleShape
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.ErrorStateView
 import com.slooshfilm.app.ui.components.InteractiveHighlight
@@ -271,7 +272,7 @@ fun SearchScreen(
                         title = "Не удалось выполнить поиск",
                         message = searchState.errorMessage ?: "Проверьте интернет-соединение и попробуйте снова.",
                         onRetry = { searchState.doSearch(searchState.query, page = 1) },
-                        iconRes = R.drawable.ic_sf_antenna_radiowaves,
+                        iconSfName = "antenna.radiowaves.left.and.right",
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(top = statusBarPadding + (if (isLandscape) 8.dp else 14.dp), bottom = effectiveBottomPadding)
@@ -285,7 +286,7 @@ fun SearchScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         EmptyStateView(
-                            iconRes = R.drawable.ic_sf_film_fill,
+                            iconSfName = "film.fill",
                             title = "Ничего не найдено",
                             message = "Попробуйте изменить поисковый запрос."
                         )
@@ -374,11 +375,11 @@ fun SearchScreen(
                     modifier = Modifier.size(44.dp),
                     backdrop = sceneBackdrop
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_slider_horizontal_3),
+                    SfIcon(
+                        systemName = "slider.horizontal.3",
                         contentDescription = "Меню",
                         tint = LocalContentColor.current,
-                        modifier = Modifier.size(24.dp)
+                        size = 24.dp
                     )
                 }
             }
@@ -517,11 +518,11 @@ private fun SearchDiscoveryView(
                                             ) { onRemoveHistory(item) },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_sf_xmark),
+                                        SfIcon(
+                                            systemName = "xmark",
                                             contentDescription = "Удалить",
                                             tint = TextMutedDark,
-                                            modifier = Modifier.size(11.dp)
+                                            size = 11.dp
                                         )
                                     }
                                 }

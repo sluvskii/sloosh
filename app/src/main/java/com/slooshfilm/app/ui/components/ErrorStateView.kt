@@ -1,6 +1,5 @@
 package com.slooshfilm.app.ui.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -15,20 +14,18 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.shapes.Capsule
-import com.slooshfilm.app.R
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.theme.TextPrimaryDark
 import com.slooshfilm.app.ui.theme.TextSecondaryDark
 
@@ -44,7 +41,7 @@ fun ErrorStateView(
     message: String,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    @DrawableRes iconRes: Int = R.drawable.ic_sf_antenna_radiowaves,
+    iconSfName: String = "antenna.radiowaves.left.and.right",
     retryText: String = "Повторить"
 ) {
     Column(
@@ -60,11 +57,11 @@ fun ErrorStateView(
                 .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painterResource(iconRes),
+            SfIcon(
+                systemName = iconSfName,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(36.dp)
+                size = 36.dp
             )
         }
 

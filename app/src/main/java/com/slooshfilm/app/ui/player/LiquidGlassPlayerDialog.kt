@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -124,11 +125,11 @@ fun PlayerSpeedGlassDialog(
                     )
 
                     if (isSelected) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_checkmark),
+                        SfIcon(
+                            systemName = "checkmark",
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                     }
                 }
@@ -233,11 +234,11 @@ fun PlayerVoiceoverGlassDialog(
                     }
 
                     if (isSelected) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_checkmark),
+                        SfIcon(
+                            systemName = "checkmark",
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                     }
                 }
@@ -315,11 +316,11 @@ fun PlayerQualityGlassDialog(
                     )
 
                     if (isSelected) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_checkmark),
+                        SfIcon(
+                            systemName = "checkmark",
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                     }
                 }
@@ -414,11 +415,11 @@ fun PlayerEpisodesGlassDialog(
                     )
 
                     if (isCurrent) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_sf_play_fill),
+                        SfIcon(
+                            systemName = "play.fill",
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            size = 18.dp
                         )
                     }
                 }

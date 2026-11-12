@@ -220,7 +220,7 @@ fun HomeScreen(
                     title = "Не удалось загрузить",
                     message = uiState.errorMessage ?: "Проверьте интернет-соединение и попробуйте обновить ленту.",
                     onRetry = { viewModel.refresh() },
-                    iconRes = R.drawable.ic_sf_antenna_radiowaves,
+                    iconSfName = "antenna.radiowaves.left.and.right",
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = headerTotalHeight, bottom = bottomTotalPadding)
@@ -234,7 +234,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     EmptyStateView(
-                        iconRes = R.drawable.ic_sf_film_fill,
+                        iconSfName = "film.fill",
                         title = "Фильмы не найдены",
                         message = "Попробуйте выбрать другую вкладку или обновите ленту."
                     )

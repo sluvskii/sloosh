@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
@@ -145,7 +146,7 @@ fun ContinueScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         EmptyStateView(
-                            iconRes = R.drawable.ic_sf_clock_arrow_circlepath,
+                            iconSfName = "clock.arrow.circlepath",
                             title = "Вы пока ничего не смотрите",
                             message = "Начните просмотр любого фильма или сериала, и мы сохраним точный таймкод для быстрого продолжения."
                         )
@@ -347,11 +348,11 @@ private fun ContinueWatchingCard(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_play_fill),
+                    SfIcon(
+                        systemName = "play.fill",
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(11.dp)
+                        size = 11.dp
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(

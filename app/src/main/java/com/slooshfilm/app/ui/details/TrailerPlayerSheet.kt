@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import com.kyant.shapes.RoundedRectangle
 import com.kyant.shapes.UnevenRoundedRectangle
 import androidx.compose.ui.res.painterResource
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -84,11 +85,11 @@ fun TrailerPlayerSheet(
                     tint = LiquidGlassSurfaceDark,
                     modifier = Modifier.size(34.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sf_xmark),
+                    SfIcon(
+                        systemName = "xmark",
                         contentDescription = "Закрыть",
                         tint = TextSecondaryDark,
-                        modifier = Modifier.size(22.dp)
+                        size = 22.dp
                     )
                 }
             }

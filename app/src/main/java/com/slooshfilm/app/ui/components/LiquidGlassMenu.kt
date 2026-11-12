@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.res.painterResource
+import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -280,11 +281,11 @@ fun SettingsMenuTrigger(
             letterSpacing = (-0.2).sp
         )
         Spacer(modifier = Modifier.width(4.dp))
-        Icon(
-            painter = painterResource(R.drawable.ic_sf_chevron_up_chevron_down),
+        SfIcon(
+            systemName = "chevron.up.chevron.down",
             contentDescription = null,
             tint = SlooshAccent.copy(alpha = 0.90f),
-            modifier = Modifier.size(width = 11.dp, height = 15.dp)
+            size = 14.dp
         )
     }
 }
@@ -704,11 +705,11 @@ fun LiquidGlassMenuOverlay(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (isSelected) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_sf_checkmark),
+                                    SfIcon(
+                                        systemName = "checkmark",
                                         contentDescription = null,
                                         tint = TextPrimary,
-                                        modifier = Modifier.size(18.dp)
+                                        size = 18.dp
                                     )
                                 }
                             }
