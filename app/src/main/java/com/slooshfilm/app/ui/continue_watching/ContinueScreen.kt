@@ -352,7 +352,8 @@ private fun ContinueWatchingCard(
                         systemName = "play.fill",
                         contentDescription = null,
                         tint = Color.Black,
-                        size = 11.dp
+                        size = 11.dp,
+                        weight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(

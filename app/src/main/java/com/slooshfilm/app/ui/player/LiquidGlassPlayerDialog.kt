@@ -419,7 +419,8 @@ fun PlayerEpisodesGlassDialog(
                             systemName = "play.fill",
                             contentDescription = null,
                             tint = Color.White,
-                            size = 18.dp
+                            size = 18.dp,
+                            weight = FontWeight.SemiBold
                         )
                     }
                 }

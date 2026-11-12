@@ -862,7 +862,8 @@ fun DetailsScreen(
                         // the real backdrop shows through it on any GPU/driver.
                         val playDensity = LocalDensity.current
                         val playDiscPx = with(playDensity) { 76.dp.toPx() }
-                        val playGlyphPx = with(playDensity) { 42.dp.toPx() }
+                        // 56dp глиф-бокс: чернила треугольника ~36dp — пропорция iOS (~47% диска).
+                        val playGlyphPx = with(playDensity) { 56.dp.toPx() }
                         val playDiscPath = remember(playDiscPx, playGlyphPx) {
                             val u = playGlyphPx / 56f
                             val o = (playDiscPx - playGlyphPx) / 2f
@@ -1172,7 +1173,8 @@ fun DetailsScreen(
                                                 systemName = "chevron.down",
                                                 contentDescription = null,
                                                 tint = Color.White,
-                                                size = 12.dp,
+                                                size = 13.dp,
+                                                weight = FontWeight.SemiBold,
                                                 modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
                                             )
                                         }
@@ -1513,7 +1515,8 @@ fun DetailsScreen(
                                                 systemName = "play.fill",
                                                 contentDescription = "Воспроизвести",
                                                 tint = Color.White,
-                                                size = 18.dp
+                                                size = 18.dp,
+                                                weight = FontWeight.SemiBold
                                             )
                                         }
                                     }
@@ -1684,7 +1687,8 @@ fun DetailsScreen(
                                                         systemName = "play.fill",
                                                         contentDescription = null,
                                                         tint = Color.White,
-                                                        size = 18.dp
+                                                        size = 18.dp,
+                                                        weight = FontWeight.SemiBold
                                                     )
                                                 }
                                             }
@@ -2077,7 +2081,7 @@ fun DetailsScreen(
                         systemName = "square.and.arrow.up",
                         contentDescription = "Поделиться",
                         tint = Color.White,
-                        size = 22.dp,
+                        size = 24.dp,
                         weight = FontWeight.SemiBold
                     )
                 }

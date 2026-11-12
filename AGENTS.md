@@ -105,7 +105,7 @@ Always use the standardized modifiers rather than low-level `drawBackdrop` calls
 - **Top Floating Navigation Bar**:
   - Leading: Back button (`44.dp` `LiquidGlassFloatingButton`, icon `24.dp`).
   - Center: Compact Title / Logo (`graphicsLayer { alpha = topLogoAlpha }`), smoothly appearing when scrolled past `370.dp` while content logo fades out.
-- **Action Buttons (iOS 1:1, DetailsHeroActionMetrics)**: Hero row with 22dp spacing: Download button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` `ic_sf_arrow_down_to_line` icon), Primary Play disc (`76.dp` white 85% disc with `42.dp` softly rounded cut-out triangle and built-in optical centering), and Favorite button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` heart icon).
+- **Action Buttons (iOS 1:1, DetailsHeroActionMetrics)**: Hero row with 22dp spacing: Download button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` `ic_sf_arrow_down_to_line` icon), Primary Play disc (`76.dp` white 85% disc with `56.dp` glyph-box cut-out triangle (чернила ~36dp, пропорция iOS ~47% диска) and built-in optical centering), and Favorite button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` heart icon).
 
 #### Home Screen (`HomeScreen.kt`)
 - **Top Header**: Category text tabs with soft 2-stop vertical gradient (`BackgroundDark` to transparent) with `statusBarsPadding()`.

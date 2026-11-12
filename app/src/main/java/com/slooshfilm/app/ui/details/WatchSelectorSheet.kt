@@ -686,7 +686,8 @@ fun WatchSelectorSheet(
                             systemName = "play.fill",
                             contentDescription = null,
                             tint = Color.Black,
-                            size = 18.dp
+                            size = 18.dp,
+                            weight = FontWeight.SemiBold
                         )
                         Text(
                             text = "Смотреть",
