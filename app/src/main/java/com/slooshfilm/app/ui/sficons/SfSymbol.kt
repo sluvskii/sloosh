@@ -209,10 +209,9 @@ internal fun sfWeightTypeface(baseTypeface: Typeface, weight: FontWeight): Typef
         return Typeface.create(baseTypeface, weight.weight, false)
     }
     return when (weight) {
-        FontWeight.Bold, FontWeight.ExtraBold, FontWeight.Black ->
-            Typeface.create(baseTypeface, Typeface.BOLD)
+        FontWeight.Bold, FontWeight.ExtraBold, FontWeight.Black,
         FontWeight.SemiBold, FontWeight.Medium ->
-            Typeface.create(baseTypeface, Typeface.DEFAULT_BOLD)
+            Typeface.create(baseTypeface, Typeface.BOLD)
         else -> baseTypeface
     }
 }
