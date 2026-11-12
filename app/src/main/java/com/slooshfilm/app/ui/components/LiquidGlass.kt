@@ -474,6 +474,86 @@ fun BackdropEffectScope.iosLens(
     }
 }
 
+@Language("AGSL")
+private const val NativeTabIdleBodyShaderString = """
+uniform shader content;
+uniform float4 uPill;      // L, T, W, H в координатах паддированного слоя, px
+uniform float uRadiusPx;
+uniform float uIsLight;
+uniform float uBlurPx;
+uniform float uLift;       // 0 = покой, 1 = нажата (тело затухает, уступая линзе)
+uniform float4 uRow0L;
+uniform float4 uRow1L;
+uniform float4 uRow2L;
+uniform float4 uRow0D;
+uniform float4 uRow1D;
+uniform float4 uRow2D;
+
+half4 main(float2 coord) {
+    half4 src = content.eval(coord);
+    float2 c = uPill.xy + uPill.zw * 0.5;
+    float2 halfSz = uPill.zw * 0.5;
+    float2 q = coord - c;
+    float2 dd = abs(q) - (halfSz - float2(uRadiusPx));
+    float dist = length(max(dd, 0.0)) + min(max(dd.x, dd.y), 0.0) - uRadiusPx;
+    float cov = clamp(0.5 - dist, 0.0, 1.0) * (1.0 - clamp(uLift, 0.0, 1.0));
+    if (cov <= 0.003) {
+        return src;
+    }
+    float r = max(uBlurPx, 1.0);
+    half4 sum = src * half(0.25);
+    sum += (content.eval(coord + float2( 0.5 * r, 0.0)) + content.eval(coord - float2(0.5 * r, 0.0))) * half(0.125);
+    sum += (content.eval(coord + float2(-0.5 * r, 0.5 * r)) + content.eval(coord - float2(0.5 * r, 0.5 * r))) * half(0.0625);
+    sum += (content.eval(coord + float2(0.0, 0.5 * r)) + content.eval(coord - float2(0.0, 0.5 * r))) * half(0.125);
+    sum += (content.eval(coord + float2(0.5 * r, 0.5 * r)) + content.eval(coord + float2(-0.5 * r, -0.5 * r))) * half(0.0625);
+    half3 straight = sum.rgb / max(sum.a, half(0.001));
+    float4 s4 = float4(straight, 1.0);
+    float3 bodyL = float3(dot(uRow0L, s4), dot(uRow1L, s4), dot(uRow2L, s4));
+    float3 bodyD = float3(dot(uRow0D, s4), dot(uRow1D, s4), dot(uRow2D, s4));
+    float3 body = mix(bodyD, bodyL, uIsLight);
+    float3 outRgb = mix(src.rgb, body, cov);
+    float outA = mix(src.a, 1.0, cov);
+    return half4(outRgb, outA);
+}
+"""
+
+/**
+ * Адаптивное тело ползунка в состоянии покоя — порт NativeTabIdle из glasmio
+ * (матрицы восстановлены автором из UIKit iOS 27). Цвет ползунка вычисляется из
+ * размытого материала бара через матрицу NativeTabIdleLight/Dark: ползунок
+ * «живёт» от контента под ним (яркий фон — светлеет, тёмный — контрастнее)
+ * вместо статичного затемнения. С нажатием (uLift) тело затухает, уступая
+ * линзе третьего слоя — как в оригинале (lensRest = 1 - lift).
+ */
+fun BackdropEffectScope.iosTabIdleBody(
+    pillLeft: Float,
+    pillTop: Float,
+    pillWidth: Float,
+    pillHeight: Float,
+    isLight: Boolean,
+    liftProgress: Float = 0f
+) {
+    runtimeShaderEffect(
+        key = "NativeTabIdleBodyShader",
+        shaderString = NativeTabIdleBodyShaderString,
+        uniformShaderName = "content"
+    ) {
+        // Эффект работает в паддированном пространстве слоя: контентная точка
+        // смещена на +padding относительно координат ноды.
+        setFloatUniform("uPill", pillLeft + padding, pillTop + padding, pillWidth, pillHeight)
+        setFloatUniform("uRadiusPx", pillHeight / 2f)
+        setFloatUniform("uIsLight", if (isLight) 1f else 0f)
+        setFloatUniform("uBlurPx", 2f * density)
+        setFloatUniform("uLift", liftProgress)
+        setFloatUniform("uRow0L", 1.1850999594f, -0.0502000004f, -0.0049999999f, -0.1999999881f)
+        setFloatUniform("uRow1L", -0.0148999998f, 1.1498999596f, -0.0050999997f, -0.1999999881f)
+        setFloatUniform("uRow2L", -0.0148999998f, -0.0499999970f, 1.1948999166f, -0.1999999881f)
+        setFloatUniform("uRow0D", 1.1297999620f, -0.2360999882f, -0.0236999989f, -0.0700000003f)
+        setFloatUniform("uRow1D", -0.0700999945f, 0.9639999866f, -0.0237999987f, -0.0700000003f)
+        setFloatUniform("uRow2D", -0.0701999962f, -0.2360000014f, 1.1761999130f, -0.0700000003f)
+    }
+}
+
 /**
  * Аутентичный полупрозрачный блюр в стиле iOS:
  * Размытие подмешивается поверх резкого исходного фона с пониженной плотностью (80% блюра + 20% резкости),

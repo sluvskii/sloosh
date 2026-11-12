@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.MutatorMutex
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -26,21 +27,26 @@ class DampedDragAnimation(
     val initialScale: Float = 1f,
     val pressedScale: Float = 60f / 44f,
     val pressedScaleY: Float = pressedScale,
+    // Нативные пружины лифта (glasmio/iOS): stiffness 631.65468 для pressProgress и
+    // масштаба, плюс минимальное время удержания 220 мс перед спуском.
+    val liftSpringStiffness: Float? = null,
+    val liftHangTimeMs: Long = 0L,
     val onDragStarted: DampedDragAnimation.(position: Offset) -> Unit = {},
     val onDragStopped: DampedDragAnimation.() -> Unit,
     val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
 ) {
 
+    private val nativeLiftSpec = liftSpringStiffness?.let { spring(1f, it, 0.001f) }
     private val valueAnimationSpec =
         spring(1f, 1000f, visibilityThreshold)
     private val velocityAnimationSpec =
         spring(0.5f, 300f, visibilityThreshold * 10f)
     private val pressProgressAnimationSpec =
-        spring(1f, 1000f, 0.001f)
+        nativeLiftSpec ?: spring(1f, 1000f, 0.001f)
     private val scaleXAnimationSpec =
-        spring(0.6f, 250f, 0.001f)
+        nativeLiftSpec ?: spring(0.6f, 250f, 0.001f)
     private val scaleYAnimationSpec =
-        spring(0.7f, 250f, 0.001f)
+        nativeLiftSpec ?: spring(0.7f, 250f, 0.001f)
 
     private val valueAnimation =
         Animatable(initialValue, visibilityThreshold)
@@ -56,6 +62,9 @@ class DampedDragAnimation(
     private val mutatorMutex = MutatorMutex()
 
     private val velocityTracker = VelocityTracker()
+
+    @Volatile
+    private var liftStartedElapsedMs: Long = 0L
 
     val value: Float get() = valueAnimation.value
     val progress: Float get() = (value - valueRange.start) / (valueRange.endInclusive - valueRange.start)
@@ -88,6 +97,7 @@ class DampedDragAnimation(
 
     fun press() {
         velocityTracker.resetTracking()
+        liftStartedElapsedMs = android.os.SystemClock.elapsedRealtime()
         animationScope.launch {
             launch { pressProgressAnimation.animateTo(1f, pressProgressAnimationSpec) }
             launch { scaleXAnimation.animateTo(pressedScale, scaleXAnimationSpec) }
@@ -97,6 +107,13 @@ class DampedDragAnimation(
 
     fun release() {
         animationScope.launch {
+            if (liftHangTimeMs > 0L) {
+                // Hang time — минимальное время удержания в поднятом состоянии
+                // (UIKit-поведение), а не задержка после отпускания.
+                while (android.os.SystemClock.elapsedRealtime() - liftStartedElapsedMs < liftHangTimeMs) {
+                    withFrameNanos { }
+                }
+            }
             awaitFrame()
             if (value != targetValue) {
                 val threshold = (valueRange.endInclusive - valueRange.start) * 0.025f

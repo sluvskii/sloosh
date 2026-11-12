@@ -351,6 +351,8 @@ fun LiquidBottomTabs(
                 initialScale = 1f,
                 pressedScale = 60f / 44f,
                 pressedScaleY = 68f / 44f,
+                liftSpringStiffness = 631.65468f,
+                liftHangTimeMs = 220L,
                 onDragStarted = {},
                 onDragStopped = {
                     val count = currentTabsCount
@@ -500,6 +502,27 @@ fun LiquidBottomTabs(
                                         refractionHeight = LiquidGlassTokens.Bar.refractionHeight.toPx(),
                                         refractionAmount = LiquidGlassTokens.Bar.refractionAmount.toPx()
                                     )
+                                    // Адаптивное тело ползунка (glasmio NativeTabIdle):
+                                    // цвет из материала бара через UIKit-матрицы, живёт от контента.
+                                    if (isLtr) {
+                                        iosTabIdleBody(
+                                            pillLeft = insetPx + dampedDragAnimation.value * normalStepPx + dampedDragAnimation.inertialShiftPx,
+                                            pillTop = (size.height - pillHeightPx * dampedDragAnimation.scaleY) / 2f,
+                                            pillWidth = normalPillWidthPx * dampedDragAnimation.scaleX,
+                                            pillHeight = pillHeightPx * dampedDragAnimation.scaleY,
+                                            isLight = isLightTheme,
+                                            liftProgress = progress
+                                        )
+                                    } else {
+                                        iosTabIdleBody(
+                                            pillLeft = size.width - (insetPx + normalPillWidthPx + dampedDragAnimation.value * normalStepPx) - dampedDragAnimation.inertialShiftPx,
+                                            pillTop = (size.height - pillHeightPx * dampedDragAnimation.scaleY) / 2f,
+                                            pillWidth = normalPillWidthPx * dampedDragAnimation.scaleX,
+                                            pillHeight = pillHeightPx * dampedDragAnimation.scaleY,
+                                            isLight = isLightTheme,
+                                            liftProgress = progress
+                                        )
+                                    }
                                 }
                             },
                             highlight = null,
@@ -509,34 +532,27 @@ fun LiquidBottomTabs(
                                 val isLight = isLightThemeState.value
                                 val progress = dampedDragAnimation.pressProgress
                                 // Заливка пилюли рисуется здесь — до drawContent(), то есть ПОД подписью.
-                                val pillTint = if (isStaticBar) {
+                                if (isStaticBar) {
                                     // Настройки: пилюля чуть светлее трека, при нажатии заливка уходит.
                                     val lift = if (isLight) 0.90f else 0.16f
-                                    Color.White.copy(alpha = lift * (1f - progress).fastCoerceIn(0f, 1f))
-                                } else {
-                                    Color.Black.copy(
-                                        alpha = (if (isLight) lerp(0.18f, 0.0f, progress) else lerp(0.52f, 0.0f, progress)) * sliderAlpha
-                                    )
-                                }
-                                if (!isStaticBar) drawRect(effectiveContainerColor)
-                                if (pillTint.alpha > 0f) {
-                                    val shift = dampedDragAnimation.inertialShiftPx
-                                    val pillLeft = if (isLtr) {
-                                        insetPx + dampedDragAnimation.value * normalStepPx + shift
-                                    } else {
-                                        size.width - (insetPx + normalPillWidthPx + dampedDragAnimation.value * normalStepPx) - shift
-                                    }
-                                    val w = normalPillWidthPx * dampedDragAnimation.scaleX
-                                    val h = pillHeightPx * dampedDragAnimation.scaleY
-                                    val centerX = pillLeft + normalPillWidthPx / 2f
-                                    val centerY = size.height / 2f
-
                                     drawRoundRect(
-                                        color = pillTint,
-                                        topLeft = Offset(centerX - w / 2f, centerY - h / 2f),
-                                        size = Size(w, h),
-                                        cornerRadius = CornerRadius(h / 2f, h / 2f)
+                                        color = Color.White.copy(alpha = lift * (1f - progress).fastCoerceIn(0f, 1f)),
+                                        topLeft = Offset(
+                                            if (isLtr) insetPx + dampedDragAnimation.value * normalStepPx + dampedDragAnimation.inertialShiftPx
+                                            else size.width - (insetPx + normalPillWidthPx + dampedDragAnimation.value * normalStepPx) - dampedDragAnimation.inertialShiftPx,
+                                            size.height / 2f - pillHeightPx * dampedDragAnimation.scaleY / 2f
+                                        ),
+                                        size = Size(
+                                            normalPillWidthPx * dampedDragAnimation.scaleX,
+                                            pillHeightPx * dampedDragAnimation.scaleY
+                                        ),
+                                        cornerRadius = CornerRadius(pillHeightPx * dampedDragAnimation.scaleY / 2f)
                                     )
+                                } else {
+                                    // Стеклянный бар: статичное чёрное затемнение удалено —
+                                    // тело ползунка теперь считает шейдер iosTabIdleBody
+                                    // (адаптивный матричный tint из NativeTabIdle).
+                                    drawRect(effectiveContainerColor)
                                 }
                             }
                         )
