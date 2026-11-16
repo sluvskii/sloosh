@@ -115,7 +115,6 @@ internal class HighlightNode(
         shader = null
         style = null
         geometry = null
-        nativeBlender = null
     }
 
     private data class Geometry(
