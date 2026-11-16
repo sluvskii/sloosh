@@ -43,13 +43,12 @@ import com.slooshfilm.app.data.storage.WatchProgressItem
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import androidx.compose.ui.graphics.RectangleShape
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.components.LocalBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.theme.*
 import java.util.concurrent.TimeUnit
 
@@ -58,7 +57,7 @@ fun ContinueScreen(
     onPlayItem: (WatchProgressItem) -> Unit = {},
     onBackClick: () -> Unit = {},
     progressStore: PlaybackProgressStore = PlaybackProgressStore.getInstance(LocalContext.current),
-    backdrop: com.slooshfilm.app.ui.backdrop.Backdrop? = null,
+    backdrop: io.github.neoruaa.glasmio.glass.render.Backdrop? = null,
     modifier: Modifier = Modifier
 ) {
     val progressItems by progressStore.itemsFlow.collectAsStateWithLifecycle()
@@ -214,12 +213,11 @@ fun ContinueScreen(
                                 shape = { RectangleShape },
                                 effects = {
                                     val topOffsetPx = statusBarPadding.toPx()
-                                    iosProgressiveBlur(
-                                        maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                        topOffset = topOffsetPx,
-                                        falloffDistance = (size.height - topOffsetPx).coerceAtLeast(1f),
-                                        isLight = isLightTheme
-                                    )
+                                    progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((size.height - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                                 },
                                 highlight = null,
                                 shadow = null
@@ -245,7 +243,7 @@ fun ContinueScreen(
         }
 
         // 2. Floating Top Navigation Bar matching iOS SlooshTopBar 1:1
-        CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+        CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides sceneBackdrop) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier

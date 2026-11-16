@@ -22,8 +22,6 @@ import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.ErrorStateView
-import com.slooshfilm.app.ui.components.liquidGlass
-import com.slooshfilm.app.ui.components.plusBlendMode
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -42,13 +40,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
-import com.slooshfilm.app.ui.backdrop.backdrops.LayerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -459,11 +457,10 @@ private fun HomeFloatingHeaderBackground(
                         shape = { RectangleShape },
                         effects = {
                             val topOffsetPx = statusBarPadding.toPx()
-                            iosProgressiveBlur(
+                            progressiveBackdropBlur(
                                 maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                topOffset = topOffsetPx,
-                                falloffDistance = (headerBlurHeight.toPx() - topOffsetPx).coerceAtLeast(1f),
-                                isLight = isLightTheme
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((headerBlurHeight.toPx() - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
                             )
                         },
                         highlight = null,

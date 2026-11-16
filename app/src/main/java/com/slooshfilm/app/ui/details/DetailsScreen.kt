@@ -90,26 +90,23 @@ import com.slooshfilm.app.data.storage.FavoritesStore
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.lerp
-import com.slooshfilm.app.ui.backdrop.Backdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.Backdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCanvasBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
 import com.slooshfilm.app.ui.components.ErrorStateView
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
-import com.slooshfilm.app.ui.components.InteractiveHighlight
-import com.slooshfilm.app.ui.components.LiquidGlassDialog
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
-import com.slooshfilm.app.ui.components.LiquidGlassTokens
-import com.slooshfilm.app.ui.components.liquidGlassInteractive
-import com.slooshfilm.app.ui.components.LocalBackdrop
+import com.slooshfilm.app.ui.components.SlooshGlassDialog
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
+import com.slooshfilm.app.ui.components.SlooshGlassTokens
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.MediaCard
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
-import com.slooshfilm.app.ui.components.liquidGlassSurface
+import com.slooshfilm.app.ui.components.slooshGlassSurface
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import com.slooshfilm.app.ui.theme.*
@@ -119,6 +116,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import com.slooshfilm.app.ui.components.LocalShowOriginalTitle
+import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 // Shared hero fade used by both the real backdrop and its loading skeleton
 private val detailsHeroFadeStops = arrayOf(
@@ -898,11 +897,11 @@ fun DetailsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Download — to the left of play (iOS: DetailsHeroDownloadButton)
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = { showOfflineDownloadDialog = true },
                                 backdrop = glassBackdrop,
                                 shape = CircleShape,
-                                tint = LiquidGlassSurfaceDark,
+                                tint = SlooshGlassScrimDark,
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 SfIcon(
@@ -937,7 +936,7 @@ fun DetailsScreen(
                             )
 
                             // Favorite — to the right of play (iOS: favoriteButton in the hero row)
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = {
                                     details?.let { mediaItem ->
                                         favoritesStore.toggleFavorite(mediaItem.toMediaDto())
@@ -945,7 +944,7 @@ fun DetailsScreen(
                                 },
                                 backdrop = glassBackdrop,
                                 shape = CircleShape,
-                                tint = LiquidGlassSurfaceDark,
+                                tint = SlooshGlassScrimDark,
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 SfIcon(
@@ -979,14 +978,14 @@ fun DetailsScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 genres.forEach { genre ->
-                                    LiquidGlassFloatingButton(
+                                    SlooshFloatingButton(
                                         onClick = {
                                             onGenreClick(genre, if (item.isTvSeries) "tv" else "movie")
                                         },
                                         backdrop = glassBackdrop,
                                         blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = LiquidGlassSurfaceDark,
+                                        tint = SlooshGlassScrimDark,
                                         borderAlpha = 0.50f,
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
@@ -1029,7 +1028,7 @@ fun DetailsScreen(
                                     val brand = StudioBrand.find(studio.name)
                                     val catalogId = brand?.id ?: studio.id
                                     val isEnabled = !catalogId.isNullOrBlank()
-                                    LiquidGlassFloatingButton(
+                                    SlooshFloatingButton(
                                         onClick = {
                                             if (isEnabled) {
                                                 catalogId?.let { id -> onStudioClick(id, brand?.name ?: studio.name.orEmpty()) }
@@ -1038,7 +1037,7 @@ fun DetailsScreen(
                                         backdrop = glassBackdrop,
                                         blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = LiquidGlassSurfaceDark,
+                                        tint = SlooshGlassScrimDark,
                                         borderAlpha = 0.50f,
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
@@ -1147,7 +1146,7 @@ fun DetailsScreen(
                                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                                         label = "chevronRotation"
                                     )
-                                    LiquidGlassFloatingButton(
+                                    SlooshFloatingButton(
                                         onClick = {
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             isDescriptionExpanded = !isDescriptionExpanded
@@ -1155,7 +1154,7 @@ fun DetailsScreen(
                                         backdrop = descriptionBackdrop,
                                         blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = LiquidGlassSurfaceDark,
+                                        tint = SlooshGlassScrimDark,
                                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
                                         modifier = Modifier.align(Alignment.BottomCenter)
                                     ) {
@@ -1503,8 +1502,8 @@ fun DetailsScreen(
                                             modifier = Modifier
                                                 .align(Alignment.Center)
                                                 .size(42.dp)
-                                                .liquidGlassSurface(
-                                                    style = LiquidGlassTokens.Button,
+                                                .slooshGlassSurface(
+                                                    style = SlooshGlassTokens.Button,
                                                     shape = CircleShape,
                                                     containerColor = Color.Black.copy(alpha = 0.40f),
                                                     backdrop = thumbBackdrop
@@ -1566,14 +1565,14 @@ fun DetailsScreen(
                             ) {
                                 items(allSeasonNumbers, key = { it }, contentType = { "season-chip" }) { seasonNum ->
                                     val isSelected = seasonNum == selectedSeasonNumber
-                                    LiquidGlassFloatingButton(
+                                    SlooshFloatingButton(
                                         onClick = {
                                             selectedSeasonNumber = seasonNum
                                         },
                                         backdrop = glassBackdrop,
                                         blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = if (isSelected) Color.White else LiquidGlassSurfaceDark,
+                                        tint = if (isSelected) Color.White else SlooshGlassScrimDark,
                                         borderAlpha = if (isSelected) 0.85f else 0.50f,
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp)
                                     ) {
@@ -1675,8 +1674,8 @@ fun DetailsScreen(
                                                     modifier = Modifier
                                                         .align(Alignment.Center)
                                                         .size(36.dp)
-                                                        .liquidGlassSurface(
-                                                            style = LiquidGlassTokens.Button,
+                                                        .slooshGlassSurface(
+                                                            style = SlooshGlassTokens.Button,
                                                             shape = CircleShape,
                                                             containerColor = Color.Black.copy(alpha = 0.50f),
                                                             backdrop = stillBackdrop
@@ -1861,10 +1860,10 @@ fun DetailsScreen(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Box(
                                     modifier = Modifier
-                                        .liquidGlassSurface(
-                                            style = LiquidGlassTokens.CompactPill,
+                                        .slooshGlassSurface(
+                                            style = SlooshGlassTokens.CompactPill,
                                             shape = Capsule(),
-                                            containerColor = LiquidGlassSurfaceDark,
+                                            containerColor = SlooshGlassScrimDark,
                                             backdrop = glassBackdrop
                                         )
                                         .clip(Capsule())
@@ -1928,11 +1927,11 @@ fun DetailsScreen(
                                 shape = { RectangleShape },
                                 effects = {
                                     val topOffsetPx = statusBarPadding.toPx()
-                                    iosProgressiveBlur(
-                                        maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                        topOffset = topOffsetPx,
-                                        falloffDistance = (headerBlurHeight.toPx() - topOffsetPx).coerceAtLeast(1f)
-                                    )
+                                    progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((headerBlurHeight.toPx() - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                                 },
                                 highlight = null,
                                 shadow = null
@@ -1958,7 +1957,7 @@ fun DetailsScreen(
     }
 
     // Floating Top Bar: Circular Glass Back Button (start) + Compact Logo / Title (center) + Trailing Actions (end)
-    CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+    CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides sceneBackdrop) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1969,11 +1968,11 @@ fun DetailsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
                 // Circular Back Button with Liquid Glass backdrop & touch stretch
-                LiquidGlassFloatingButton(
+                SlooshFloatingButton(
                     onClick = onBack,
                     backdrop = sceneBackdrop,
                     shape = CircleShape,
-                    tint = LiquidGlassSurfaceDark,
+                    tint = SlooshGlassScrimDark,
                     modifier = Modifier.size(44.dp)
                 ) {
                     SfIcon(
@@ -2057,7 +2056,7 @@ fun DetailsScreen(
 
                 // Trailing Action: circular Share button (iOS 1:1: square.and.arrow.up in the
                 // navigation bar). Favorite has moved to the hero row, next to play, as on iOS.
-                LiquidGlassFloatingButton(
+                SlooshFloatingButton(
                     onClick = {
                         val shareTitle = details?.title ?: details?.originalTitle
                         if (!shareTitle.isNullOrBlank()) {
@@ -2074,7 +2073,7 @@ fun DetailsScreen(
                     },
                     backdrop = sceneBackdrop,
                     shape = CircleShape,
-                    tint = LiquidGlassSurfaceDark,
+                    tint = SlooshGlassScrimDark,
                     modifier = Modifier.size(44.dp)
                 ) {
                     SfIcon(
@@ -2123,7 +2122,7 @@ fun DetailsScreen(
 
         // Offline Download Dialog (Coming Soon)
         if (showOfflineDownloadDialog) {
-            LiquidGlassDialog(
+            SlooshGlassDialog(
                 title = "Офлайн-просмотр",
                 onDismissRequest = { showOfflineDownloadDialog = false },
                 backdrop = sceneBackdrop,
@@ -2237,8 +2236,8 @@ private fun BackdropPageIndicator(
 
     Box(
         modifier = modifier
-            .liquidGlassSurface(
-                style = LiquidGlassTokens.CompactPill.copy(highlightAlpha = 0.65f),
+            .slooshGlassSurface(
+                style = SlooshGlassTokens.CompactPill.copy(highlightAlpha = 0.65f),
                 shape = Capsule(),
                 containerColor = Color.Black.copy(alpha = 0.35f),
                 backdrop = backdrop

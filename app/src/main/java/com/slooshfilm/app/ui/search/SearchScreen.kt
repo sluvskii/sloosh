@@ -22,28 +22,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.ErrorStateView
-import com.slooshfilm.app.ui.components.InteractiveHighlight
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
-import com.slooshfilm.app.ui.components.LiquidGlassTokens
-import com.slooshfilm.app.ui.components.liquidGlassInteractive
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import androidx.compose.ui.graphics.RectangleShape
-import com.slooshfilm.app.ui.backdrop.backdrops.LayerBackdrop
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.components.LocalBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCanvasBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -85,6 +82,7 @@ import com.slooshfilm.app.ui.theme.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -369,7 +367,7 @@ fun SearchScreen(
                     .padding(horizontal = 16.dp + cutoutPadding),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                LiquidGlassFloatingButton(
+                SlooshFloatingButton(
                     onClick = { onSettingsClick?.invoke() },
                     shape = CircleShape,
                     modifier = Modifier.size(44.dp),
@@ -468,17 +466,19 @@ private fun SearchDiscoveryView(
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondaryDark
                         )
-                        TextButton(
-                            onClick = onClearHistory,
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text(
-                                text = "Очистить",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondaryDark
-                            )
-                        }
+                        // Текстовая кнопка-действие без стеклянной подложки (iOS .plain): кликабельный
+                        // текст с той же типографикой, что и заголовок секции. Стекло тут не нужно —
+                        // это не поверхность, а inline-действие внутри списка.
+                        Text(
+                            text = "Очистить",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondaryDark,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(role = Role.Button, onClick = onClearHistory)
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
                     }
 
                     FlowRow(
@@ -489,12 +489,12 @@ private fun SearchDiscoveryView(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         history.forEach { item ->
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = { onSelectHistory(item) },
                                 backdrop = chipBackdrop,
                                 blurRadius = 8.dp,
                                 shape = Capsule(),
-                                tint = LiquidGlassSurfaceDark,
+                                tint = SlooshGlassScrimDark,
                                 borderAlpha = 0.50f,
                                 contentPadding = PaddingValues(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)
                             ) {
@@ -553,12 +553,12 @@ private fun SearchDiscoveryView(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     genres.forEach { genre ->
-                        LiquidGlassFloatingButton(
+                        SlooshFloatingButton(
                             onClick = { onSelectGenre(genre) },
                             backdrop = chipBackdrop,
                             blurRadius = 8.dp,
                             shape = Capsule(),
-                            tint = LiquidGlassSurfaceDark,
+                            tint = SlooshGlassScrimDark,
                             borderAlpha = 0.50f,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
@@ -594,12 +594,12 @@ private fun SearchDiscoveryView(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     studios.forEach { studio ->
-                        LiquidGlassFloatingButton(
+                        SlooshFloatingButton(
                             onClick = { onSelectStudio(studio) },
                             backdrop = chipBackdrop,
                             blurRadius = 8.dp,
                             shape = Capsule(),
-                            tint = LiquidGlassSurfaceDark,
+                            tint = SlooshGlassScrimDark,
                             borderAlpha = 0.50f,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
@@ -676,12 +676,11 @@ private fun SearchFloatingHeaderBackground(
                     shape = { RectangleShape },
                     effects = {
                         val topOffsetPx = statusBarPadding.toPx()
-                        iosProgressiveBlur(
-                            maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                            topOffset = topOffsetPx,
-                            falloffDistance = (size.height - topOffsetPx).coerceAtLeast(1f),
-                            isLight = isLightTheme
-                        )
+                        progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((size.height - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                     },
                     highlight = null,
                     shadow = null

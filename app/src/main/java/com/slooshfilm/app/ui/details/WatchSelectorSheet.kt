@@ -26,7 +26,6 @@ import androidx.compose.ui.platform.LocalContext
 import coil.request.ImageRequest
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -35,23 +34,24 @@ import coil.compose.AsyncImage
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.UnevenRoundedRectangle
 import com.slooshfilm.app.ui.sficons.SfIcon
-import com.slooshfilm.app.R
 import com.slooshfilm.app.data.alloha.AllohaApiResult
 import com.slooshfilm.app.data.alloha.AllohaTranslationMatcher
 import com.slooshfilm.app.data.alloha.DubbingStudio
 import com.slooshfilm.app.data.alloha.LanguageFlag
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import java.util.Locale
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
 import com.slooshfilm.app.ui.components.EmptyStateView
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
+import com.slooshfilm.app.ui.components.SlooshPrimaryButton
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
 import com.slooshfilm.app.ui.components.rememberAdaptiveSheetHeight
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.theme.*
+import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 /** Радиус верхних углов шторки. */
 private val SheetCornerRadius = 32.dp
@@ -78,7 +78,7 @@ fun WatchSelectorSheet(
     initialEpisode: Int? = null,
     title: String? = null,
     logoUrl: String? = null,
-    backdrop: com.slooshfilm.app.ui.backdrop.Backdrop? = null,
+    backdrop: io.github.neoruaa.glasmio.glass.render.Backdrop? = null,
     onDismiss: () -> Unit,
     onPlay: (
         iframeUrl: String,
@@ -549,12 +549,11 @@ fun WatchSelectorSheet(
                                     backdrop = sheetContentBackdrop,
                                     shape = { RectangleShape },
                                     effects = {
-                                        iosProgressiveBlur(
-                                            maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                            topOffset = 0f,
-                                            falloffDistance = size.height.coerceAtLeast(1f),
-                                            isLight = false
-                                        )
+                                        progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((0f) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((0f) + (size.height.coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                                     },
                                     highlight = null,
                                     shadow = null
@@ -623,11 +622,11 @@ fun WatchSelectorSheet(
                 }
 
                 // Left Close Button (Liquid Glass 44x44 circular button matching iOS)
-                LiquidGlassFloatingButton(
+                SlooshFloatingButton(
                     onClick = onDismiss,
                     backdrop = sheetSceneBackdrop,
                     shape = CircleShape,
-                    tint = LiquidGlassSurfaceDark,
+                    tint = SlooshGlassScrimDark,
                     modifier = Modifier
                         .size(44.dp)
                         .align(Alignment.CenterStart)
@@ -645,7 +644,7 @@ fun WatchSelectorSheet(
             // 3. «Летающая» кнопка действия: плотная белая капсула по ширине контента, закреплена снизу,
             //    видна всегда (iOS: .safeAreaInset(edge: .bottom)).
             if (showActionButton) {
-                Button(
+                SlooshPrimaryButton(
                     onClick = {
                         val iframe = targetIframe
                         if (!iframe.isNullOrBlank()) {
@@ -659,44 +658,17 @@ fun WatchSelectorSheet(
                         }
                     },
                     enabled = isReadyToPlay,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black,
-                        disabledContainerColor = Color.White,
-                        disabledContentColor = Color.Black
-                    ),
-                    shape = Capsule(),
+                    text = "Смотреть",
+                    containerColor = Color.White,
+                    contentColor = Color.Black,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 19.sp,
+                    height = actionButtonHeight,
                     contentPadding = PaddingValues(horizontal = 26.dp),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = actionButtonBottomPadding)
-                        .graphicsLayer { alpha = if (isReadyToPlay) 1f else 0.40f }
-                        .defaultMinSize(minHeight = actionButtonHeight)
-                        .shadow(
-                            elevation = 10.dp,
-                            shape = Capsule(),
-                            spotColor = Color.Black.copy(alpha = 0.22f)
-                        )
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SfIcon(
-                            systemName = "play.fill",
-                            contentDescription = null,
-                            tint = Color.Black,
-                            size = 18.dp,
-                            weight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Смотреть",
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.Black
-                        )
-                    }
-                }
+                )
             }
 
             // 4. Серый драг-индикатор поверх контента (места в разметке не занимает, iOS 1:1).

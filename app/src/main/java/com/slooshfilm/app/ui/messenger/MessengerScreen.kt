@@ -16,15 +16,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.slooshfilm.app.R
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import com.slooshfilm.app.ui.theme.*
+import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 
 /**
  * Аутентичный минималистичный экран «Чаты».
@@ -105,11 +106,11 @@ fun MessengerScreen(
                             shape = { RectangleShape },
                             effects = {
                                 val topOffsetPx = statusBarPadding.toPx()
-                                iosProgressiveBlur(
-                                    maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                    topOffset = topOffsetPx,
-                                    falloffDistance = (headerBlurHeight.toPx() - topOffsetPx).coerceAtLeast(1f)
-                                )
+                                progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((headerBlurHeight.toPx() - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                             },
                             highlight = null,
                             shadow = null

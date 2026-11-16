@@ -25,8 +25,8 @@ import com.kyant.shapes.Capsule
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.models.auth.UserProfile
-import com.slooshfilm.app.ui.backdrop.Backdrop
-import com.slooshfilm.app.ui.components.LiquidGlassDialog
+import io.github.neoruaa.glasmio.glass.render.Backdrop
+import com.slooshfilm.app.ui.components.SlooshGlassDialog
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
 import com.slooshfilm.app.ui.theme.SlooshAccent
 import com.slooshfilm.app.ui.theme.TextPrimary
@@ -52,7 +52,7 @@ fun ProfileAccountDialog(
     val signOutBg = Color(0xFFFF453A).copy(alpha = if (isLightTheme) 0.10f else 0.14f)
     val signOutBorder = Color(0xFFFF453A).copy(alpha = if (isLightTheme) 0.22f else 0.28f)
 
-    LiquidGlassDialog(
+    SlooshGlassDialog(
         title = "Аккаунт",
         onDismissRequest = onDismissRequest,
         backdrop = backdrop,

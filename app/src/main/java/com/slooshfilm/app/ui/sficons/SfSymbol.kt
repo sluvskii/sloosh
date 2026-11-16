@@ -138,6 +138,8 @@ fun SfIcon(
     mirrored: Boolean = false,
     fontFeatureSettings: String = "'ss16' 1",
     fitGlyphToBounds: Boolean = true,
+    /** Запрошенная высота «чернил» глифа: до вендоринга glasmio-ui использовалась сегмент-контролом. */
+    @Suppress("UNUSED_PARAMETER") inkHeight: Dp? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     val toolbar = LocalSfToolbarSymbols.current
@@ -174,6 +176,8 @@ fun SfIcon(
     mirrored: Boolean = false,
     fontFeatureSettings: String = "'ss16' 1",
     fitGlyphToBounds: Boolean = true,
+    /** Запрошенная высота «чернил» глифа: до вендоринга glasmio-ui использовалась сегмент-контролом. */
+    @Suppress("UNUSED_PARAMETER") inkHeight: Dp? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     val toolbar = LocalSfToolbarSymbols.current
