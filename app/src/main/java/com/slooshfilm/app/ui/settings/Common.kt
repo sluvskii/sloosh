@@ -812,6 +812,9 @@ fun IntervalStepper(
 fun StepperButton(enabled: Boolean, onStep: () -> Unit, content: @Composable () -> Unit) {
     val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.4f, label = "alpha")
     val size by animateDpAsState(targetValue = if (enabled) 36.dp else 32.dp, label = "size")
+    // `onPress` — suspend-лямбда в `PressGestureScope`, поэтому корутину повтора запускаем
+    // из внешнего scope экрана, а не из него самого.
+    val pressScope = rememberCoroutineScope()
 
     // Ступпер строки настроек: та же стеклянная капсула glasmio, что и у остальных кнопок
     // (минус/плюс рядом с числом), вместо прозрачной Material `IconButton`.
@@ -825,7 +828,7 @@ fun StepperButton(enabled: Boolean, onStep: () -> Unit, content: @Composable () 
                 if (!enabled) return@pointerInput
                 detectTapGestures(
                     onPress = {
-                        val repeat = launch {
+                        val repeat = pressScope.launch {
                             delay(500)
                             while (isActive) {
                                 onStep()

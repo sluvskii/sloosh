@@ -613,10 +613,14 @@ private fun AdaptiveGlyphAt(center: Float, modifier: Modifier = Modifier, conten
 
 @Composable
 private fun AdaptiveThumbGlyph(content: (@Composable () -> Unit)?, tint: Color = GlasmioTheme.colors.content) {
-    if (content != null) content() else Image(
-        painterResource(io.github.neoruaa.glasmio.icons.R.drawable.glasmio_adaptive_audio),
+    // VENDOR-PATCH(sloosh): апстримный drawable `glasmio_adaptive_audio` в проект не вендорился
+    // (ресурсы glasmio не переносились). Глиф рисуется тем же SF-движком, что и остальные иконки.
+    if (content != null) content() else io.github.neoruaa.glasmio.icons.SfIcon(
+        systemName = "waveform",
+        contentDescription = null,
         // Native 22 pt symbol metrics produce 25 pt of ink; the padded asset needs 30 dp.
-        contentDescription = null, modifier = Modifier.size(30.dp),
-        colorFilter = ColorFilter.tint(tint),
+        modifier = Modifier.size(30.dp),
+        tint = tint,
+        size = 22.dp,
     )
 }

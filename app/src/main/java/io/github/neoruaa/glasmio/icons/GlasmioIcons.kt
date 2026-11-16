@@ -30,14 +30,15 @@ typealias SfSymbol = SlooshSfSymbol
 /**
  * Хост-шрифт символов (res/font/sf_pro_symbols.ttf), как и в `ui/sficons`.
  *
- * `typealias`, а не копия: так это один и тот же CompositionLocal, а не второй с пустым
- * значением по умолчанию (иначе шрифт, положенный нашим провайдером, не был бы виден
- * вендоренным компонентам).
+ * Ссылка на тот же `CompositionLocal` из `ui/sficons`, а не второй экземпляр: иначе шрифт,
+ * положенный нашим провайдером, не был бы виден вендоренным компонентам.
  */
-typealias LocalGlasmioSymbolTypeface = com.slooshfilm.app.ui.sficons.LocalGlasmioSymbolTypeface
+val LocalGlasmioSymbolTypeface: androidx.compose.runtime.ProvidableCompositionLocal<android.graphics.Typeface?> =
+    com.slooshfilm.app.ui.sficons.LocalGlasmioSymbolTypeface
 
 /** Тинт по умолчанию, вычисляемый на каждом месте вызова. */
-typealias LocalGlasmioIconTint = com.slooshfilm.app.ui.sficons.LocalGlasmioIconTint
+val LocalGlasmioIconTint: androidx.compose.runtime.ProvidableCompositionLocal<@Composable () -> androidx.compose.ui.graphics.Color> =
+    com.slooshfilm.app.ui.sficons.LocalGlasmioIconTint
 
 /**
  * Совместимая обёртка над `com.slooshfilm.app.ui.sficons.SfIcon` для типизированных символов.

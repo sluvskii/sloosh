@@ -156,7 +156,7 @@ fun Modifier.plusBlendMode(): Modifier {
 @Composable
 fun Modifier.slooshGlass(
     backdrop: Backdrop? = null,
-    shape: Shape = androidx.compose.foundation.shape.RoundedRectangle(16.dp),
+    shape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
     blurRadius: Dp = 20.dp,
     tint: Color? = null,
     borderAlpha: Float = 0.68f,
@@ -182,7 +182,7 @@ fun Modifier.slooshGlass(
 @Composable
 fun Modifier.slooshGlassSurface(
     style: GlassPreset = SlooshGlassTokens.Surface,
-    shape: Shape = androidx.compose.foundation.shape.RoundedRectangle(16.dp),
+    shape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
     containerColor: Color? = null,
     backdrop: Backdrop? = null,
     layerBlock: (androidx.compose.ui.graphics.GraphicsLayerScope.() -> Unit)? = null,
