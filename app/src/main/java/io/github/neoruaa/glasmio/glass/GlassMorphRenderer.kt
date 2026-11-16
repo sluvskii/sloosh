@@ -685,7 +685,7 @@ class GlassMorphRenderer(
                         pressLight.draw(this, glow.glowProgress,
                             sourceBounds.topLeft + Offset(sourceBounds.width * glow.position.x, sourceBounds.height * glow.position.y),
                             sourceBounds = sourceBounds, clampPosition = pressHighlightBounds == null,
-                            isDark = glowDark, tint = glowTint, clear = glowClear, dissipationProgress = glow.dissipationProgress)
+                            isDark = glowDark, tint = glowTint, clear = glowClear, dissipationProgress = glow.dissipationProgress, horizontalRadius = null)
                     }
                 }
             }
@@ -814,6 +814,7 @@ class GlassMorphRenderer(
                         tint = glowTint,
                         clear = glowClear,
                         dissipationProgress = glow.dissipationProgress,
+                        horizontalRadius = null,
                     )
                 }
             }

@@ -74,7 +74,7 @@ jobs:
           GRADLE_STATUS=${PIPESTATUS[0]}
           if [ $GRADLE_STATUS -ne 0 ]; then
             echo "::error title=Gradle Build Failed::assembleRelease exited with status $GRADLE_STATUS"
-            grep -E "Script compilation error:|FAILURE:|Unresolved reference:|Caused by:" -A 3 gradle-build.log | while IFS= read -r line; do
+            grep -E "^e: |Script compilation error:|FAILURE:|Unresolved reference|Caused by:" -A 3 gradle-build.log | while IFS= read -r line; do
               echo "::error title=Gradle Error::$line"
             done
             exit $GRADLE_STATUS

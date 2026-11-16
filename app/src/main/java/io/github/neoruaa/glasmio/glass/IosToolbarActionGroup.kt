@@ -878,7 +878,8 @@ class ToolbarActionGroup(
             tint = active.highlight.materialTint,
             clear = active.highlight.materialClear,
             dissipationProgress = active.highlight.dissipationProgress,
-            boundsHighlight = false)
+            boundsHighlight = false,
+            horizontalRadius = null)
     }
 
     fun shape(run: List<ToolbarActionMember>, separation: Float): Shape {
