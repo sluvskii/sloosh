@@ -57,6 +57,9 @@
      только по глифу (UIKit-распределение коротких табов), а имя таба уходит в `contentDescription`
      для TalkBack. Хост включает его из настройки `tab_bar_shows_labels`
      (1:1 с iOS `tabBarShowsLabels` / `.labelStyle(.iconOnly)`).
+- `GlassControls.kt` — вербатим (полный файл: `GlasmioSwitch`, `GlasmioSegmentedControl`,
+  `nativeControlLensGeometry` и др.). Прежний экстракт `NativeControlLensGeometry.kt` удалён:
+  он дублировал функцию из этого файла.
 - `IosMenus.kt` / `IosLists.kt` — **VENDOR-PATCH(sloosh)**: ссылки на
   `com.slooshfilm.app.ui.sficons.LocalSfToolbarSymbols` сделаны полными именами (импорт
   остаётся только в `GlassSurface.kt`), чтобы не тянуть локал в чужие пакеты.

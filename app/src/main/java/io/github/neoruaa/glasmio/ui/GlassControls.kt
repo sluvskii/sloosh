@@ -87,34 +87,6 @@ import io.github.neoruaa.glasmio.glass.DampedDragAnimation
 
 internal val LocalMergedGlassCards = staticCompositionLocalOf { false }
 
-/** Resize the rendered lens while retaining its resting layout and input bounds. */
-internal fun Modifier.nativeControlLensGeometry(
-    style: NativeControlLensStyle,
-    horizontalProgress: () -> Float,
-    verticalProgress: () -> Float = horizontalProgress,
-): Modifier = layout { measurable, constraints ->
-    val restingWidth = constraints.maxWidth
-    val restingHeight = constraints.maxHeight
-    val horizontal = horizontalProgress()
-    val vertical = verticalProgress()
-    val width = when (style) {
-        NativeControlLensStyle.SwitchThumb -> restingWidth * (1f + (58f / 37f - 1f) * horizontal)
-        NativeControlLensStyle.SliderThumb -> restingWidth * (1f + .55f * horizontal)
-        NativeControlLensStyle.SegmentedIndicator -> restingWidth + 24.dp.toPx() * horizontal
-        NativeControlLensStyle.TabBarIndicator -> restingWidth + 16.dp.toPx() * horizontal
-    }.fastRoundToInt().coerceAtLeast(1)
-    val height = when (style) {
-        NativeControlLensStyle.SwitchThumb -> restingHeight * (1f + (38.333333f / 24f - 1f) * vertical)
-        NativeControlLensStyle.SliderThumb -> restingHeight * (1f + .55f * vertical)
-        NativeControlLensStyle.SegmentedIndicator,
-        NativeControlLensStyle.TabBarIndicator -> restingHeight + 16.dp.toPx() * vertical
-    }.fastRoundToInt().coerceAtLeast(1)
-    val placeable = measurable.measure(Constraints.fixed(width, height))
-    layout(restingWidth, restingHeight) {
-        placeable.place((restingWidth - width) / 2, (restingHeight - height) / 2)
-    }
-}
-
 /**
  * iOS 27 switch: 63 x 28 dp track and 37 x 24 dp elastic liquid thumb.
  * The checked track defaults to system green; [onTintColor] provides an explicit override.
