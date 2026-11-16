@@ -30,8 +30,26 @@ TabBarIndicator) — тот самый AGSL-конвейер iOS 27 NativeContro
   + `nativeControlLens(style = TabBarIndicator, …, liftedContent = …)` через
   мост `GlasmioBackdropBridge.kt` (адаптер Backdrop-интерфейсов наших движков).
 - Доп. зависимость: `io.github.kyant0:capsule:2.1.3` (continuous-геометрия).
-- glasmio.core/glasmio.icons/glasmio-ui НЕ вендорились: у приложения своя тема,
-  свои иконки (п. 1) и свой бар — взят только оптический рендер.
+- glasmio.core и glasmio.icons НЕ вендорились: у приложения своя тема и свои иконки (п. 1).
+
+## 3. glasmio-ui (частично) → `io.github.neoruaa.glasmio.ui`
+
+- `GlassBottomBar.kt` — вербатим из апстрима, кроме трёх групп правок:
+  1. `GlasmioTabItem.badgeCount` + обёртка `BadgedBox` вокруг глифа (непрочитанные «Чаты»);
+  2. `pressedScale = 60f / 44f` вместо апстримовских `78f / 56f` (метрики бара sloosh, правило 9);
+  3. **VENDOR-PATCH(sloosh)** — режим «только иконки»: параметр `showsLabels` у
+     `GlasmioNavigationBar` и `showLabel` у `FullTabContent` / `MorphingSelectedNavigationItem` /
+     `NavigationTabContent`. Подпись при `false` не компонуется вовсе (иначе её отступы 1dp + 4dp
+     смещают глиф выше центра капсулы), `hasNativeShortTabs` считает внутреннюю ширину элемента
+     только по глифу (UIKit-распределение коротких табов), а имя таба уходит в `contentDescription`
+     для TalkBack. Хост включает его из настройки `tab_bar_shows_labels` (1:1 с iOS
+     `tabBarShowsLabels` / `.labelStyle(.iconOnly)`).
+- `GlassButtons.kt` — вербатим (`GlasmioIconButton` и др.).
+- `NativeControlLensGeometry.kt` — вербатим-экстракт `Modifier.nativeControlLensGeometry`
+  из апстримовского `GlassControls.kt` (сам `GlassControls.kt` не вендорился).
+- `GlasmioNavigationBarWithTrailingItem.kt` — **файл sloosh, не апстрим**: обёртка, собирающая
+  вендоренный `GlasmioNavigationBar`, свой `FloatingNavigationControl` (отцеплённая круглая кнопка
+  поиска) и `BottomNavigationContact`; параметр `showsLabels` пробрасывается транзитом.
 
 ## Лицензии
 

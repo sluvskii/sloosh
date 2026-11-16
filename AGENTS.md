@@ -128,19 +128,41 @@ Always use the standardized modifiers rather than low-level `drawBackdrop` calls
 
 ---
 
-### 5. Bottom Navigation 3-Layer Architecture (`LiquidBottomTabs.kt`)
+### 5. Bottom Navigation (`SlooshBottomBar.kt` + vendored glasmio-ui)
 
-The bottom bar employs a 3-layer optical composite:
-- **Layer 1 (Navbar Base)**: Height `barHeight` (54dp portrait / 44dp landscape, see §6), `LiquidGlassTokens.Bar`. Renders the main glass bar and inactive tab icons.
-- **Layer 2 (Off-screen Capture)**: Height `pillHeight` = `barHeight - 8.dp` (46dp / 36dp), `.alpha(0f).layerBackdrop(tabsBackdrop)`.
-  - Captures active tab icons with `LocalLiquidBottomTabTint` (`SlooshAccent` lime).
-  - Uses `lens(12.dp, 22.dp)` so that Layer 3 refracts the wallpaper underneath without turning flat gray.
-  - Highlight and border scale strictly with `progress > 0f` to keep resting state pristine.
-- **Layer 3 (Dynamic Lens Pill)**: Height `pillHeight` (46dp / 36dp), width `pillWidthDp`.
-  - Samples `rememberCombinedBackdrop(backdrop, tabsBackdrop)`.
-  - Features `iosLens` (5/10dp with 0.40 dispersion) only while dragging.
-  - Dynamically inflates to `pressedScale = 60f / 44f` during active drag and scales the active tab icon to `1.2f`.
-  - In resting state, produces a smooth, unbordered frosted glass tab.
+The navbar is the vendored glasmio bar (iOS 27 Liquid Glass), **not** a hand-rolled 3-layer composite:
+
+- **Main platter**: `GlasmioNavigationBar` with the four `Screen.bottomBarTabs`
+  (Главная, Чаты, Продолжить, Профиль) on one `BottomNavigationContact` sheet; height
+  `NavigationBarSurfaceHeight` = 62dp in every orientation.
+- **Trailing control**: the detached circular Поиск button (`FloatingNavigationControl`,
+  `detachTrailingItem = true`; 62dp touch surface, `CompactBottomControlSize` = 48dp glass).
+- **Selection**: the morphing `nativeControlLens(TabBarIndicator)` droplet driven by
+  `DampedDragAnimation`; the platter inflates with `pressedScale = 60f / 44f` and the selected
+  glyph scales to `1.2f`. Never reduce these (rule 9).
+- **Search mode** (`currentRoute == Screen.Search.route`): the platter is replaced by
+  back-to-previous-tab + glass search field + close button inside an `AnimatedContent`.
+- **Unread badge**: `GlasmioTabItem.badgeCount` → Material `BadgedBox` around the Чаты glyph
+  (sloosh addition to the vendored file).
+
+**Tab glyph rule (iOS 1:1).** One symbol per tab, *identical* in the resting and the selected state.
+`private fun Screen.tabSymbol()` in `SlooshBottomBar.kt` is the single source of truth:
+`house.fill`, `bubble.left.and.bubble.right.fill`, `clock.arrow.circlepath`, `person.fill`,
+`magnifyingglass` — exactly `iOS-sloosh` `Sources/UI/Home/ContentView.swift` (Чаты has no iOS
+counterpart). Selection is conveyed by tint and the droplet only. **Never swap an outline glyph for a
+filled one on selection**: iOS never does it, and the outline pair reads as a foreign icon set.
+
+**Tab caption rule.** Captions are a user setting, not a layout constant:
+`LocalStorage.getTabBarShowsLabels()` (pref `tab_bar_shows_labels`, default `false` = icons only, the
+iOS default) → `LocalTabBarShowsLabels` (provided in `NavGraph.kt`, refreshed by the
+`OnSharedPreferenceChangeListener`) → `GlasmioNavigationBarWithTrailingItem(showsLabels = …)`.
+User-facing toggle: Настройки → Интерфейс → «Названия вкладок». When captions are off the vendored bar
+does not compose the `Text` at all (composing it with zero alpha would leave its 1dp + 4dp paddings and
+push the glyph above the capsule center), switches to UIKit's short-item allocation
+(`hasNativeShortTabs`), and moves the tab name into `contentDescription` so TalkBack still announces it.
+
+`LiquidBottomTabs.kt` is **no longer the navbar** — it survives as the segmented control of
+Настройки (`SettingsSegmentedRow`, `settings/Common.kt`).
 
 ---
 
@@ -168,6 +190,11 @@ This matches what the content screens already reserve — every screen uses
 `pillHeight` follows as `barHeight - 8.dp` (46dp -> 36dp), and the droplet keeps inflating with the same
 `pressedScale = 60f / 44f` / `pressedScaleY = 68f / 44f` ratios (rule 9 is never touched: the ratio is
 applied to the pill, so the droplet scales proportionally by itself).
+
+**What the glasmio navbar actually consumes** (see §5): only `horizontalPadding` and `compactTabsWidth`.
+Its glass surface is a fixed `NavigationBarSurfaceHeight` = 62dp in both orientations and the detached
+search control is 62dp as well, so `barHeight`, `buttonSize` and `maxBarWidth` currently have no consumer
+— keep them in sync with the reserved-space math of content screens, but do not expect them to resize the bar.
 
 **Short viewport contract.** Any full-screen form (mandatory `AuthSheet`, TV `PairConfirmScreen`) must stay
 reachable in landscape: add `.verticalScroll(...)` gated on `rememberIsShortViewport()` and replace
