@@ -198,12 +198,17 @@ private val NavigationLabelStyle: TextStyle
     )
 
 @Composable
-private fun <T> hasNativeShortTabs(items: List<GlasmioTabItem<T>>): Boolean {
+private fun <T> hasNativeShortTabs(
+    items: List<GlasmioTabItem<T>>,
+    showsLabels: Boolean = true,
+): Boolean {
     val symbolTypeface = LocalGlasmioSymbolTypeface.current
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = NavigationLabelStyle.copy(fontWeight = FontWeight.Medium)
-    return remember(items, symbolTypeface, density, textMeasurer, labelStyle) {
+    // VENDOR-PATCH(sloosh): в режиме «только иконки» внутренняя ширина элемента —
+    // это только глиф, поэтому UIKit-распределение коротких табов применяется чаще.
+    return remember(items, symbolTypeface, density, textMeasurer, labelStyle, showsLabels) {
         if (items.size !in 4..5 || symbolTypeface == null) return@remember false
         val maximumIntrinsicWidth = with(density) { 42.dp.toPx() }
         val symbolPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -212,12 +217,14 @@ private fun <T> hasNativeShortTabs(items: List<GlasmioTabItem<T>>): Boolean {
             fontFeatureSettings = "'ss16' 1"
         }
         items.all { item ->
-            val titleWidth = textMeasurer.measure(
-                text = AnnotatedString(item.label),
-                style = labelStyle,
-                softWrap = false,
-                maxLines = 1,
-            ).multiParagraph.intrinsics.maxIntrinsicWidth
+            val titleWidth = if (showsLabels) {
+                textMeasurer.measure(
+                    text = AnnotatedString(item.label),
+                    style = labelStyle,
+                    softWrap = false,
+                    maxLines = 1,
+                ).multiParagraph.intrinsics.maxIntrinsicWidth
+            } else 0f
             val glyph = String(Character.toChars(item.symbol.codePoint))
             // The advance retains the symbol's side bearings, unlike its visible ink bounds.
             maxOf(titleWidth, symbolPaint.measureText(glyph)) <= maximumIntrinsicWidth
@@ -272,6 +279,9 @@ fun <T> GlasmioNavigationBar(
     onItemBoundsChanged: ((T, Rect) -> Unit)? = null,
     compactItem: GlasmioTabItem<T>? = null,
     onItemIconBoundsChanged: ((T, Rect) -> Unit)? = null,
+    // VENDOR-PATCH(sloosh): хост управляет подписями табов (iOS 1:1 —
+    // tabBarShowsLabels / .labelStyle(.iconOnly)). false — только иконки.
+    showsLabels: Boolean = true,
 ) {
     require(items.isNotEmpty())
     val compactState = remember(compactProgress) {
@@ -289,7 +299,7 @@ fun <T> GlasmioNavigationBar(
     }
     val stableItems = remember(items) { StableGlassTabItems(items) }
     val tabItems = stableItems.values
-    val nativeShortItems = hasNativeShortTabs(tabItems)
+    val nativeShortItems = hasNativeShortTabs(tabItems, showsLabels)
     val selectedItemIndex = tabItems.indexOfFirst { it.key == selectedKey }
     val hasSelection = selectedItemIndex >= 0
     val selectedIndex = selectedItemIndex.coerceAtLeast(0)
@@ -899,6 +909,7 @@ fun <T> GlasmioNavigationBar(
                             compactProgress = compactState,
                             onItemBoundsChanged = onItemBoundsChanged,
                             onItemIconBoundsChanged = onItemIconBoundsChanged,
+                            showLabel = showsLabels,
                         )
                     }
                     if (hasSelection || compactMode) MorphingSelectedNavigationItem(
@@ -913,6 +924,7 @@ fun <T> GlasmioNavigationBar(
                         expandedTabWidthPx = expandedTabWidthPx,
                         selectedContentLateScale = selectedContentLateScaleProvider,
                         labelAlpha = tabContentAlpha,
+                        showLabel = showsLabels,
                         selectedIconColorFilter = selectedIconColorFilterState,
                         contentColor = colors.content,
                         panelScale = selectedTabPanelScale,
@@ -933,6 +945,7 @@ fun <T> GlasmioNavigationBar(
                         expandedTabWidthPx = expandedTabWidthPx,
                         selectedContentLateScale = selectedContentLateScaleProvider,
                         labelAlpha = { 0f },
+                        showLabel = showsLabels,
                         iconAlpha = { compactState.value },
                         selectedIconColorFilter = null,
                         contentColor = colors.content,
@@ -978,6 +991,7 @@ fun <T> GlasmioNavigationBar(
                             compactTabWidthPx = compactInnerWidthPx / tabItems.size,
                             compactProgress = compactState,
                             selectedContentSource = true,
+                            showLabel = showsLabels,
                         )
                         MorphingSelectedNavigationItem(
                             item = selectedItem,
@@ -991,6 +1005,7 @@ fun <T> GlasmioNavigationBar(
                             expandedTabWidthPx = expandedTabWidthPx,
                             selectedContentLateScale = selectedContentLateScaleProvider,
                             labelAlpha = tabContentAlpha,
+                            showLabel = showsLabels,
                             selectedIconColorFilter = hiddenSelectedIconColorFilterState,
                             contentColor = colors.content,
                             selectedContentSource = true,
@@ -1070,6 +1085,9 @@ private fun <T> FullTabContent(
     selectedContentSource: Boolean = false,
     onItemBoundsChanged: ((T, Rect) -> Unit)? = null,
     onItemIconBoundsChanged: ((T, Rect) -> Unit)? = null,
+    // VENDOR-PATCH(sloosh): false — подпись не создаётся вовсе (иконка центрируется,
+    // имя таба для TalkBack уходит в contentDescription).
+    showLabel: Boolean = true,
 ) {
     val scale = LocalLiquidTabScale.current
     Layout(
@@ -1090,7 +1108,11 @@ private fun <T> FullTabContent(
                                     role = Role.Tab,
                                     onClick = { onSelected(item.key) },
                                 )
-                                .semantics { this.selected = selected },
+                                .semantics {
+                                    this.selected = selected
+                                    // Без видимой подписи озвучку берёт contentDescription.
+                                    if (!showLabel) contentDescription = item.contentDescription
+                                },
                         )
                         .then(
                             if (onItemBoundsChanged != null) Modifier.onGloballyPositioned { coordinates ->
@@ -1120,6 +1142,7 @@ private fun <T> FullTabContent(
                                 // without two unused tint layers observing every press frame.
                                 selectedColorFilter = if (selected && hideSelectedItem) null else selectedColorFilter,
                                 selectedContentSource = selectedContentSource,
+                                showLabel = showLabel,
                                 onIconBoundsChanged = if (!selectedContentSource && !(selected && hideSelectedItem)) {
                                     onItemIconBoundsChanged?.let { callback -> { bounds -> callback(item.key, bounds) } }
                                 } else null,
@@ -1184,6 +1207,7 @@ private fun <T> NavigationTabContent(
     selectedColorFilter: State<ColorFilter>? = null,
     selectedIconTint: Color? = null,
     labelAlpha: (() -> Float)? = null,
+    showLabel: Boolean = true,
     rasterizeBeforeScale: Boolean = false,
     selectedContentSource: Boolean = false,
     iconAlpha: (() -> Float)? = null,
@@ -1193,7 +1217,9 @@ private fun <T> NavigationTabContent(
     val tabIcon = @Composable {
         SfIcon(
             symbol = item.symbol,
-            contentDescription = item.contentDescription,
+            // VENDOR-PATCH(sloosh): без видимой подписи имя таба объявляет кликабельный
+            // узел (contentDescription в его semantics) — озвучка не должна дублироваться.
+            contentDescription = if (showLabel) item.contentDescription else null,
             tint = if (selected) selectedIconTint ?: colors.accent else colors.content,
             size = ExpandedNavigationIconSize,
             fontSize = 18.sp,
@@ -1202,8 +1228,13 @@ private fun <T> NavigationTabContent(
             fitGlyphToBounds = false,
             modifier = Modifier
                 .then(
-                    if (labelAlpha != null) Modifier.navigationTabIconPadding(labelAlpha)
-                    else Modifier.padding(top = 3.dp),
+                    // VENDOR-PATCH(sloosh): без подписи компенсационный верхний отступ
+                    // не нужен — глиф центрируется в капсуле.
+                    when {
+                        !showLabel -> Modifier
+                        labelAlpha != null -> Modifier.navigationTabIconPadding(labelAlpha)
+                        else -> Modifier.padding(top = 3.dp)
+                    },
                 )
                 .then(
                     if (onIconBoundsChanged != null) Modifier.onGloballyPositioned {
@@ -1245,39 +1276,43 @@ private fun <T> NavigationTabContent(
     } else {
         tabIcon()
     }
-    Text(
-        text = item.label,
-        color = colors.content,
-        style = NavigationLabelStyle,
-        fontWeight = if (selectedContentSource) FontWeight.SemiBold else FontWeight.Medium,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .widthIn(max = labelMaxWidth)
-            .then(
-                if (labelAlpha != null) {
-                    Modifier.collapseVertically(labelAlpha)
-                } else {
-                    Modifier
-                },
-            )
-            .padding(top = 1.dp, bottom = 4.dp)
-            .then(
-                if (labelAlpha != null || (selected && selectedColorFilter != null) || rasterizeBeforeScale) {
-                    Modifier.graphicsLayer {
-                        if (labelAlpha != null) {
-                            alpha = labelAlpha().coerceIn(0f, 1f)
+    // VENDOR-PATCH(sloosh): в режиме «только иконки» подпись не создаётся —
+    // иначе её вертикальные отступы (1dp + 4dp) смещали бы глиф выше центра.
+    if (showLabel) {
+        Text(
+            text = item.label,
+            color = colors.content,
+            style = NavigationLabelStyle,
+            fontWeight = if (selectedContentSource) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .widthIn(max = labelMaxWidth)
+                .then(
+                    if (labelAlpha != null) {
+                        Modifier.collapseVertically(labelAlpha)
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(top = 1.dp, bottom = 4.dp)
+                .then(
+                    if (labelAlpha != null || (selected && selectedColorFilter != null) || rasterizeBeforeScale) {
+                        Modifier.graphicsLayer {
+                            if (labelAlpha != null) {
+                                alpha = labelAlpha().coerceIn(0f, 1f)
+                            }
+                            if (selected) {
+                                selectedColorFilter?.let { colorFilter = it.value }
+                            }
+                            if (rasterizeBeforeScale) compositingStrategy = CompositingStrategy.Offscreen
                         }
-                        if (selected) {
-                            selectedColorFilter?.let { colorFilter = it.value }
-                        }
-                        if (rasterizeBeforeScale) compositingStrategy = CompositingStrategy.Offscreen
-                    }
-                } else {
-                    Modifier
-                },
-            ),
-    )
+                    } else {
+                        Modifier
+                    },
+                ),
+        )
+    }
 }
 
 private fun Modifier.navigationTabIconPadding(labelAlpha: () -> Float): Modifier = layout { measurable, constraints ->
@@ -1316,6 +1351,7 @@ internal fun <T> BoxScope.MorphingSelectedNavigationItem(
     expandedTabWidthPx: Float,
     selectedContentLateScale: () -> Float,
     labelAlpha: () -> Float,
+    showLabel: Boolean = true,
     selectedIconColorFilter: State<ColorFilter>?,
     contentColor: Color,
     panelScale: () -> Float = { 1f },
@@ -1403,6 +1439,7 @@ internal fun <T> BoxScope.MorphingSelectedNavigationItem(
                 selectedColorFilter = selectedIconColorFilter,
                 selectedIconTint = contentColor,
                 labelAlpha = labelAlpha,
+                showLabel = showLabel,
                 // Match the filtered path's individual raster bounds before the tab
                 // scales, even when the opaque parent makes both inner tints redundant.
                 rasterizeBeforeScale = true,

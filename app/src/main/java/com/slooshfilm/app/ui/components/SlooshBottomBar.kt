@@ -58,6 +58,9 @@ import io.github.neoruaa.glasmio.ui.NavigationBarSurfaceHeight
  * 1. Обычный режим:
  *    - GlasmioNavigationBarWithTrailingItem с контактным жидким стеклом (BottomNavigationContact)
  *    - 4 таба (Главная, Чаты, Продолжить, Профиль) на единой стеклянной подложке
+ *    - Подписи табов переключаются настройкой «Названия вкладок» (LocalTabBarShowsLabels):
+ *      при выключенных подписях остаются только глифы, отцентрированные в капсуле, —
+ *      1:1 с iOS `.labelStyle(.iconOnly)` из ContentView.swift
  *    - Активный ползунок-капля (nativeControlLens) с физикой DampedDragAnimation и раздуванием на касание (platterPuff)
  *    - Вспомогательная круглая кнопка Поиск на базе FloatingNavigationControl
  *    - Контактный мениск и объединенная тень между плашкой и поиском
@@ -96,6 +99,10 @@ fun SlooshBottomBar(
     val glasmioBackdrop = rememberGlasmioBackdrop(activeBackdrop)
     val isLightTheme = !LocalSlooshColors.current.isDark
 
+    // Настройка «Названия вкладок» (Settings → LocalStorage.tab_bar_shows_labels);
+    // значение реактивное: NavGraph слушает SharedPreferences и обновляет Local.
+    val tabBarShowsLabels = LocalTabBarShowsLabels.current
+
     val navBarBottomPadding = rememberNavBarBottomPadding()
     val imeBottomDp = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
     val barMetrics = rememberAdaptiveBarMetrics()
@@ -110,28 +117,31 @@ fun SlooshBottomBar(
         label = "imeBottom"
     )
 
-    val glasmioTabItems = remember(currentTab, unreadMessageCount) {
+    // iOS не подменяет контурный глиф заливным при выборе таба: символ один и тот же
+    // в обоих состояниях (ContentView.swift — house.fill, clock.arrow.circlepath,
+    // person.fill, magnifyingglass), а активный таб отличают подсветка и капля-ползунок.
+    val glasmioTabItems = remember(unreadMessageCount) {
         listOf<GlasmioTabItem<Screen>>(
             GlasmioTabItem(
                 key = Screen.Home,
-                label = "Главная",
-                symbol = if (currentTab == Screen.Home) SfSymbol.HouseFilled else SfSymbol.House,
+                label = Screen.Home.title,
+                symbol = Screen.Home.tabSymbol(),
             ),
             GlasmioTabItem(
                 key = Screen.Messenger,
-                label = "Чаты",
-                symbol = if (currentTab == Screen.Messenger) SfSymbol.BubbleLeftAndBubbleRightFilled else SfSymbol.BubbleLeftAndBubbleRight,
+                label = Screen.Messenger.title,
+                symbol = Screen.Messenger.tabSymbol(),
                 badgeCount = unreadMessageCount,
             ),
             GlasmioTabItem(
                 key = Screen.ContinueWatching,
-                label = "Продолжить",
-                symbol = if (currentTab == Screen.ContinueWatching) SfSymbol.PlayCircleFilled else SfSymbol.PlayCircle,
+                label = Screen.ContinueWatching.title,
+                symbol = Screen.ContinueWatching.tabSymbol(),
             ),
             GlasmioTabItem(
                 key = Screen.Profile,
-                label = "Профиль",
-                symbol = if (currentTab == Screen.Profile) SfSymbol.PersonFilled else SfSymbol.Person,
+                label = Screen.Profile.title,
+                symbol = Screen.Profile.tabSymbol(),
             ),
         )
     }
@@ -139,8 +149,8 @@ fun SlooshBottomBar(
     val trailingSearchItem = remember {
         GlasmioTabItem<Screen>(
             key = Screen.Search,
-            label = "Поиск",
-            symbol = SfSymbol.Search,
+            label = Screen.Search.title,
+            symbol = Screen.Search.tabSymbol(),
         )
     }
 
@@ -196,6 +206,7 @@ fun SlooshBottomBar(
                     detachTrailingItem = true,
                     compactSize = CompactBottomControlSize,
                     maxMainWidth = barMetrics.compactTabsWidth,
+                    showsLabels = tabBarShowsLabels,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
@@ -227,15 +238,8 @@ fun SlooshBottomBar(
                             style = GlassSurfaceStyle.Navigation,
                             modifier = Modifier.size(NavigationBarSurfaceHeight)
                         ) {
-                            val iconSf = when (previousTab) {
-                                Screen.Home -> SfSymbol.House
-                                Screen.Messenger -> SfSymbol.BubbleLeftAndBubbleRight
-                                Screen.ContinueWatching -> SfSymbol.PlayCircle
-                                Screen.Profile -> SfSymbol.Person
-                                else -> SfSymbol.House
-                            }
                             SfIcon(
-                                symbol = iconSf,
+                                symbol = previousTab.tabSymbol(),
                                 contentDescription = previousTab.title,
                                 tint = colors.content,
                                 size = 24.dp
@@ -359,4 +363,20 @@ fun SlooshBottomBar(
             }
         }
     }
+}
+
+/**
+ * Символы табов нижнего навбара: один глиф на таб, без контурно-заливного переключения.
+ *
+ * Имена совпадают с iOS (`sloosh-iOS/sloosh/Sources/UI/Home/ContentView.swift`):
+ * `house.fill`, `clock.arrow.circlepath`, `person.fill`, `magnifyingglass`. Для «Чатов»
+ * в Android-версии используется пара пузырей — этот таб в iOS отсутствует.
+ */
+private fun Screen.tabSymbol(): SfSymbol = when (this) {
+    Screen.Home -> SfSymbol.HouseFilled
+    Screen.Messenger -> SfSymbol.BubbleLeftAndBubbleRightFilled
+    Screen.ContinueWatching -> SfSymbol.ClockArrowCirclepath
+    Screen.Profile -> SfSymbol.PersonFilled
+    Screen.Search -> SfSymbol.Search
+    else -> SfSymbol.HouseFilled
 }

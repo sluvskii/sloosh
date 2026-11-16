@@ -296,6 +296,7 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = "Названия вкладок",
+                subtitle = "Без них в нижнем меню остаются только иконки, как в iOS",
                 iconSfName = "dock.rectangle",
                 checked = tabBarShowsLabels,
                 onCheckedChange = { checked ->

@@ -62,6 +62,8 @@ fun <T> GlasmioNavigationBarWithTrailingItem(
     compactSize: Dp = CompactBottomControlSize,
     maxMainWidth: Dp? = null,
     onItemBoundsChanged: ((T, Rect) -> Unit)? = null,
+    // VENDOR-PATCH(sloosh): прозрачно пробрасывает режим подписей в GlasmioNavigationBar.
+    showsLabels: Boolean = true,
 ) {
     require(items.isNotEmpty()) { "At least one main navigation item is required." }
     require(items.none { it.key == trailingItem.key }) { "The trailing item key must be unique." }
@@ -103,6 +105,7 @@ fun <T> GlasmioNavigationBarWithTrailingItem(
                     onItemIconBoundsChanged = { key, bounds ->
                         if (key == trailingItem.key && compactProgress.value <= 0f) sourceIconBounds = bounds
                     },
+                    showsLabels = showsLabels,
                 )
                 CompositionLocalProvider(LocalBottomControlContactMemberActive provides auxiliaryContactActive) {
                     FloatingNavigationControl(
