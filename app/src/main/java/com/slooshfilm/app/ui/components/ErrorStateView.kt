@@ -12,19 +12,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kyant.shapes.Capsule
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.theme.TextPrimaryDark
 import com.slooshfilm.app.ui.theme.TextSecondaryDark
@@ -92,29 +88,13 @@ fun ErrorStateView(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Премиальная белая кнопка Apple TV+
-        Button(
+        // Главная кнопка Apple TV+: плотная белая капсула (общий sloosh-компонент)
+        SlooshPrimaryButton(
             onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = Color.Black
-            ),
-            shape = Capsule(),
-            contentPadding = PaddingValues(horizontal = 32.dp, vertical = 14.dp),
-            modifier = Modifier
-                .height(50.dp)
-                .shadow(
-                    elevation = 8.dp,
-                    shape = Capsule(),
-                    spotColor = Color.Black.copy(alpha = 0.35f)
-                )
-        ) {
-            Text(
-                text = retryText,
-                color = Color.Black,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+            text = retryText,
+            height = 50.dp,
+            contentPadding = PaddingValues(horizontal = 32.dp),
+            fontSize = 16.sp
+        )
     }
 }

@@ -13,10 +13,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +31,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.slooshfilm.app.data.repository.AuthRepository
+import com.slooshfilm.app.ui.components.SlooshPrimaryButton
+import com.slooshfilm.app.ui.components.SlooshSecondaryButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -147,7 +146,8 @@ fun PairConfirmScreen(
             }
 
             if (!success && !busy) {
-                Button(
+                SlooshPrimaryButton(
+                    text = "Разрешить вход",
                     onClick = {
                         busy = true
                         message = null
@@ -165,27 +165,28 @@ fun PairConfirmScreen(
                         }
                     },
                     enabled = code.length >= 8,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black),
+                    containerColor = AccentGreen,
+                    contentColor = Color.Black,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Разрешить вход", fontWeight = FontWeight.Bold)
-                }
-                OutlinedButton(
+                )
+                SlooshSecondaryButton(
                     onClick = onDismiss,
+                    text = "Отмена",
+                    contentColor = TextSecondary,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Отмена", color = TextSecondary)
-                }
+                )
             }
 
             if (success) {
-                Button(
+                SlooshPrimaryButton(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black),
+                    text = "Готово",
+                    containerColor = AccentGreen,
+                    contentColor = Color.Black,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Готово", fontWeight = FontWeight.Bold)
-                }
+                )
             }
         }
     }

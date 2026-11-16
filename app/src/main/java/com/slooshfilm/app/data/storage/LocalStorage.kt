@@ -27,7 +27,7 @@ class LocalStorage(context: Context) {
         const val SHOW_VOTES_KEY = "show_votes"
         const val UPDATE_URL_KEY = "update_url"
         const val PROGRESSIVE_BLUR_KEY = "progressive_blur_enabled"
-        const val LIQUID_GLASS_BLUR_KEY = "liquid_glass_blur_opacity"
+        const val GLASS_BLUR_KEY = "liquid_glass_blur_opacity"
         const val GLASS_ENABLED_KEY = "glass_enabled"
 
         /** Последняя выбранная озвучка (глобально) — как iOS `alloha_last_translation_name`. */
@@ -42,12 +42,12 @@ class LocalStorage(context: Context) {
         return prefs.getBoolean(GLASS_ENABLED_KEY, true)
     }
 
-    fun saveLiquidGlassBlur(opacity: Float) {
-        prefs.edit().putFloat(LIQUID_GLASS_BLUR_KEY, opacity).apply()
+    fun saveGlassBlur(opacity: Float) {
+        prefs.edit().putFloat(GLASS_BLUR_KEY, opacity).apply()
     }
 
-    fun getLiquidGlassBlur(): Float {
-        return prefs.getFloat(LIQUID_GLASS_BLUR_KEY, 0.70f)
+    fun getGlassBlur(): Float {
+        return prefs.getFloat(GLASS_BLUR_KEY, 0.70f)
     }
 
     fun saveProgressiveBlurEnabled(enabled: Boolean) {

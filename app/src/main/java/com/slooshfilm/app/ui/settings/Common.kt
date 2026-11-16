@@ -1,26 +1,16 @@
 package com.slooshfilm.app.ui.settings
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
-import com.slooshfilm.app.ui.theme.LocalSlooshColors
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -38,64 +28,46 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.lerp
-import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import com.slooshfilm.app.ui.backdrop.backdrops.LayerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.components.LiquidGroupedList
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
-import com.slooshfilm.app.ui.backdrop.highlight.Highlight
-import com.slooshfilm.app.ui.backdrop.shadow.Shadow
-import com.slooshfilm.app.ui.components.ConcentratedHighlightStyle
-import com.slooshfilm.app.ui.components.DampedDragAnimation
-import com.slooshfilm.app.ui.components.LiquidBottomTab
-import com.slooshfilm.app.ui.components.LiquidBottomTabs
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
-import com.slooshfilm.app.ui.components.LiquidToggle
-import com.slooshfilm.app.ui.components.LocalBackdrop
-import com.slooshfilm.app.ui.components.glassBorder
-import com.slooshfilm.app.ui.components.iosFrostedBlur
-import com.slooshfilm.app.ui.components.iosLens
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
+import com.slooshfilm.app.ui.components.LocalSlooshMenuHostState
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
-import com.slooshfilm.app.ui.components.iosVibrantGlass
-import com.slooshfilm.app.ui.components.LiquidGlassDialog
-import com.slooshfilm.app.ui.components.LiquidMenuTokens
-import com.slooshfilm.app.ui.components.LiquidMenuState
-import com.slooshfilm.app.ui.components.LocalLiquidMenuHostState
-import com.slooshfilm.app.ui.components.LiquidGlassMenuOverlay
 import com.slooshfilm.app.ui.components.SettingsMenuTrigger
-import com.slooshfilm.app.ui.theme.BackgroundDark
-import com.slooshfilm.app.ui.theme.LocalSlooshColors
-import androidx.compose.ui.graphics.painter.Painter
-import com.slooshfilm.app.ui.sficons.SfIcon
-import com.slooshfilm.app.ui.theme.SlooshAccent
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.util.fastCoerceIn
-import androidx.compose.ui.util.fastRoundToInt
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
+import com.slooshfilm.app.ui.components.SlooshGlassDialog
+import com.slooshfilm.app.ui.components.SlooshGlassMenuOverlay
+import com.slooshfilm.app.ui.components.SlooshGroupedList
+import com.slooshfilm.app.ui.components.SlooshMenuState
+import com.slooshfilm.app.ui.components.SlooshMenuTokens
+import com.slooshfilm.app.ui.components.SlooshToggle
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
+import com.slooshfilm.app.ui.sficons.SfIcon
+import com.slooshfilm.app.ui.theme.LocalSlooshColors
+import com.slooshfilm.app.ui.theme.SlooshAccent
+import io.github.neoruaa.glasmio.glass.GlassSurface
+import io.github.neoruaa.glasmio.glass.GlassSurfaceStyle
+import io.github.neoruaa.glasmio.glass.LocalGlassBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
+import io.github.neoruaa.glasmio.ui.GlasmioSegmentedControl
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Composable
@@ -115,7 +87,7 @@ fun SettingsScaffold(
         drawRect(screenBg)
         drawContent()
     }
-    val menuState = remember { LiquidMenuState() }
+    val menuState = remember { SlooshMenuState() }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val rawStatusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -176,7 +148,7 @@ fun SettingsScaffold(
                             .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = bottomTotalPadding)
                     ) {
                         CompositionLocalProvider(
-                            LocalLiquidMenuHostState provides menuState
+                            LocalSlooshMenuHostState provides menuState
                         ) {
                             content()
                         }
@@ -203,12 +175,11 @@ fun SettingsScaffold(
                                 shape = { RectangleShape },
                                 effects = {
                                     val topOffsetPx = statusBarPadding.toPx()
-                                    iosProgressiveBlur(
-                                        maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                        topOffset = topOffsetPx,
-                                        falloffDistance = (size.height - topOffsetPx).coerceAtLeast(1f),
-                                        isLight = isLightTheme
-                                    )
+                                    progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((size.height - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                                 },
                                 highlight = null,
                                 shadow = null
@@ -234,7 +205,7 @@ fun SettingsScaffold(
         }
 
         // Floating TopBar with genuine Liquid Glass Back Button (refracting sceneBackdrop)
-        CompositionLocalProvider(LocalBackdrop provides effectiveSceneBackdrop) {
+        CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides effectiveSceneBackdrop) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier
@@ -253,7 +224,7 @@ fun SettingsScaffold(
                     modifier = Modifier.padding(horizontal = 60.dp)
                 )
                 onBackClick?.let {
-                    LiquidGlassFloatingButton(
+                    SlooshFloatingButton(
                         onClick = it,
                         backdrop = effectiveSceneBackdrop,
                         shape = CircleShape,
@@ -275,7 +246,7 @@ fun SettingsScaffold(
         }
 
         // Topmost Liquid Glass Context Menu Overlay
-        LiquidGlassMenuOverlay(
+        SlooshGlassMenuOverlay(
             state = menuState,
             backdrop = contentBackdrop
         )
@@ -299,7 +270,7 @@ fun TopBar(title: String, onBackClick: (() -> Unit)? = null) {
             textAlign = TextAlign.Center
         )
         onBackClick?.let {
-            LiquidGlassFloatingButton(
+            SlooshFloatingButton(
                 onClick = it,
                 shape = CircleShape,
                 modifier = Modifier
@@ -383,7 +354,7 @@ fun SettingsSection(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             )
         }
-        LiquidGroupedList(
+        SlooshGroupedList(
             modifier = Modifier.fillMaxWidth()
         ) {
             content()
@@ -651,21 +622,6 @@ fun SettingsSegmentedRow(
     onOptionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLightTheme = !LocalSlooshColors.current.isDark
-    // Пилюля сегментов — стекло поверх трека, по которому она ездит, поэтому сэмплируем
-    // именно цвет трека (а не фон экрана — он темнее и делал пилюлю чёрной).
-    val trackUnderlay = if (isLightTheme) {
-        lerpColor(MaterialTheme.colorScheme.surface, Color.Black, 0.08f)
-    } else {
-        Color(0xFF2C2C2E)
-    }
-    // Цвет читаем из состояния в момент отрисовки, а не из замыкания: иначе записанные
-    // стеклянные слои (пилюля) остаются в цветах прошлой темы до первого взаимодействия.
-    val trackUnderlayState = rememberUpdatedState(trackUnderlay)
-    val glassBackdrop = rememberCanvasBackdrop {
-        drawRect(trackUnderlayState.value)
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -688,34 +644,16 @@ fun SettingsSegmentedRow(
         }
         Spacer(modifier = Modifier.height(8.dp))
 
-        LiquidBottomTabs(
-            selectedTabIndex = { selectedIndex },
-            onTabSelected = onOptionSelected,
-            backdrop = glassBackdrop,
-            tabsCount = options.size,
-            barHeight = 36.dp,
-            pillHeight = 30.dp,
-            pillExtraWidth = 0.dp,
-            isStaticBar = true,
-            accentColor = if (isLightTheme) Color.Black else Color.White,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            options.forEachIndexed { index, option ->
-                LiquidBottomTab(
-                    onClick = { onOptionSelected(index) },
-                    clip = false
-                ) {
-                    Text(
-                        text = option,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
-        }
+        // Сегмент-контрол рисует движок glasmio: дорожка, стеклянный индикатор с линзовым
+        // преломлением и физика перетаскивания приходят из вендоренного glasmio-ui.
+        val segmentedItems = remember(options) { options.mapIndexed { index, label -> index to label } }
+        GlasmioSegmentedControl(
+            items = segmentedItems,
+            selected = selectedIndex,
+            onSelected = onOptionSelected,
+            modifier = Modifier.fillMaxWidth(),
+            height = 36.dp,
+        )
     }
 }
 
@@ -760,7 +698,7 @@ fun SettingsSwitchItem(
                 )
             }
         }
-        LiquidToggle(
+        SlooshToggle(
             selected = { checked },
             onSelect = onCheckedChange
         )
@@ -872,29 +810,41 @@ fun IntervalStepper(
 
 @Composable
 fun StepperButton(enabled: Boolean, onStep: () -> Unit, content: @Composable () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    LaunchedEffect(isPressed) {
-        if (isPressed && enabled) {
-            delay(500)
-            while (true) {
-                onStep()
-                delay(100)
-            }
-        }
-    }
-
     val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.4f, label = "alpha")
     val size by animateDpAsState(targetValue = if (enabled) 36.dp else 32.dp, label = "size")
+    // `onPress` — suspend-лямбда в `PressGestureScope`, поэтому корутину повтора запускаем
+    // из внешнего scope экрана, а не из него самого.
+    val pressScope = rememberCoroutineScope()
 
-    IconButton(
-        onClick = { if (enabled) onStep() },
-        enabled = enabled,
-        interactionSource = interactionSource,
+    // Ступпер строки настроек: та же стеклянная капсула glasmio, что и у остальных кнопок
+    // (минус/плюс рядом с числом), вместо прозрачной Material `IconButton`.
+    GlassSurface(
         modifier = Modifier
             .size(size)
             .alpha(alpha)
+            // Удержание ступпера продолжает шагать значение (как раньше через press-events
+            // Material-кнопки): 500 мс ожидания, затем шаг каждые 100 мс.
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onPress = {
+                        val repeat = pressScope.launch {
+                            delay(500)
+                            while (isActive) {
+                                onStep()
+                                delay(100)
+                            }
+                        }
+                        tryAwaitRelease()
+                        repeat.cancel()
+                    }
+                )
+            },
+        backdrop = LocalGlassBackdrop.current,
+        shape = CircleShape,
+        style = GlassSurfaceStyle.Navigation,
+        enabled = enabled,
+        onClick = { if (enabled) onStep() },
     ) {
         val contentColor = if (enabled) SlooshAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
         CompositionLocalProvider(LocalContentColor provides contentColor) {
@@ -916,7 +866,7 @@ fun SettingsChoiceDialog(
 ) {
     val haptic = LocalHapticFeedback.current
 
-    LiquidGlassDialog(
+    SlooshGlassDialog(
         title = title,
         onDismissRequest = onDismiss
     ) { dismiss ->
@@ -926,8 +876,8 @@ fun SettingsChoiceDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(LiquidMenuTokens.itemHeight)
-                        .clip(LiquidMenuTokens.itemShape)
+                        .height(SlooshMenuTokens.itemHeight)
+                        .clip(SlooshMenuTokens.itemShape)
                         .background(if (isSelected) Color.White.copy(alpha = 0.10f) else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)

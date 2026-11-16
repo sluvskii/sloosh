@@ -166,9 +166,9 @@ dependencies {
     // Room removed: storage is SharedPreferences+Gson; no annotations were processed
     // (KSP was disabled), so the runtime jars were dead weight.
 
-    // iOS Shapes (Backdrop engine is now fully in-tree in com.slooshfilm.app.ui.backdrop)
+    // iOS Shapes — непрерывная геометрия вендоренного движка glasmio (io.github.neoruaa.glasmio.glass)
     implementation("io.github.kyant0:shapes:1.2.1")
-    // Continuous capsule geometry — требуется вендоренному движку glasmio-glass (ползунок навбара)
+    // Continuous capsule geometry — капсулы навбара, кнопок и контекстных меню glasmio
     implementation("io.github.kyant0:capsule:2.1.3")
 
     // Google Play Services Auth for Native System Bottom Sheet Sign-In

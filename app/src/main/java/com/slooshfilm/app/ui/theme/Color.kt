@@ -34,8 +34,9 @@ val SlooshAccentDark = RawSlooshAccentDark
 val SlooshAccentLight = RawSlooshAccentLight
 
 // Liquid Glass Surfaces (iOS 27 authentic vibrant smoked glass)
-val LiquidGlassSurfaceDark = Color.White.copy(alpha = 0.05f)       // Authentic Apple Liquid Glass crystalline vibrant tint
-val LiquidGlassSurfaceLight = Color.White.copy(alpha = 0.82f)     // Authentic Apple Liquid Glass crystalline white tint for light mode
+// Тёмный тинт стеклянных плашек (пресеты кнопок/капсул).
+val SlooshGlassScrimDark = Color.White.copy(alpha = 0.05f)       // Authentic Apple Liquid Glass crystalline vibrant tint
+val SlooshGlassTintLight = Color.White.copy(alpha = 0.82f)     // Authentic Apple Liquid Glass crystalline white tint for light mode
 val GlassSurfaceDark = Color(0xCC1A1A1A)       // 80% opacity dark glass
 val GlassSurfaceElevated = Color(0xE6222222)   // 90% opacity elevated glass
 val GlassBorderDark = Color(0x26FFFFFF)         // 15% opacity white border

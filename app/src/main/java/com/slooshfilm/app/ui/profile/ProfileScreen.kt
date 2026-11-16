@@ -54,23 +54,21 @@ import com.slooshfilm.app.data.repository.CloudSyncService
 import com.slooshfilm.app.data.storage.FavoritesStore
 import com.slooshfilm.app.data.storage.LocalStorage
 import com.slooshfilm.app.ui.components.EmptyStateView
-import com.slooshfilm.app.ui.components.LiquidGlassAlertDialog
-import com.slooshfilm.app.ui.components.LiquidGlassDialog
-import com.slooshfilm.app.ui.components.LiquidGlassTokens
+import com.slooshfilm.app.ui.components.SlooshAlertDialog
+import com.slooshfilm.app.ui.components.SlooshGlassDialog
 import com.slooshfilm.app.ui.components.LocalCardDensity
 import com.slooshfilm.app.ui.components.MediaCard
-import com.slooshfilm.app.ui.components.LiquidGlassDualButton
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
+import com.slooshfilm.app.ui.components.SlooshDualButton
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
 import com.slooshfilm.app.ui.components.plusBlendMode
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import androidx.compose.ui.graphics.RectangleShape
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.components.LocalBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.theme.*
 
 enum class FavoriteCategory(val title: String) {
@@ -302,12 +300,11 @@ fun ProfileScreen(
                                 shape = { RectangleShape },
                                 effects = {
                                     val topOffsetPx = statusBarPadding.toPx()
-                                    iosProgressiveBlur(
-                                        maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                                        topOffset = topOffsetPx,
-                                        falloffDistance = (size.height - topOffsetPx).coerceAtLeast(1f),
-                                        isLight = isLightTheme
-                                    )
+                                    progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((size.height - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                                 },
                                 highlight = null,
                                 shadow = null
@@ -333,7 +330,7 @@ fun ProfileScreen(
         }
 
         // 2. Floating Liquid Glass Header matching iOS 1:1 (refracting sceneBackdrop)
-        CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+        CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides sceneBackdrop) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -354,7 +351,7 @@ fun ProfileScreen(
                     ) {
                         // Left Avatar / Sign-In Button (iOS 1:1)
                         if (isAuthenticated) {
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = { showAccountDialog = true },
                                 backdrop = sceneBackdrop,
                                 shape = CircleShape,
@@ -392,7 +389,7 @@ fun ProfileScreen(
                                 }
                             }
                         } else {
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = { showAuthSheet = true },
                                 backdrop = sceneBackdrop,
                                 shape = Capsule(),
@@ -433,8 +430,8 @@ fun ProfileScreen(
                                 .padding(horizontal = 80.dp)
                         )
 
-                        // Right Capsule: Download + Settings side-by-side (LiquidGlassDualButton, 44dp height)
-                        LiquidGlassDualButton(
+                        // Right Capsule: Download + Settings side-by-side (SlooshDualButton, 44dp height)
+                        SlooshDualButton(
                             firstOnClick = { showDownloadsDialog = true },
                             secondOnClick = { onNavigateToSettings() },
                             backdrop = sceneBackdrop,
@@ -487,7 +484,7 @@ fun ProfileScreen(
 
         // Sign Out Confirmation Alert
         if (showSignOutAlert) {
-            LiquidGlassAlertDialog(
+            SlooshAlertDialog(
                 title = "Выйти из аккаунта?",
                 message = "Вы действительно хотите выйти из своего аккаунта?",
                 confirmButtonText = "Выйти",
@@ -514,7 +511,7 @@ fun ProfileScreen(
 
         // Downloads Dialog (Coming Soon)
         if (showDownloadsDialog) {
-            LiquidGlassDialog(
+            SlooshGlassDialog(
                 title = "Загрузки",
                 onDismissRequest = { showDownloadsDialog = false },
                 backdrop = sceneBackdrop,
@@ -585,7 +582,7 @@ fun ProfileScreen(
         // Long-Press Action Sheet Dialog for Favorite item
         val selectedMedia = longClickedMedia
         if (selectedMedia != null) {
-            LiquidGlassDialog(
+            SlooshGlassDialog(
                 title = selectedMedia.displayTitle,
                 onDismissRequest = { longClickedMedia = null },
                 backdrop = sceneBackdrop,

@@ -4,8 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -18,8 +16,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.components.SlooshBottomBar
 import com.slooshfilm.app.ui.continue_watching.ContinueScreen
 import com.slooshfilm.app.ui.details.DetailsScreen
@@ -35,12 +33,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.slooshfilm.app.data.storage.LocalStorage
 import com.slooshfilm.app.ui.components.LocalCardDensity
 import com.slooshfilm.app.ui.components.LocalCardStyle
-import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.LocalPosterQuality
 import com.slooshfilm.app.ui.components.LocalShowOriginalTitle
 import com.slooshfilm.app.ui.components.LocalTabBarShowsLabels
-import com.slooshfilm.app.ui.components.LocalGlassBlurMultiplier
-import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import android.app.Activity
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -105,7 +100,7 @@ fun SlooshApp() {
     var currentPosterQuality by remember { mutableStateOf(localStorage.getString("poster_quality", "Среднее")) }
     var currentShowOriginalTitle by remember { mutableStateOf(localStorage.getShowOriginalTitle()) }
     var currentTabBarShowsLabels by remember { mutableStateOf(localStorage.getTabBarShowsLabels()) }
-    var currentGlassBlurMultiplier by remember { mutableFloatStateOf(localStorage.getLiquidGlassBlur()) }
+    var currentGlassBlurMultiplier by remember { mutableFloatStateOf(localStorage.getGlassBlur()) }
     var currentGlassEnabled by remember { mutableStateOf(localStorage.getGlassEnabled()) }
 
     val prefListener = remember {
@@ -117,7 +112,7 @@ fun SlooshApp() {
                 "poster_quality" -> currentPosterQuality = localStorage.getString("poster_quality", "Среднее")
                 "show_original_title" -> currentShowOriginalTitle = localStorage.getShowOriginalTitle()
                 "tab_bar_shows_labels" -> currentTabBarShowsLabels = localStorage.getTabBarShowsLabels()
-                LocalStorage.LIQUID_GLASS_BLUR_KEY -> currentGlassBlurMultiplier = localStorage.getLiquidGlassBlur()
+                LocalStorage.GLASS_BLUR_KEY -> currentGlassBlurMultiplier = localStorage.getGlassBlur()
                 LocalStorage.GLASS_ENABLED_KEY -> currentGlassEnabled = localStorage.getGlassEnabled()
             }
         }
@@ -179,15 +174,19 @@ fun SlooshApp() {
     }
 
     com.slooshfilm.app.ui.sficons.GlasmioIconProvider(symbolTypeface = symbolTypeface) {
+    // Настройки стекла переводим в термины движка glasmio: «Режим без стекла» и
+    // «Размытие стекла» управляют материалом navbara, кнопок и диалогов.
+    com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider(
+        glassEnabled = currentGlassEnabled,
+        progressiveBlurEnabled = currentProgressiveBlur,
+        blurMultiplier = currentGlassBlurMultiplier
+    ) {
     CompositionLocalProvider(
         LocalCardStyle provides currentCardStyle,
         LocalCardDensity provides currentCardDensity,
-        LocalGlassEnabled provides currentGlassEnabled,
-        LocalProgressiveBlur provides currentProgressiveBlur,
         LocalPosterQuality provides currentPosterQuality,
         LocalShowOriginalTitle provides currentShowOriginalTitle,
-        LocalTabBarShowsLabels provides currentTabBarShowsLabels,
-        LocalGlassBlurMultiplier provides currentGlassBlurMultiplier
+        LocalTabBarShowsLabels provides currentTabBarShowsLabels
     ) {
         Box(
             modifier = Modifier
@@ -571,4 +570,5 @@ fun SlooshApp() {
     }
 }
 } // com.slooshfilm.app.ui.sficons.GlasmioIconProvider
+} // com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider
 }

@@ -33,8 +33,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.shapes.Capsule
-import com.slooshfilm.app.ui.backdrop.Backdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.emptyBackdrop
+import io.github.neoruaa.glasmio.glass.render.Backdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.emptyBackdrop
 import com.slooshfilm.app.ui.navigation.Screen
 import com.slooshfilm.app.ui.search.SearchState
 import com.slooshfilm.app.ui.search.rememberSearchState
@@ -95,8 +95,8 @@ fun SlooshBottomBar(
         }
     }
 
-    val activeBackdrop = backdrop ?: emptyBackdrop()
-    val glasmioBackdrop = rememberGlasmioBackdrop(activeBackdrop)
+    // Бэкдроп уже приходит типом движка glasmio — мост-адаптер не нужен.
+    val glasmioBackdrop = backdrop ?: emptyBackdrop()
     val isLightTheme = !LocalSlooshColors.current.isDark
 
     // Настройка «Названия вкладок» (Settings → LocalStorage.tab_bar_shows_labels);

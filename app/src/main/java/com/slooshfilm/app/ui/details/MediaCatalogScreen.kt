@@ -45,19 +45,17 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import com.slooshfilm.app.ui.backdrop.backdrops.LayerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.backdrop.drawBackdrop
-import com.slooshfilm.app.ui.components.LocalBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.progressiveBackdropBlur
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
-import com.slooshfilm.app.ui.components.iosProgressiveBlur
 import com.slooshfilm.app.ui.theme.LocalSlooshColors
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.ErrorStateView
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
 import com.slooshfilm.app.ui.components.LocalCardDensity
 import com.slooshfilm.app.ui.components.MediaCard
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
@@ -71,6 +69,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
+import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -345,7 +345,7 @@ fun MediaCatalogScreen(
         }
 
         // 2. Floating Top Navigation Bar (refracting sceneBackdrop)
-        CompositionLocalProvider(LocalBackdrop provides sceneBackdrop) {
+        CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides sceneBackdrop) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier
@@ -368,11 +368,11 @@ fun MediaCatalogScreen(
                 )
 
                 // Circular Glass Back Button
-                LiquidGlassFloatingButton(
+                SlooshFloatingButton(
                     onClick = onBack,
                     backdrop = sceneBackdrop,
                     shape = CircleShape,
-                    tint = com.slooshfilm.app.ui.theme.LiquidGlassSurfaceDark,
+                    tint = com.slooshfilm.app.ui.theme.SlooshGlassScrimDark,
                     modifier = Modifier
                         .size(44.dp)
                         .align(Alignment.CenterStart)
@@ -550,12 +550,11 @@ private fun CatalogFloatingHeaderBackground(
                     shape = { RectangleShape },
                     effects = {
                         val topOffsetPx = statusBarPadding.toPx()
-                        iosProgressiveBlur(
-                            maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
-                            topOffset = topOffsetPx,
-                            falloffDistance = (size.height - topOffsetPx).coerceAtLeast(1f),
-                            isLight = isLightTheme
-                        )
+                        progressiveBackdropBlur(
+                                maxRadius = ProgressiveBlurTokens.MaxRadius.toPx(),
+                                startYFraction = ((topOffsetPx) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                                endYFraction = (((topOffsetPx) + ((size.height - topOffsetPx).coerceAtLeast(1f))) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            )
                     },
                     highlight = null,
                     shadow = null

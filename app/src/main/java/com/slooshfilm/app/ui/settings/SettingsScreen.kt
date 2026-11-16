@@ -41,9 +41,9 @@ import coil.Coil
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.storage.LocalStorage
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
-import com.slooshfilm.app.ui.components.LiquidGlassAlertDialog
-import com.slooshfilm.app.ui.components.LiquidSlider
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import com.slooshfilm.app.ui.components.SlooshAlertDialog
+import com.slooshfilm.app.ui.components.SlooshSlider
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.theme.SlooshAccent
@@ -53,6 +53,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import com.slooshfilm.app.ui.components.MediaCard
 
 /**
  * Flagship single-screen iOS Settings implementation for sloosh.
@@ -74,7 +75,7 @@ fun SettingsScreen(
 
     // --- State variables ---
     var currentThemeMode by remember { mutableIntStateOf(localStorage.getThemeMode()) }
-    var liquidGlassBlur by remember { mutableFloatStateOf(localStorage.getLiquidGlassBlur()) }
+    var glassBlur by remember { mutableFloatStateOf(localStorage.getGlassBlur()) }
     val globalGlassEnabled = LocalGlassEnabled.current
     var isGlassEnabled by remember(globalGlassEnabled) { mutableStateOf(globalGlassEnabled) }
     val globalProgressiveBlur = LocalProgressiveBlur.current
@@ -346,7 +347,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         // 3. ЖИДКОЕ СТЕКЛО (iOS Section("Жидкое стекло"))
-        val blurPercentText = "${(liquidGlassBlur * 100).roundToInt()}%"
+        val blurPercentText = "${(glassBlur * 100).roundToInt()}%"
         val glassFooterText = if (isGlassEnabled) {
             "Плавная регулировка от абсолютно прозрачного стекла (0%) до сплошного непрозрачного размытия (100%). Блюр градиентов настраивается независимо."
         } else {
@@ -418,17 +419,17 @@ fun SettingsScreen(
                                 text = blurPercentText,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (liquidGlassBlur <= 0.01f) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                                color = if (glassBlur <= 0.01f) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
                             )
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        LiquidSlider(
-                            value = liquidGlassBlur,
+                        SlooshSlider(
+                            value = glassBlur,
                             onValueChange = { newBlur ->
-                                liquidGlassBlur = newBlur
-                                localStorage.saveLiquidGlassBlur(newBlur)
+                                glassBlur = newBlur
+                                localStorage.saveGlassBlur(newBlur)
                             },
                             valueRange = 0f..1f,
                             modifier = Modifier
@@ -610,7 +611,7 @@ fun SettingsScreen(
 
     // Clear Cache Confirmation Dialog
     if (showClearCacheDialog) {
-        LiquidGlassAlertDialog(
+        SlooshAlertDialog(
             onDismissRequest = { showClearCacheDialog = false },
             title = "Очистить кэш?",
             message = "Временные файлы изображений и постеров ($cacheSizeFormatted) будут удалены. Ваши загрузки и избранное останутся нетронутыми.",
@@ -634,7 +635,7 @@ fun SettingsScreen(
                 append(info.description)
             }
         }
-        LiquidGlassAlertDialog(
+        SlooshAlertDialog(
             onDismissRequest = { availableUpdate = null },
             title = "Доступно обновление",
             message = updateMessage,

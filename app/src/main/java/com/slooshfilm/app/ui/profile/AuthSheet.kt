@@ -1,6 +1,5 @@
 package com.slooshfilm.app.ui.profile
 
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import android.view.WindowManager
@@ -8,11 +7,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -31,7 +28,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -71,10 +67,11 @@ import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.repository.AuthRepository
 import com.slooshfilm.app.data.repository.NativeGoogleAuthManager
-import com.slooshfilm.app.ui.backdrop.Backdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
+import io.github.neoruaa.glasmio.glass.render.Backdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCanvasBackdrop
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
 import com.slooshfilm.app.ui.components.LocalGlassBlurMultiplier
+import com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.plusBlendMode
@@ -123,16 +120,19 @@ fun AuthSheet(
                     WindowCompat.setDecorFitsSystemWindows(window, false)
                 }
             }
-            CompositionLocalProvider(
-                LocalGlassEnabled provides isGlassEnabled,
-                LocalProgressiveBlur provides isProgressiveBlurEnabled,
-                LocalGlassBlurMultiplier provides glassBlurMultiplier,
-                LocalSlooshColors provides slooshColors
+            // То же стекло, что и в основном окне: настройки прокидываем в движок glasmio
+            // (диалог живёт в отдельном окне и не наследует CompositionLocal родителя).
+            SlooshGlassSettingsProvider(
+                glassEnabled = isGlassEnabled,
+                progressiveBlurEnabled = isProgressiveBlurEnabled,
+                blurMultiplier = glassBlurMultiplier
             ) {
-                AuthContent(
-                    onDismissRequest = onDismissRequest,
-                    backdrop = backdrop
-                )
+                CompositionLocalProvider(LocalSlooshColors provides slooshColors) {
+                    AuthContent(
+                        onDismissRequest = onDismissRequest,
+                        backdrop = backdrop
+                    )
+                }
             }
         }
     } else {
@@ -441,7 +441,7 @@ private fun AuthContent(
 
             // MARK: - Google Sign-In Button (Claude style bold clean pill)
             val buttonContainerColor = if (isLightTheme) Color.White else Color.White
-            LiquidGlassFloatingButton(
+            SlooshFloatingButton(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     authRepo.clearError()

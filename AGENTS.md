@@ -5,7 +5,7 @@
 This workspace contains the flagship native Android client for **sloosh**:
 
 - **Package**: `com.slooshfilm.app`
-- **Tech Stack**: Kotlin, Jetpack Compose, Material 3, Android 12+ AGSL Shaders & RenderEffect (via in-tree backdrop engine `com.slooshfilm.app.ui.backdrop` and custom AGSL extensions).
+- **Tech Stack**: Kotlin, Jetpack Compose, Material 3, Android 12+ AGSL Shaders & RenderEffect. Единственный движок стекла — вендоренный glasmio (`io.github.neoruaa.glasmio.glass` + `glass.render`, дословный порт 0.1.3); собственного движка бэкдропа в проекте больше нет.
 - **Design Language**: Apple TV+ meets authentic iOS Liquid Glass adapted for Android.
 
 ---
@@ -24,7 +24,7 @@ This workspace contains the flagship native Android client for **sloosh**:
 5. **Provider Confidentiality**: Never introduce any user-facing mention of internal sources, providers, or scrapers (`Alloha`, `Collaps`, `NeoMovies`, `TMDB`, `Kinopoisk`, etc.).
 6. **Streaming Sources**: Exclusively `Alloha` (`api.alloha.tv`).
 7. **Terminal Constraints**: **DO NOT** execute `./gradlew` commands in terminal.
-8. **Zero UltraThinMaterial**: Do not use flat generic semi-transparent surfaces; always use the centralized `LiquidGlass` system.
+8. **Zero UltraThinMaterial**: Do not use flat generic semi-transparent surfaces; every glass surface and button must come from the vendored glasmio engine (`GlassSurface` / `navigationGlassBackground` / `Glasmio*` controls), never from a hand-rolled `background(color.copy(alpha = …))`.
 9. **Active Slider Droplet Scale Rule**: The active tab dynamic droplet pill during dragging / active state strictly inflates to `pressedScale = 60f / 44f` (60dp over 44dp dynamic expansion) and the active tab icon scales to `1.2f`. **NEVER reduce this scale or make the slider smaller.**
 10. **Strict Prohibition of Android / Google Material Icons (SF Symbols Only)**:
    - **Total Ban on Google Material Icons**: Do not use `androidx.compose.material.icons` (`Icons.Rounded.*`, `Icons.Default.*`, `Icons.Filled.*`, etc.) or generic Android drawables.
@@ -32,67 +32,58 @@ This workspace contains the flagship native Android client for **sloosh**:
 
 ---
 
-## Liquid Glass Design System (`com.slooshfilm.app.ui.components`)
+## Liquid Glass Design System — единый движок glasmio
 
-The custom Liquid Glass engine is fully unified and centralized in [`LiquidGlass.kt`](file:///w:/android-sloosh/app/src/main/java/com/slooshfilm/app/ui/components/LiquidGlass.kt). 
-All glass surfaces, buttons, and navigation elements consume shared tokens and modifiers. **Never duplicate 50+ lines of raw shader or backdrop code across screens.**
+Всё стекло и все кнопки приложения рисует **вендоренный glasmio** (`io.github.neoruaa.glasmio.*`),
+тот же движок, что у нижнего навбара. Собственный самописный движок
+(`com.slooshfilm.app.ui.backdrop/**`, `ui/components/LiquidGlass*.kt`, `Ios27ControlLens.kt`,
+`InteractiveHighlight.kt`, `DampedDragAnimation.kt`) **удалён полностью** — его больше нет и
+возвращать его нельзя. Любая новая поверхность/кнопка/меню/шит строится на glasmio.
 
-### 1. Centralized Design Tokens (`LiquidGlassTokens` & `LiquidGlassStyle`)
+Слои движка:
 
-All optics, refractions, glints, and borders are configured through `@Immutable data class LiquidGlassStyle` in `LiquidGlassTokens`:
+| Слой | Пакет | Что даёт |
+|---|---|---|
+| Захват и эффекты | `io.github.neoruaa.glasmio.glass.render` | `Backdrop`, `layerBackdrop`, `rememberLayerBackdrop`, `rememberCanvasBackdrop`, `drawBackdrop`, `drawPlainBackdrop`, `effects.*`, `highlight.*`, `shadow.*` |
+| Материал | `io.github.neoruaa.glasmio.glass` | `GlassSurface`, `navigationGlassBackground`, `nativeControlLens`, `progressiveBackdropBlur`, `LocalGlassBackdrop` |
+| Токены | `io.github.neoruaa.glasmio.core` | `GlassColors` (в т.ч. `LocalGlassColors`), `GlassAppearance`, `GlassDimensions`, `GlasmioTheme` |
+| Контролы | `io.github.neoruaa.glasmio.ui` | `GlasmioSwitch`, `GlasmioSlider`/`GlasmioAdaptiveSlider`, `GlasmioSegmentedControl`, `GlasmioGroupedList`/`GlasmioListRow`, `GlasmioMenu`/`GlasmioMenuItem`, `GlasmioAlertDialog`, `GlasmioBottomSheet`, `GlasmioIconButton`, `GlasmioButton` |
 
-- **`LiquidGlassTokens.Bar`**:
-  - Primary bottom navigation bar (54dp capsule).
-  - Optics: `blurRadius = 10.dp`, `blurOpacity = 0.80f`, `lens(12.dp, 22.dp)`.
-  - Glint: Concentrated top highlight `alpha = 0.68f` (`ConcentratedHighlightStyle(angle = 90f)`).
-  - Border: Overlay hairline `0.5.dp` (`0.30f` light / `0.55f` dark).
-- **`LiquidGlassTokens.Slider`**:
-  - Active tab dynamic droplet pill (46dp capsule).
-  - Optics: `4.5.dp` height, `8.dp` amount, chromatic aberration `0.16f` (code truth; the old 0.22 was a doc error).
-  - Glint: Soft glint `0.50f` during drag.
-  - **Rest body and lifted state — AUTHENTIC glasmio**: the pill is rendered by the vendored glasmio-glass engine (`io.github.neoruaa.glasmio.glass`, verbatim 0.1.3) via `drawPlainBackdrop` + `nativeControlLens(style = TabBarIndicator, …, liftedContent = …)` — the real iOS 27 NativeControlLens pipeline (NativeTabIdle matrices at rest, portal warp, Fresnel ring, contact shadow, spectral dispersion). Do NOT reimplement or approximate it with our `iosLens`/custom shaders — the bridge is `GlasmioBackdropBridge.kt` (sloosh Backdrop → glasmio Backdrop). Lift kinematics: `DampedDragAnimation(liftSpringStiffness = 631.65468f, liftHangTimeMs = 220)`; `pressedScale = 60f / 44f` (rule 9) is never replaced by glasmio's `78/56`.
-- **`LiquidGlassTokens.Button` / `ButtonActive`**:
-  - Floating action buttons (Search button in navbar, media controls, close/back/favorite buttons).
-  - Optics: `14.dp` height, `28.dp` amount, inner shadow radius `8.dp`, drop shadow.
-  - Interactive kinematics: Elastic `tanh` drag stretch, angular touch scaling, and `InteractiveHighlight` touch ripple.
-  - `ButtonActive`: Elevated glint (`0.85f`) and deeper shadows for active/selected buttons.
-- **`LiquidGlassTokens.Surface` & `CompactPill`**:
-  - Content cards, modal sheets, and search input bars.
+### 1. Пресеты sloosh → материал glasmio
 
-> [!TIP]
-> **Single Source of Truth**: Modifying parameters in `LiquidGlassTokens` or shaders in `LiquidGlass.kt` automatically propagates across the entire application.
+Вызывающий код продолжает говорить пресетами, но это **только словарь**:
+`SlooshGlassTokens.Bar / Slider / Button / ButtonActive / Surface / CompactPill / Menu / Dialog`
+(тип `GlassPreset`, объявлен в `ui/components/SlooshGlass.kt`). Пресеты больше ничего не рисуют
+сами — они отображаются на материал glasmio в одной точке (`Modifier.slooshGlassSurface`).
 
----
+### 2. Обёртки sloosh (имена сохранены ради мест вызова)
 
-### 2. Unified Declarative Modifiers
+Все они лежат в `ui/components/` и внутри вызывают glasmio:
 
-Always use the standardized modifiers rather than low-level `drawBackdrop` calls:
+1. **`Modifier.slooshGlassSurface(...)` / `Modifier.slooshGlassInteractive(...)`** (`SlooshGlass.kt`) —
+   стеклянная поверхность glasmio (`navigationGlassBackground`) поверх бэкдропа.
+2. **`SlooshFloatingButton`** (`SlooshGlassButton.kt`) — плавающая кнопка на `GlassSurface`
+   (материал навбара); `SlooshDualButton` / `SlooshMultiButton` — капсулы из двух/нескольких действий.
+3. **`SlooshToggle`** → `GlasmioSwitch`; **`SlooshSlider`** → `GlasmioAdaptiveSlider`
+   (`SlooshToggle.kt` / `SlooshSlider.kt`); `SettingsSegmentedRow` →
+   `GlasmioSegmentedControl` напрямую.
+4. **`SlooshGlassDialog` / `SlooshAlertDialog` / `SlooshGlassPlayerDialog`** (`SlooshGlassDialog.kt`) —
+   карточка на `GlassSurface` (34dp непрерывный радиус) + скрим; **`SlooshGlassMenuOverlay`** /
+   **`SettingsMenuTrigger`** → `GlasmioMenu` + `GlasmioMenuItem`; состояние — `SlooshMenuState`
+   (`LocalSlooshMenuHostState`).
+5. **`SlooshGroupedList`** (`SlooshGroupedList.kt`) → `GlasmioGroupedList`.
+6. **`Modifier.plusBlendMode()`** — iOS `.blendMode(.plusLighter)` через `saveLayer` + `BlendMode.Plus`.
 
-1. **`Modifier.liquidGlassSurface(...)`**:
-   Applies glass optics, vibrant shaders, and overlay borders to static or content surfaces:
-   ```kotlin
-   Modifier.liquidGlassSurface(
-       style = LiquidGlassTokens.Surface,
-       shape = RoundedRectangle(16.dp),
-       containerColor = tint,
-       backdrop = backdrop
-   )
-   ```
-2. **`Modifier.liquidGlassInteractive(...)`**:
-   For buttons and interactive pills. Encapsulates full Kyant liquid kinematics (elastic touch stretch with `tanh` damping) + glass optics + `InteractiveHighlight` glow + overlay border:
-   ```kotlin
-   Modifier.liquidGlassInteractive(
-       interactiveHighlight = searchInteractiveHighlight,
-       style = if (isSearchActive) LiquidGlassTokens.ButtonActive else LiquidGlassTokens.Button,
-       shape = CircleShape,
-       containerColor = containerColor,
-       backdrop = activeBackdrop
-   )
-   ```
-3. **Convenience Components**:
-   - `LiquidGlassFloatingButton`: Pre-built circular floating glass button with touch physics and liquid optics (`44.dp` or `50.dp`).
-   - `LiquidGlassDualButton`: Pre-built two-action pill capsule.
-   - `Modifier.liquidGlass(...)` & `Modifier.slooshSurface(...)`: Drop-in modifiers for cards and search inputs.
+### 3. Настройки стекла идут в движок
+
+`SlooshGlassSettingsProvider(...)` (`NavGraph.kt`, а также `AuthSheet` — диалог живёт в отдельном
+окне) переводит настройки sloosh в `GlassAppearance` движка:
+
+- «Режим без стекла» → `reduceTransparency = true`;
+- «Размытие стекла» (0..1) → при значении ≤ 0.08 `liquidGlassEnabled = false`, иначе материал
+  остаётся оптическим;
+- `LocalProgressiveBlur` управляет только прогрессивным блюром шапок
+  (`progressiveBackdropBlur`, 4dp пик, хвост `ProgressiveBlurTokens.Extension` = 30dp).
 
 ---
 
@@ -103,9 +94,9 @@ Always use the standardized modifiers rather than low-level `drawBackdrop` calls
 - **Poster Fade**: Backdrop poster fades smoothly into `effectiveBg` using an authentic bottom gradient.
 - **Top Dominant Gradient Bar**: Height `160.dp` with soft 2-stop fade (`listOf(effectiveBg, effectiveBg.copy(alpha = 0f))`). Crossfades in via `graphicsLayer { alpha = topGradientAlpha }` when scrolled past discrete threshold (`370.dp`). Rendered inside `layerBackdrop(detailsBackdrop)` so that top floating glass buttons refract the gradient seamlessly. Matches `HomeScreen.kt` gradient feathering 1:1.
 - **Top Floating Navigation Bar**:
-  - Leading: Back button (`44.dp` `LiquidGlassFloatingButton`, icon `24.dp`).
+  - Leading: Back button (`44.dp` `SlooshFloatingButton`, icon `24.dp`).
   - Center: Compact Title / Logo (`graphicsLayer { alpha = topLogoAlpha }`), smoothly appearing when scrolled past `370.dp` while content logo fades out.
-- **Action Buttons (iOS 1:1, DetailsHeroActionMetrics)**: Hero row with 22dp spacing: Download button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` `ic_sf_arrow_down_to_line` icon), Primary Play disc (`76.dp` white 85% disc with `56.dp` glyph-box cut-out triangle (чернила ~36dp, пропорция iOS ~47% диска) and built-in optical centering), and Favorite button (`52.dp` circular glass `LiquidGlassFloatingButton`, unified `26.dp` heart icon).
+- **Action Buttons (iOS 1:1, DetailsHeroActionMetrics)**: Hero row with 22dp spacing: Download button (`52.dp` circular glass `SlooshFloatingButton`, unified `26.dp` `ic_sf_arrow_down_to_line` icon), Primary Play disc (`76.dp` white 85% disc with `56.dp` glyph-box cut-out triangle (чернила ~36dp, пропорция iOS ~47% диска) and built-in optical centering), and Favorite button (`52.dp` circular glass `SlooshFloatingButton`, unified `26.dp` heart icon).
 
 #### Home Screen (`HomeScreen.kt`)
 - **Top Header**: Category text tabs with soft 2-stop vertical gradient (`BackgroundDark` to transparent) with `statusBarsPadding()`.
@@ -115,13 +106,14 @@ Always use the standardized modifiers rather than low-level `drawBackdrop` calls
 
 ### 4. GPU & Compose Performance Standards (60/120 FPS)
 
-1. **`GlassBorderCache` in `Modifier.glassBorder`**:
-   - Contour geometries (`Outline`), paths (`Path`), and `GraphicsLayer` recordings are cached against `size` and `layoutDirection`.
-   - During dragging or alpha animations, `graphicsLayer.record(...)` and outline generation are **bypassed entirely**. The GPU directly updates layer alpha.
-   - Supports lambda alpha `alpha = { progress * ... }` to avoid recomposing modifier chains on 120Hz displays.
-2. **Zero-Cost Resting State**:
-   - When `alpha <= 0f`, `glassBorder` immediately returns, skipping `drawLayer`.
-   - In `LiquidBottomTabs` Layer 3, `iosLens` is guarded with `if (progress > 0f)`. At rest, runtime shaders are skipped.
+1. **Кэширование кромок и геометрии делает glasmio.** Прежние `GlassBorderCache` /
+   `Modifier.glassBorder` / `iosLens` жили в удалённом самописном движке. Вендоренный glasmio
+   кэширует контуры, `Outline`, записи `GraphicsLayer` и матрицы линзы сам
+   (`NativeGlassMipPyramid`, `NavigationInnerShadows`, `NativeControlLensConsumerPool`),
+   а при прозрачности слоя (`graphicsLayer { alpha = … }`) запись не повторяется — альфу
+   обновляет только GPU.
+2. **Zero-Cost Resting State**: у навбара линза на покое не запускает рантайм-шейдеры; не
+   добавляй собственных шейдерных проходов в места, где стекло статично.
 3. **Ambient Color Extraction Efficiency**:
    - Memory-cached in `LruCache<String, Color>`.
    - Downsamples image requests to 16x16 thumbnails matching iOS `UIImage.averageColor`, computing arithmetic RGB mean via bulk `Bitmap.getPixels` in `< 0.1ms` on IO dispatcher without UI thread frame drops.
@@ -161,10 +153,17 @@ does not compose the `Text` at all (composing it with zero alpha would leave its
 push the glyph above the capsule center), switches to UIKit's short-item allocation
 (`hasNativeShortTabs`), and moves the tab name into `contentDescription` so TalkBack still announces it.
 
-`LiquidBottomTabs.kt` is **no longer the navbar** — it survives as the segmented control of
-Настройки (`SettingsSegmentedRow`, `settings/Common.kt`).
+Сегмент-контрол Настроек (`SettingsSegmentedRow`, `settings/Common.kt`) рисуется вендоренным
+`GlasmioSegmentedControl` напрямую — собственной обёртки у него нет.
 
 ---
+
+> [!IMPORTANT]
+> Правило одно для всего приложения: **навбар — это эталон**. Любая стеклянная поверхность,
+> кнопка, меню, шит или диалог вне навбара обязаны собираться из того же glasmio-материала
+> (`GlassSurface` / `navigationGlassBackground`) и того же бэкдропа
+> (`layerBackdrop` / `rememberCanvasBackdrop`). Своих шейдеров, своих линз и своих «стеклянных»
+> `Box` с `background(color.copy(alpha = …))` в проекте быть не должно.
 
 ### 6. Adaptive Layout: Landscape & Tablets (`AdaptiveLayout.kt`)
 

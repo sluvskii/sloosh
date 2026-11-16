@@ -30,25 +30,20 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import com.slooshfilm.app.data.alloha.LanguageFlag
-import com.slooshfilm.app.ui.backdrop.backdrops.layerBackdrop
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
-import com.slooshfilm.app.ui.components.InteractiveHighlight
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
-import com.slooshfilm.app.ui.components.LiquidGlassMultiButton
-import com.slooshfilm.app.ui.components.LiquidGlassMenuOverlay
-import com.slooshfilm.app.ui.components.LiquidGlassTokens
-import com.slooshfilm.app.ui.components.LiquidMenuState
-import com.slooshfilm.app.ui.components.LocalBackdrop
-import com.slooshfilm.app.ui.components.liquidGlassInteractive
-import com.slooshfilm.app.ui.components.liquidGlassSurface
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
+import com.slooshfilm.app.ui.components.SlooshMultiButton
+import com.slooshfilm.app.ui.components.SlooshGlassMenuOverlay
+import com.slooshfilm.app.ui.components.SlooshGlassTokens
+import com.slooshfilm.app.ui.components.SlooshMenuState
+import com.slooshfilm.app.ui.components.slooshGlassInteractive
+import com.slooshfilm.app.ui.components.slooshGlassSurface
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
@@ -73,7 +68,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
@@ -134,6 +128,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -294,7 +289,7 @@ fun PlayerScreen(
     }
 
     val haptic = LocalHapticFeedback.current
-    val playerMenuState = remember { LiquidMenuState() }
+    val playerMenuState = remember { SlooshMenuState() }
     var multiCapsuleBounds by remember { mutableStateOf(Rect.Zero) }
     var voiceCapsuleBounds by remember { mutableStateOf(Rect.Zero) }
     var episodePillBounds by remember { mutableStateOf(Rect.Zero) }
@@ -1777,7 +1772,7 @@ fun PlayerScreen(
         )
 
         // Provide Live Video Backdrop to all Liquid Glass components
-        CompositionLocalProvider(LocalBackdrop provides playerBackdrop) {
+        CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides playerBackdrop) {
 
             // Loading Overlay: Minimalist pure white indicator without any text, matching native iOS
             if (isLoadingStream && !isRecoveringStream) {
@@ -1819,7 +1814,7 @@ fun PlayerScreen(
                         )
                         Spacer(modifier = Modifier.height(20.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = {
                                     silentRetryCount = 0
                                     sessionReloadKey++
@@ -1829,7 +1824,7 @@ fun PlayerScreen(
                             ) {
                                 Text("Повторить", color = Color.White, fontWeight = FontWeight.SemiBold)
                             }
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = onBack,
                                 shape = Capsule(),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
@@ -1865,10 +1860,10 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .liquidGlassSurface(
-                            style = LiquidGlassTokens.CompactPill,
+                        .slooshGlassSurface(
+                            style = SlooshGlassTokens.CompactPill,
                             shape = Capsule(),
-                            containerColor = LiquidGlassSurfaceDark
+                            containerColor = SlooshGlassScrimDark
                         )
                         .clip(Capsule())
                         .padding(horizontal = 20.dp, vertical = 10.dp)
@@ -1949,7 +1944,7 @@ fun PlayerScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                LiquidGlassFloatingButton(
+                                SlooshFloatingButton(
                                     onClick = onBack,
                                     shape = CircleShape,
                                     modifier = Modifier.size(44.dp)
@@ -1964,7 +1959,7 @@ fun PlayerScreen(
                                 }
 
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    LiquidGlassFloatingButton(
+                                    SlooshFloatingButton(
                                         onClick = {
                                             try {
                                                 val aspectRatio = Rational(16, 9)
@@ -1991,7 +1986,7 @@ fun PlayerScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                LiquidGlassFloatingButton(
+                                SlooshFloatingButton(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         isInterfaceLocked = true
@@ -2012,7 +2007,6 @@ fun PlayerScreen(
 
                         // 4. Compact Season & Episode button под осью кнопок (iOS 1:1 TopBarView.swift)
                         if (isTvSeries && currentSeason != null && currentEpisode != null) {
-                            val episodePillHighlight = remember { InteractiveHighlight(animationScope = scope) }
                             Box(
                                 modifier = Modifier
                                     .height(26.dp)
@@ -2020,11 +2014,10 @@ fun PlayerScreen(
                                     .onGloballyPositioned { coords ->
                                         episodePillBounds = coords.boundsInRoot()
                                     }
-                                    .liquidGlassInteractive(
-                                        interactiveHighlight = episodePillHighlight,
-                                        style = LiquidGlassTokens.CompactPill,
+                                    .slooshGlassInteractive(
+                                        style = SlooshGlassTokens.CompactPill,
                                         shape = Capsule(),
-                                        containerColor = LiquidGlassSurfaceDark
+                                        containerColor = SlooshGlassScrimDark
                                     )
                                     .clip(Capsule())
                                     .clickable(
@@ -2104,7 +2097,7 @@ fun PlayerScreen(
                         horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         if (isTvSeries) {
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = { if (hasPreviousEpisode) playPreviousEpisode() },
                                 shape = CircleShape,
                                 modifier = Modifier.size(56.dp)
@@ -2124,7 +2117,7 @@ fun PlayerScreen(
                         )
 
                         if (isTvSeries) {
-                            LiquidGlassFloatingButton(
+                            SlooshFloatingButton(
                                 onClick = { if (hasNextEpisode) playNextEpisode() },
                                 shape = CircleShape,
                                 modifier = Modifier.size(56.dp)
@@ -2193,7 +2186,6 @@ fun PlayerScreen(
                                 }
                             }
                             voiceChip?.let { chip ->
-                                val voiceCapsuleHighlight = remember { InteractiveHighlight(animationScope = scope) }
 
                                 Box(
                                     modifier = Modifier
@@ -2203,11 +2195,10 @@ fun PlayerScreen(
                                         .onGloballyPositioned { coords ->
                                             voiceCapsuleBounds = coords.boundsInRoot()
                                         }
-                                        .liquidGlassInteractive(
-                                            interactiveHighlight = voiceCapsuleHighlight,
-                                            style = LiquidGlassTokens.Button,
+                                        .slooshGlassInteractive(
+                                            style = SlooshGlassTokens.Button,
                                             shape = Capsule(),
-                                            containerColor = LiquidGlassSurfaceDark
+                                            containerColor = SlooshGlassScrimDark
                                         )
                                         .clip(Capsule())
                                         .clickable(
@@ -2397,7 +2388,7 @@ fun PlayerScreen(
                                 activeSkipRange?.let { range ->
                                     val isOutro = duration > 0L && (range.first * 1000L) > (duration * 0.70f)
                                     val skipLabel = if (isOutro) "Пропустить титры" else "Пропустить заставку"
-                                    LiquidGlassFloatingButton(
+                                    SlooshFloatingButton(
                                         onClick = { exoPlayer.seekTo((range.last + 1) * 1000L) },
                                         shape = Capsule(),
                                         modifier = Modifier
@@ -2426,7 +2417,7 @@ fun PlayerScreen(
                                 }
 
                                 // Нижняя капсула справа: Скорость | Качество (iOS BottomRowView)
-                                LiquidGlassMultiButton(
+                                SlooshMultiButton(
                                     modifier = Modifier
                                         .height(44.dp)
                                         .graphicsLayer { alpha = multiCapsuleAlpha.value }
@@ -2614,7 +2605,7 @@ fun PlayerScreen(
                                 top = 16.dp
                             )
                     ) {
-                        LiquidGlassFloatingButton(
+                        SlooshFloatingButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isInterfaceLocked = false
@@ -2638,7 +2629,7 @@ fun PlayerScreen(
             }
 
             // LIQUID GLASS MENU OVERLAY (Speed, Quality, Voiceover, Episodes)
-            LiquidGlassMenuOverlay(
+            SlooshGlassMenuOverlay(
                 state = playerMenuState
             )
         }
@@ -2722,10 +2713,10 @@ private fun SlooshPlayerSeekBar(
         modifier = modifier
             .fillMaxWidth()
             .height(44.dp)
-            .liquidGlassSurface(
-                style = LiquidGlassTokens.Bar,
+            .slooshGlassSurface(
+                style = SlooshGlassTokens.Bar,
                 shape = Capsule(),
-                containerColor = LiquidGlassSurfaceDark
+                containerColor = SlooshGlassScrimDark
             )
             .clip(Capsule())
             .onSizeChanged { capsuleWidthPx = it.width.toFloat() }
@@ -2965,10 +2956,10 @@ private fun IosTopGestureHud(
         modifier = modifier
             .width(230.dp)
             .height(38.dp)
-            .liquidGlassSurface(
-                style = LiquidGlassTokens.Bar,
+            .slooshGlassSurface(
+                style = SlooshGlassTokens.Bar,
                 shape = Capsule(),
-                containerColor = LiquidGlassSurfaceDark
+                containerColor = SlooshGlassScrimDark
             )
             .clip(Capsule())
             .padding(horizontal = 14.dp)
@@ -3023,7 +3014,7 @@ private fun PlayerPlayPauseButton(
     val isPlaying by player.isPlayingAsState()
     val playbackState by player.playbackStateAsState()
 
-    LiquidGlassFloatingButton(
+    SlooshFloatingButton(
         onClick = { if (player.isPlaying) player.pause() else player.play() },
         shape = CircleShape,
         modifier = Modifier.size(80.dp)

@@ -21,9 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.slooshfilm.app.ui.backdrop.backdrops.rememberCanvasBackdrop
-import com.slooshfilm.app.ui.components.LiquidGlassFloatingButton
-import com.slooshfilm.app.ui.theme.LiquidGlassSurfaceDark
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCanvasBackdrop
+import com.slooshfilm.app.ui.components.SlooshFloatingButton
+import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 import com.slooshfilm.app.ui.theme.SurfaceDark
 import com.slooshfilm.app.ui.theme.TextPrimaryDark
 import com.slooshfilm.app.ui.theme.TextSecondaryDark
@@ -78,11 +78,11 @@ fun TrailerPlayerSheet(
                     maxLines = 1
                 )
 
-                LiquidGlassFloatingButton(
+                SlooshFloatingButton(
                     onClick = onDismiss,
                     backdrop = glassBackdrop,
                     shape = CircleShape,
-                    tint = LiquidGlassSurfaceDark,
+                    tint = SlooshGlassScrimDark,
                     modifier = Modifier.size(34.dp)
                 ) {
                     SfIcon(

@@ -23,13 +23,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.shapes.Capsule
-import com.slooshfilm.app.ui.backdrop.Backdrop
+import io.github.neoruaa.glasmio.glass.render.Backdrop
 import com.slooshfilm.app.ui.theme.SlooshFontFamily
 import com.slooshfilm.app.utils.NetworkMonitor
 
 /**
  * Компактная стеклянная плашка «Нет подключения» под статус-баром.
- * Появляется только при потере сети; glass-off обрабатывается внутри liquidGlassSurface.
+ * Появляется только при потере сети; glass-off обрабатывается внутри glassContainer.
  */
 @Composable
 fun OfflineBanner(
@@ -51,8 +51,8 @@ fun OfflineBanner(
         Box(
             modifier = Modifier
                 .padding(top = statusBarPadding + (if (isLandscape) 4.dp else 10.dp))
-                .liquidGlassSurface(
-                    style = LiquidGlassTokens.CompactPill,
+                .slooshGlassSurface(
+                    style = SlooshGlassTokens.CompactPill,
                     shape = Capsule(),
                     containerColor = Color.Black.copy(alpha = 0.55f),
                     backdrop = backdrop
