@@ -111,7 +111,7 @@ fun SlooshBottomBar(
     )
 
     val glasmioTabItems = remember(currentTab, unreadMessageCount) {
-        listOf(
+        listOf<GlasmioTabItem<Screen>>(
             GlasmioTabItem(
                 key = Screen.Home,
                 label = "Главная",
@@ -137,7 +137,7 @@ fun SlooshBottomBar(
     }
 
     val trailingSearchItem = remember {
-        GlasmioTabItem(
+        GlasmioTabItem<Screen>(
             key = Screen.Search,
             label = "Поиск",
             symbol = SfSymbol.Search,

@@ -51,7 +51,6 @@ internal class HighlightNode(
     private var style: HighlightStyle? = null
     private var shader: RuntimeShader? = null
     private var lastWidth = Float.NaN
-    private var nativeBlender: NativeVibrantColorMatrixBlender? = null
 
     override fun ContentDrawScope.draw() {
         drawContent()
@@ -61,7 +60,9 @@ internal class HighlightNode(
         val matrix = nextStyle.nativeVibrantMatrix()
         // API 33–35 applies this transfer in the sampled post-tint material shader.
         // A foreground white overlay cannot reproduce destination-driven vibrancy.
-        if (matrix != null && Build.VERSION.SDK_INT < 36) return
+        // VENDOR-PATCH(sloosh): API 36 blender удалён (compileSdk 35), поэтому
+        // native-vibrant матрица всегда отдаётся material-шейдеру, как на API 33-35.
+        if (matrix != null) return
         val shape = shapeProvider.innerShape
         val nextGeometry = Geometry(shape, size, layoutDirection, density, fontScale)
         if (geometry != nextGeometry) {
@@ -87,12 +88,6 @@ internal class HighlightNode(
         }
         paint.asFrameworkPaint().xfermode = null
         paint.blendMode = nextStyle.blendMode
-        if (matrix != null && Build.VERSION.SDK_INT >= 36) {
-            if (!drawContext.canvas.nativeCanvas.isHardwareAccelerated) return
-            val blender = nativeBlender ?: NativeVibrantColorMatrixBlender().also { nativeBlender = it }
-            blender.prepare(matrix)
-            paint.asFrameworkPaint().xfermode = blender.shader
-        }
         paint.alpha = (effect.alpha * nextStyle.color.alpha).coerceIn(0f, 1f)
         val canvas = drawContext.canvas
         canvas.save()
