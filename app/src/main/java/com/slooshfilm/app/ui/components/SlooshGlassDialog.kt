@@ -83,7 +83,9 @@ fun SlooshGlassDialog(
     showCloseButton: Boolean = true,
     content: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit
 ) {
-    val resolvedBackdrop = backdrop ?: LocalGlassBackdrop.current
+    // Диалог живёт в отдельном окне и не видит CompositionLocal экрана, поэтому без явного
+    // аргумента берём сценический бэкдроп (LocalBlurBackdrop) — иначе стекло пустое.
+    val resolvedBackdrop = backdrop ?: LocalBlurBackdrop.current
     GlasmioScrimDialog(onDismissRequest = onDismissRequest) { dismiss ->
         Box(
             modifier = modifier
@@ -181,7 +183,9 @@ fun SlooshAlertDialog(
     backdrop: Backdrop? = null,
     customContent: (@Composable ColumnScope.() -> Unit)? = null
 ) {
-    val resolvedBackdrop = backdrop ?: LocalGlassBackdrop.current
+    // Диалог живёт в отдельном окне и не видит CompositionLocal экрана, поэтому без явного
+    // аргумента берём сценический бэкдроп (LocalBlurBackdrop) — иначе стекло пустое.
+    val resolvedBackdrop = backdrop ?: LocalBlurBackdrop.current
     GlasmioScrimDialog(onDismissRequest = onDismissRequest) { dismiss ->
         Box(
             modifier = modifier
@@ -292,6 +296,8 @@ private fun SlooshGlassDialogButton(
         backdrop = LocalGlassBackdrop.current,
         shape = Capsule(),
         style = GlassSurfaceStyle.Navigation,
+        // См. `SlooshFloatingButton`: любой не-null `navigationSurfaceColor` выключает
+        // navigationMaterial, поэтому передаём тинт только для явно заданного акцента.
         navigationSurfaceColor = tint,
         emphasis = emphasis,
         onClick = onClick,
@@ -431,8 +437,10 @@ fun SettingsMenuTrigger(
     selectedValue: String,
     options: List<String>,
     onOptionSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    backdrop: Backdrop? = null
 ) {
+    val resolvedBackdrop = backdrop ?: LocalBlurBackdrop.current
     val menuState = LocalSlooshMenuHostState.current
     val selectedIndex = remember(selectedValue, options) {
         options.indexOf(selectedValue).takeIf { it >= 0 } ?: 0
@@ -444,7 +452,7 @@ fun SettingsMenuTrigger(
         onExpandedChange = { expanded = it },
         itemCount = options.size,
         modifier = modifier,
-        backdrop = LocalBlurBackdrop.current,
+        backdrop = resolvedBackdrop,
         menuWidth = 220.dp,
         anchor = { openMenu ->
             Row(
@@ -478,7 +486,7 @@ fun SettingsMenuTrigger(
                         onOptionSelected(option)
                         close()
                     },
-                    backdrop = LocalBlurBackdrop.current,
+                    backdrop = resolvedBackdrop,
                     fontWeight = if (index == selectedIndex) FontWeight.SemiBold else null,
                     icon = {
                         if (index == selectedIndex) {

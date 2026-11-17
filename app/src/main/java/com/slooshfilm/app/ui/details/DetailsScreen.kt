@@ -4,7 +4,6 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +22,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
-import androidx.compose.ui.res.painterResource
 import com.slooshfilm.app.R
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -59,7 +57,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -77,12 +74,9 @@ import com.slooshfilm.app.data.alloha.AllohaSessionHolder
 import com.slooshfilm.app.data.api.MediaDetailsDto
 import com.slooshfilm.app.data.api.StudioBrand
 import com.slooshfilm.app.data.api.MediaDto
-import com.slooshfilm.app.data.api.TrailerDto
-import com.slooshfilm.app.data.api.CrewMemberDto
 import com.slooshfilm.app.data.api.MovieCollectionDto
 import com.slooshfilm.app.data.api.RelatedStudioResponseDto
 import com.slooshfilm.app.data.api.TvSeasonDto
-import com.slooshfilm.app.data.api.TvEpisodeDetailsDto
 import com.slooshfilm.app.data.api.canonicalMediaType
 import com.slooshfilm.app.data.api.formatCountryName
 import com.slooshfilm.app.data.repository.MoviesRepository
@@ -901,7 +895,6 @@ fun DetailsScreen(
                                 onClick = { showOfflineDownloadDialog = true },
                                 backdrop = glassBackdrop,
                                 shape = CircleShape,
-                                tint = SlooshGlassScrimDark,
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 SfIcon(
@@ -944,7 +937,6 @@ fun DetailsScreen(
                                 },
                                 backdrop = glassBackdrop,
                                 shape = CircleShape,
-                                tint = SlooshGlassScrimDark,
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 SfIcon(
@@ -983,9 +975,7 @@ fun DetailsScreen(
                                             onGenreClick(genre, if (item.isTvSeries) "tv" else "movie")
                                         },
                                         backdrop = glassBackdrop,
-                                        blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = SlooshGlassScrimDark,
                                         borderAlpha = 0.50f,
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
@@ -1035,9 +1025,7 @@ fun DetailsScreen(
                                             }
                                         },
                                         backdrop = glassBackdrop,
-                                        blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = SlooshGlassScrimDark,
                                         borderAlpha = 0.50f,
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
@@ -1152,9 +1140,7 @@ fun DetailsScreen(
                                             isDescriptionExpanded = !isDescriptionExpanded
                                         },
                                         backdrop = descriptionBackdrop,
-                                        blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = SlooshGlassScrimDark,
                                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
                                         modifier = Modifier.align(Alignment.BottomCenter)
                                     ) {
@@ -1570,9 +1556,8 @@ fun DetailsScreen(
                                             selectedSeasonNumber = seasonNum
                                         },
                                         backdrop = glassBackdrop,
-                                        blurRadius = 8.dp,
                                         shape = Capsule(),
-                                        tint = if (isSelected) Color.White else SlooshGlassScrimDark,
+                                        tint = if (isSelected) Color.White else null,
                                         borderAlpha = if (isSelected) 0.85f else 0.50f,
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp)
                                     ) {
@@ -1972,7 +1957,6 @@ fun DetailsScreen(
                     onClick = onBack,
                     backdrop = sceneBackdrop,
                     shape = CircleShape,
-                    tint = SlooshGlassScrimDark,
                     modifier = Modifier.size(44.dp)
                 ) {
                     SfIcon(
@@ -2073,7 +2057,6 @@ fun DetailsScreen(
                     },
                     backdrop = sceneBackdrop,
                     shape = CircleShape,
-                    tint = SlooshGlassScrimDark,
                     modifier = Modifier.size(44.dp)
                 ) {
                     SfIcon(

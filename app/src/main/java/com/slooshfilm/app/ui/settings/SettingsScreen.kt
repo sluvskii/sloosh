@@ -46,6 +46,7 @@ import com.slooshfilm.app.ui.components.SlooshAlertDialog
 import com.slooshfilm.app.ui.components.SlooshSlider
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
+import com.slooshfilm.app.ui.components.LocalSettingsBackdrop
 import com.slooshfilm.app.ui.theme.SlooshAccent
 import com.slooshfilm.app.utils.AppUpdateInfo
 import com.slooshfilm.app.utils.AppUpdater
@@ -432,6 +433,7 @@ fun SettingsScreen(
                                 localStorage.saveGlassBlur(newBlur)
                             },
                             valueRange = 0f..1f,
+                            backdrop = LocalSettingsBackdrop.current,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)

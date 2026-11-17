@@ -51,7 +51,6 @@ import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
 import com.slooshfilm.app.ui.components.rememberAdaptiveSheetHeight
 import com.slooshfilm.app.ui.theme.*
-import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 /** Радиус верхних углов шторки. */
 private val SheetCornerRadius = 32.dp
@@ -626,7 +625,6 @@ fun WatchSelectorSheet(
                     onClick = onDismiss,
                     backdrop = sheetSceneBackdrop,
                     shape = CircleShape,
-                    tint = SlooshGlassScrimDark,
                     modifier = Modifier
                         .size(44.dp)
                         .align(Alignment.CenterStart)

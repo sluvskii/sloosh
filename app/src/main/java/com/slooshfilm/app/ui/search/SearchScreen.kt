@@ -1,9 +1,6 @@
 package com.slooshfilm.app.ui.search
 
-import android.content.Context
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -24,7 +21,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.kyant.shapes.Capsule
-import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.EmptyStateView
 import com.slooshfilm.app.ui.components.ErrorStateView
@@ -44,45 +40,29 @@ import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Velocity
 import com.slooshfilm.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.slooshfilm.app.data.api.MediaDto
-import com.slooshfilm.app.data.repository.MoviesRepository
 import com.slooshfilm.app.data.storage.LocalStorage
 import com.slooshfilm.app.ui.components.LocalCardDensity
 import com.slooshfilm.app.ui.components.LocalCardStyle
 import com.slooshfilm.app.ui.components.MediaCard
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
 import com.slooshfilm.app.ui.theme.*
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -492,9 +472,7 @@ private fun SearchDiscoveryView(
                             SlooshFloatingButton(
                                 onClick = { onSelectHistory(item) },
                                 backdrop = chipBackdrop,
-                                blurRadius = 8.dp,
                                 shape = Capsule(),
-                                tint = SlooshGlassScrimDark,
                                 borderAlpha = 0.50f,
                                 contentPadding = PaddingValues(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)
                             ) {
@@ -556,9 +534,7 @@ private fun SearchDiscoveryView(
                         SlooshFloatingButton(
                             onClick = { onSelectGenre(genre) },
                             backdrop = chipBackdrop,
-                            blurRadius = 8.dp,
                             shape = Capsule(),
-                            tint = SlooshGlassScrimDark,
                             borderAlpha = 0.50f,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
@@ -597,9 +573,7 @@ private fun SearchDiscoveryView(
                         SlooshFloatingButton(
                             onClick = { onSelectStudio(studio) },
                             backdrop = chipBackdrop,
-                            blurRadius = 8.dp,
                             shape = Capsule(),
-                            tint = SlooshGlassScrimDark,
                             borderAlpha = 0.50f,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {

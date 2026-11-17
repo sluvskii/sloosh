@@ -10,19 +10,15 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -32,7 +28,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import com.kyant.shapes.Capsule
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.api.MediaDto
 import com.slooshfilm.app.data.repository.MoviesRepository
@@ -43,7 +38,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
@@ -60,17 +54,13 @@ import com.slooshfilm.app.ui.components.LocalCardDensity
 import com.slooshfilm.app.ui.components.MediaCard
 import com.slooshfilm.app.ui.components.ShimmerPlaceholder
 import com.slooshfilm.app.ui.theme.BackgroundDark
-import com.slooshfilm.app.ui.theme.SlooshAccent
 import com.slooshfilm.app.ui.theme.SlooshTypography
 import com.slooshfilm.app.ui.theme.TextPrimaryDark
-import com.slooshfilm.app.ui.theme.TextSecondaryDark
-import com.slooshfilm.app.ui.theme.TextTertiaryDark
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
-import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -372,7 +362,6 @@ fun MediaCatalogScreen(
                     onClick = onBack,
                     backdrop = sceneBackdrop,
                     shape = CircleShape,
-                    tint = com.slooshfilm.app.ui.theme.SlooshGlassScrimDark,
                     modifier = Modifier
                         .size(44.dp)
                         .align(Alignment.CenterStart)

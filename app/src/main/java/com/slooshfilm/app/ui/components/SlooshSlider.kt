@@ -4,14 +4,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import io.github.neoruaa.glasmio.glass.LocalGlassBackdrop
 import io.github.neoruaa.glasmio.glass.render.Backdrop
-import io.github.neoruaa.glasmio.ui.GlasmioAdaptiveSlider
+import io.github.neoruaa.glasmio.ui.GlasmioSlider
 
 /**
- * Слайдер sloosh на движке glasmio.
+ * Ползунок sloosh на движке glasmio.
  *
- * Заменяет самописный `SlooshSlider` (удалён): дорожку, стеклянный «палец» с линзовым
- * преломлением и пружинную физику перетаскивания рисует вендоренный
- * [GlasmioAdaptiveSlider] — тот же движок `nativeControlLens`, что у ползунка навбара.
+ * Дорожку и стеклянный «палец» с линзовым преломлением рисует вендоренный [GlasmioSlider] —
+ * тот же `nativeControlLens`, что у ползунка навбара. Это обычный непрерывный ползунок
+ * (как в iOS `.slider`), а не адаптивный трёхъячеечный `GlasmioAdaptiveSlider`: последний
+ * для «Размытия стекла» рисовал бы подписи 0/50/100% и сегменты, которых в настройках нет.
  */
 @Composable
 fun SlooshSlider(
@@ -23,10 +24,11 @@ fun SlooshSlider(
     enabled: Boolean = true,
     onValueChangeFinished: (() -> Unit)? = null,
 ) {
-    GlasmioAdaptiveSlider(
+    GlasmioSlider(
         value = value.coerceIn(valueRange),
         onValueChange = onValueChange,
         modifier = modifier,
+        valueRange = valueRange,
         enabled = enabled,
         onValueChangeFinished = onValueChangeFinished,
         backdrop = backdrop ?: LocalGlassBackdrop.current,

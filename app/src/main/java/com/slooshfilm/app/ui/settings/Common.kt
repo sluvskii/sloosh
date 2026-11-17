@@ -41,13 +41,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
+import com.slooshfilm.app.ui.components.LocalGlassBlurMultiplier
+import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
+import com.slooshfilm.app.ui.components.LocalSettingsBackdrop
 import com.slooshfilm.app.ui.components.LocalSlooshMenuHostState
 import com.slooshfilm.app.ui.components.ProgressiveBlurTokens
 import com.slooshfilm.app.ui.components.SettingsMenuTrigger
 import com.slooshfilm.app.ui.components.SlooshFloatingButton
 import com.slooshfilm.app.ui.components.SlooshGlassDialog
 import com.slooshfilm.app.ui.components.SlooshGlassMenuOverlay
+import com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider
 import com.slooshfilm.app.ui.components.SlooshGroupedList
 import com.slooshfilm.app.ui.components.SlooshMenuState
 import com.slooshfilm.app.ui.components.SlooshMenuTokens
@@ -147,10 +151,17 @@ fun SettingsScaffold(
                             .padding(horizontal = cutoutPadding)
                             .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = bottomTotalPadding)
                     ) {
-                        CompositionLocalProvider(
-                            LocalSlooshMenuHostState provides menuState
+                        SlooshGlassSettingsProvider(
+                            backdrop = contentBackdrop,
+                            glassEnabled = LocalGlassEnabled.current,
+                            progressiveBlurEnabled = LocalProgressiveBlur.current,
+                            blurMultiplier = LocalGlassBlurMultiplier.current
                         ) {
-                            content()
+                            CompositionLocalProvider(
+                                LocalSlooshMenuHostState provides menuState
+                            ) {
+                                content()
+                            }
                         }
                     }
                 }
@@ -205,7 +216,12 @@ fun SettingsScaffold(
         }
 
         // Floating TopBar with genuine Liquid Glass Back Button (refracting sceneBackdrop)
-        CompositionLocalProvider(io.github.neoruaa.glasmio.glass.LocalGlassBackdrop provides effectiveSceneBackdrop) {
+        SlooshGlassSettingsProvider(
+            backdrop = effectiveSceneBackdrop,
+            glassEnabled = LocalGlassEnabled.current,
+            progressiveBlurEnabled = LocalProgressiveBlur.current,
+            blurMultiplier = LocalGlassBlurMultiplier.current
+        ) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
                 modifier = Modifier
@@ -248,7 +264,7 @@ fun SettingsScaffold(
         // Topmost Liquid Glass Context Menu Overlay
         SlooshGlassMenuOverlay(
             state = menuState,
-            backdrop = contentBackdrop
+            backdrop = effectiveSceneBackdrop
         )
     }
 }
@@ -272,6 +288,7 @@ fun TopBar(title: String, onBackClick: (() -> Unit)? = null) {
         onBackClick?.let {
             SlooshFloatingButton(
                 onClick = it,
+                backdrop = LocalSettingsBackdrop.current,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -608,7 +625,8 @@ fun SettingsMenuItem(
         SettingsMenuTrigger(
             selectedValue = selectedValue,
             options = options,
-            onOptionSelected = onOptionSelected
+            onOptionSelected = onOptionSelected,
+            backdrop = LocalSettingsBackdrop.current
         )
     }
 }
@@ -653,6 +671,7 @@ fun SettingsSegmentedRow(
             onSelected = onOptionSelected,
             modifier = Modifier.fillMaxWidth(),
             height = 36.dp,
+            backdrop = LocalSettingsBackdrop.current,
         )
     }
 }
@@ -700,7 +719,10 @@ fun SettingsSwitchItem(
         }
         SlooshToggle(
             selected = { checked },
-            onSelect = onCheckedChange
+            onSelect = onCheckedChange,
+            // Строка настройки не наследует бэкдроп: вендоренный GlasmioGroupedList его не
+            // прокидывает, поэтому передаём бэкдроп экрана явно.
+            backdrop = LocalSettingsBackdrop.current
         )
     }
 }
@@ -840,7 +862,7 @@ fun StepperButton(enabled: Boolean, onStep: () -> Unit, content: @Composable () 
                     }
                 )
             },
-        backdrop = LocalGlassBackdrop.current,
+        backdrop = LocalSettingsBackdrop.current ?: LocalGlassBackdrop.current,
         shape = CircleShape,
         style = GlassSurfaceStyle.Navigation,
         enabled = enabled,
