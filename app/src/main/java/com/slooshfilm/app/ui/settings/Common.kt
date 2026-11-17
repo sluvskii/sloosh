@@ -55,7 +55,6 @@ import com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider
 import com.slooshfilm.app.ui.components.SlooshGroupedList
 import com.slooshfilm.app.ui.components.SlooshMenuState
 import com.slooshfilm.app.ui.components.SlooshMenuTokens
-import com.slooshfilm.app.ui.components.SlooshToggle
 import com.slooshfilm.app.ui.components.rememberCutoutHorizontalPadding
 import com.slooshfilm.app.ui.components.rememberNavBarBottomPadding
 import com.slooshfilm.app.ui.sficons.SfIcon
@@ -70,6 +69,7 @@ import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import io.github.neoruaa.glasmio.glass.render.drawBackdrop
 import io.github.neoruaa.glasmio.ui.GlasmioSegmentedControl
+import io.github.neoruaa.glasmio.ui.GlasmioSwitch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -82,10 +82,10 @@ fun SettingsScaffold(
     sceneBackdrop: LayerBackdrop? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // Экран настроек — единственный, который падал **и с размытием** (подтверждено на
-    // Redmi Pad SE / Adreno 610): строк и контролов слишком много для GPU-пути. Поэтому
-    // в его поддереве оптика выключена целиком (оба провайдера ниже получают
-    // `backdropEnabled = false`), а остальное приложение остаётся со стеклом.
+    // Стекло на настройках раньше падало не из-за количества контролов, а из-за петли:
+    // содержимое сэмплировало `contentBackdrop`, в который само же и записывалось.
+    // Теперь провайдер строк ведёт на сценический бэкдроп, поэтому стекло можно включить,
+    // сохранив безопасный режим для линз (`lensesEnabled = false`).
     val screenBg = MaterialTheme.colorScheme.background
     val effectiveSceneBackdrop = sceneBackdrop ?: rememberLayerBackdrop {
         drawRect(screenBg)
@@ -155,13 +155,18 @@ fun SettingsScaffold(
                             .padding(horizontal = cutoutPadding)
                             .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = bottomTotalPadding)
                     ) {
+                        // Бэкдроп для строк настроек — СЦЕНИЧЕСКИЙ (фон без содержимого
+                        // этого же слоя), а не `contentBackdrop`. Раньше строки сэмплировали
+                        // слой, внутри которого находятся сами: стекло сэмплирует стекло,
+                        // и запись слоя замыкается сама на себя. На Adreno 610 это роняло
+                        // процесс нативно — отсюда «вылетает с настроек» и «нет логов».
                         SlooshGlassSettingsProvider(
-                            backdrop = contentBackdrop,
+                            backdrop = effectiveSceneBackdrop,
                             glassEnabled = LocalGlassEnabled.current,
                             progressiveBlurEnabled = LocalProgressiveBlur.current,
                             blurMultiplier = LocalGlassBlurMultiplier.current,
                             lensesEnabled = false,
-                            backdropEnabled = false
+                            backdropEnabled = true
                         ) {
                             CompositionLocalProvider(
                                 LocalSlooshMenuHostState provides menuState
@@ -228,7 +233,7 @@ fun SettingsScaffold(
             progressiveBlurEnabled = LocalProgressiveBlur.current,
             blurMultiplier = LocalGlassBlurMultiplier.current,
             lensesEnabled = false,
-            backdropEnabled = false
+            backdropEnabled = true
         ) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
@@ -379,12 +384,25 @@ fun SettingsSection(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             )
         }
-        SlooshGroupedList(
+        // Стекло группы: та же поверхность glasmio, что у карточек на других экранах.
+        // Раньше группа была плоской заливкой `elevatedBackground`, из-за чего настройки
+        // выглядели «другими кнопками». Форму и материал рисует движок, строки — сверху.
+        GlassSurface(
             modifier = Modifier.fillMaxWidth(),
-            // Бэкдроп экрана: строки внутри содержат контролы движка, которым он нужен.
-            backdrop = LocalSettingsBackdrop.current
+            backdrop = LocalSettingsBackdrop.current ?: LocalGlassBackdrop.current,
+            shape = shape,
+            style = GlassSurfaceStyle.Navigation,
+            // Тинт не передаём: не-null `navigationSurfaceColor` выключает материал движка
+            // и возвращает простую заливку (см. комментарий в `SlooshFloatingButton`).
+            contentAlignment = Alignment.TopStart,
         ) {
-            content()
+            SlooshGroupedList(
+                modifier = Modifier.fillMaxWidth(),
+                // Бэкдроп экрана: строки внутри содержат контролы движка, которым он нужен.
+                backdrop = LocalSettingsBackdrop.current
+            ) {
+                content()
+            }
         }
         if (footer.isNotEmpty()) {
             Text(
@@ -729,12 +747,13 @@ fun SettingsSwitchItem(
                 )
             }
         }
-        SlooshToggle(
-            selected = { checked },
-            onSelect = onCheckedChange,
-            // Строка настройки не наследует бэкдроп: вендоренный GlasmioGroupedList его не
-            // прокидывает, поэтому передаём бэкдроп экрана явно.
-            backdrop = LocalSettingsBackdrop.current
+        // Вендоренный переключатель glasmio — тот же контрол, что на остальных экранах.
+        // Раньше здесь стоял самодельный `SlooshToggle`, из-за чего кнопки в настройках
+        // выглядели иначе. Бэкдроп передаём явно: строки не наследуют его из списка.
+        GlasmioSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            backdrop = LocalSettingsBackdrop.current ?: LocalGlassBackdrop.current,
         )
     }
 }
