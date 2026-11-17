@@ -372,7 +372,9 @@ fun SettingsSection(
             )
         }
         SlooshGroupedList(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            // Бэкдроп экрана: строки внутри содержат контролы движка, которым он нужен.
+            backdrop = LocalSettingsBackdrop.current
         ) {
             content()
         }
@@ -892,7 +894,9 @@ fun SettingsChoiceDialog(
 
     SlooshGlassDialog(
         title = title,
-        onDismissRequest = onDismiss
+        onDismissRequest = onDismiss,
+        // Диалог живёт в отдельном окне: без явного бэкдропа стекло будет пустым.
+        backdrop = LocalSettingsBackdrop.current
     ) { dismiss ->
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             options.forEach { option ->
