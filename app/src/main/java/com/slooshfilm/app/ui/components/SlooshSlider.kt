@@ -24,11 +24,17 @@ fun SlooshSlider(
     enabled: Boolean = true,
     onValueChangeFinished: (() -> Unit)? = null,
 ) {
+    // Значение из SharedPreferences может быть NaN/Inf после старых версий: приводим к диапазону,
+    // иначе движок (и семантика прогресса) получает мусор.
+    val safeRange = if (valueRange.start.isFinite() && valueRange.endInclusive.isFinite() &&
+        valueRange.start < valueRange.endInclusive
+    ) valueRange else 0f..1f
+    val safeValue = if (value.isFinite()) value.coerceIn(safeRange) else safeRange.start
     GlasmioSlider(
-        value = value.coerceIn(valueRange),
+        value = safeValue,
         onValueChange = onValueChange,
         modifier = modifier,
-        valueRange = valueRange,
+        valueRange = safeRange,
         enabled = enabled,
         onValueChangeFinished = onValueChangeFinished,
         backdrop = backdrop ?: LocalGlassBackdrop.current,

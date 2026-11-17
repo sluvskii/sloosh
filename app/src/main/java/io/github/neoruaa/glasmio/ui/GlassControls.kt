@@ -277,12 +277,13 @@ fun GlasmioSlider(
     backdrop: Backdrop = LocalGlassBackdrop.current,
     onValueChangeFinished: (() -> Unit)? = null,
 ) {
-    require(value.isFinite()) { "Slider value must be finite." }
-    require(valueRange.start.isFinite() && valueRange.endInclusive.isFinite() &&
+    // VENDOR-PATCH(sloosh): апстрим падал здесь на нефинитном значении из SharedPreferences.
+    // Неверные данные не должны ронять экран — приводим их к безопасному диапазону.
+    val safeRange = if (valueRange.start.isFinite() && valueRange.endInclusive.isFinite() &&
         valueRange.start < valueRange.endInclusive &&
-        (valueRange.endInclusive - valueRange.start).isFinite()) {
-        "Slider range must have finite, increasing bounds and a finite span."
-    }
+        (valueRange.endInclusive - valueRange.start).isFinite()
+    ) valueRange else 0f..1f
+    val safeValue = if (value.isFinite()) value else safeRange.start
     val colors = LocalGlassColors.current
     val appearance = LocalGlassAppearance.current
     val light = !colors.isDark
@@ -296,22 +297,22 @@ fun GlasmioSlider(
     }
     val trackBackdrop = rememberLayerBackdrop()
     val currentEnabled by rememberUpdatedState(enabled)
-    val currentValue by rememberUpdatedState(value.coerceIn(valueRange))
+    val currentValue by rememberUpdatedState(safeValue.coerceIn(safeRange))
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
-    var dragValue by remember(valueRange, enabled) {
-        mutableFloatStateOf(value.coerceIn(valueRange))
+    var dragValue by remember(safeRange, enabled) {
+        mutableFloatStateOf(safeValue.coerceIn(safeRange))
     }
-    var dragging by remember(valueRange, enabled) { mutableStateOf(false) }
+    var dragging by remember(safeRange, enabled) { mutableStateOf(false) }
     val displayedValue = if (dragging) dragValue else currentValue
     val updateValue by rememberUpdatedState<(Float) -> Unit> { next ->
-        val target = next.coerceIn(valueRange)
+        val target = next.coerceIn(safeRange)
         val previous = if (dragging) dragValue else currentValue
         if (dragging) dragValue = target
         if (target != previous) currentOnValueChange(target)
     }
     val progress = {
-        (displayedValue - valueRange.start) / (valueRange.endInclusive - valueRange.start)
+        (displayedValue - safeRange.start) / (safeRange.endInclusive - safeRange.start)
     }
 
     BoxWithConstraints(
@@ -319,14 +320,14 @@ fun GlasmioSlider(
             .swipeBackExcluded(enabled)
             .fillMaxWidth()
             .height(40.dp)
-            .progressSemantics(displayedValue, valueRange)
+            .progressSemantics(displayedValue, safeRange)
             .semantics {
                 if (!enabled) disabled()
                 setProgress { requested ->
                     if (!enabled || !requested.isFinite()) {
                         false
                     } else {
-                        val target = requested.coerceIn(valueRange)
+                        val target = requested.coerceIn(safeRange)
                         if (target == displayedValue) {
                             false
                         } else {
@@ -346,12 +347,12 @@ fun GlasmioSlider(
         val currentThumbWidth by rememberUpdatedState(thumbWidthPx)
         val currentLtr by rememberUpdatedState(ltr)
         val scope = rememberCoroutineScope()
-        val animation = remember(scope, valueRange, enabled) {
+        val animation = remember(scope, safeRange, enabled) {
             DampedDragAnimation(
                 animationScope = scope,
-                initialValue = value.fastCoerceIn(valueRange.start, valueRange.endInclusive),
-                valueRange = valueRange,
-                visibilityThreshold = (valueRange.endInclusive - valueRange.start) / 1000f,
+                initialValue = safeValue.fastCoerceIn(safeRange.start, safeRange.endInclusive),
+                valueRange = safeRange,
+                visibilityThreshold = (safeRange.endInclusive - safeRange.start) / 1000f,
                 initialScale = 1f,
                 pressedScale = 1.5f,
                 onDragStarted = {},
@@ -364,8 +365,8 @@ fun GlasmioSlider(
             val fraction = ((x - currentThumbWidth / 2f) /
                 (currentTrackWidth - currentThumbWidth).coerceAtLeast(1f)).coerceIn(0f, 1f)
             updateValue(
-                if (currentLtr) lerp(valueRange.start, valueRange.endInclusive, fraction)
-                else lerp(valueRange.endInclusive, valueRange.start, fraction),
+                if (currentLtr) lerp(safeRange.start, safeRange.endInclusive, fraction)
+                else lerp(safeRange.endInclusive, safeRange.start, fraction),
             )
         }
         val finishGesture by rememberUpdatedState {
@@ -434,7 +435,7 @@ fun GlasmioSlider(
         // coordinates subtracts its own movement and makes dragging feel damped.
         Box(
             Modifier.fillMaxSize()
-                .pointerInput(enabled, valueRange, animation) {
+                .pointerInput(enabled, safeRange, animation) {
                     if (!enabled) return@pointerInput
                     detectTapGestures(
                         onPress = {
@@ -450,7 +451,7 @@ fun GlasmioSlider(
                         },
                     )
                 }
-                .pointerInput(enabled, valueRange, animation) {
+                .pointerInput(enabled, safeRange, animation) {
                     if (!enabled) return@pointerInput
                     detectHorizontalDragGestures(
                         onDragStart = { position ->

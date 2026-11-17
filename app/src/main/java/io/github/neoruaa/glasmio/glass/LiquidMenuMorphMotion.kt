@@ -101,9 +101,12 @@ class LiquidMenuMorphMotion {
     )
 
     fun initialize(source: Rect, target: Rect, targetRadius: Float, density: Float = 1f, through: Rect = source) {
-        require(source.isFiniteAndPositive() && target.isFiniteAndPositive() && through.isFiniteAndPositive())
-        require(targetRadius.isFinite() && targetRadius >= 0f)
-        require(density.isFinite() && density > 0f)
+        // VENDOR-PATCH(sloosh): меню может открываться до первого замера якоря/цели — вместо
+        // падения на require() просто не запускаем морф: меню показывается без него.
+        if (!source.isFiniteAndPositive() || !target.isFiniteAndPositive() ||
+            !through.isFiniteAndPositive() || !targetRadius.isFinite() || targetRadius < 0f ||
+            !density.isFinite() || density <= 0f
+        ) return
         this.source = source
         this.through = through
         destination = target

@@ -47,7 +47,9 @@ class LocalStorage(context: Context) {
     }
 
     fun getGlassBlur(): Float {
-        return prefs.getFloat(GLASS_BLUR_KEY, 0.70f)
+        // NaN/Inf в настройках прежних версий ронял ползунок: отдаём только валидное 0..1.
+        val stored = prefs.getFloat(GLASS_BLUR_KEY, 0.70f)
+        return if (stored.isFinite()) stored.coerceIn(0f, 1f) else 0.70f
     }
 
     fun saveProgressiveBlurEnabled(enabled: Boolean) {

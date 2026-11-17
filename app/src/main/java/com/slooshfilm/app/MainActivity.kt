@@ -93,6 +93,19 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // Отчёт о последнем падении: текст ошибки показываем прямо в приложении,
+                    // чтобы его можно было скопировать без подключения к компьютеру.
+                    // Рисуем поверх сплэша, чтобы диалог не перекрывался им.
+                    var crashReport by remember {
+                        mutableStateOf(com.slooshfilm.app.utils.CrashLogs.pending(applicationContext))
+                    }
+                    crashReport?.let { report ->
+                        com.slooshfilm.app.ui.components.CrashReportDialog(
+                            report = report,
+                            onDismiss = { crashReport = null }
+                        )
+                    }
+
                     // Привязка ТВ-устройства: deep link sloosh://pair?code=XXXX-XXXX
                     val pairCodeState = remember { androidx.compose.runtime.mutableStateOf(extractPairingCode(intent)) }
                     pairCodeForwarder = { pairCodeState.value = it }

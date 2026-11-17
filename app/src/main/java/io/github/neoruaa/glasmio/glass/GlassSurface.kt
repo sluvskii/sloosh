@@ -799,7 +799,8 @@ internal fun Modifier.navigationGlassBackgroundResolved(
                 val nativeField = if (nativeOptics || completion != null) when (surfaceShape) {
                     is LiquidContactShape -> navigationContainerGlassField(surfaceShape, opticalCenter?.invoke(), completionBand)
                     is ToolbarActionShape -> navigationToolbarGlassField(surfaceShape, completionBand)
-                    is NavigationGlassUnionShape -> surfaceShape.nativeField()
+                    // VENDOR-PATCH(sloosh): непригодная (нулевая) геометрия не даёт поля.
+                    is NavigationGlassUnionShape -> surfaceShape.takeIf { it.isUsable }?.nativeField()
                     else -> null
                 } else null
                 if (nativeOptics) {
