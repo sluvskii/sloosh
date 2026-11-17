@@ -94,6 +94,19 @@ val LocalGlassBlurMultiplier = staticCompositionLocalOf { 0.70f }
 val LocalSettingsBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 /**
+ * Аварийный режим оптики: полностью выключает GPU-путь движка (`reduceTransparency`).
+ *
+ * Зачем: на части устройств/драйверов `RuntimeShader`/`RenderEffect` падают **нативно**
+ * (SIGSEGV в HWUI). Такой сбой не перехватывается Java-обработчиком, поэтому приложение
+ * умирает без записи отчёта и без диалога — ровно то, что видно на планшете.
+ *
+ * Экран настроек выставляет этот флаг на время своей композиции: там много строк и
+ * контролов, и именно этот экран падал. Стекло остаётся (материал навбара, кнопок,
+ * переключателей), но без преломления и линз.
+ */
+val LocalGlassOpticsDisabled = staticCompositionLocalOf { false }
+
+/**
  * Провайдер настроек стекла: переводит настройки sloosh в термины движка glasmio
  * (`GlassAppearance.liquidGlassEnabled` / `reduceTransparency`), чтобы материал нaвбара,
  * кнопок и диалогов реагировал на «Режим без стекла» и «Размытие стекла».
@@ -110,7 +123,7 @@ fun SlooshGlassSettingsProvider(
         // Ползунок «Размытие стекла» на 0% = полностью прозрачное стекло; ниже 8% считаем,
         // что оптику надо отключать целиком — так же вёл себя прежний движок.
         liquidGlassEnabled = glassEnabled && blurMultiplier > 0.08f,
-        reduceTransparency = !glassEnabled,
+        reduceTransparency = !glassEnabled || LocalGlassOpticsDisabled.current,
         adaptiveColorScheme = base.adaptiveColorScheme,
     )
     CompositionLocalProvider(

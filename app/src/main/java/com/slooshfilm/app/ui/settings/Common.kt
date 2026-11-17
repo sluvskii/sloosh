@@ -43,6 +43,7 @@ import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
 import com.slooshfilm.app.ui.components.LocalGlassBlurMultiplier
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
+import com.slooshfilm.app.ui.components.LocalGlassOpticsDisabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.LocalSettingsBackdrop
 import com.slooshfilm.app.ui.components.LocalSlooshMenuHostState
@@ -112,6 +113,10 @@ fun SettingsScaffold(
         label = "settingsHeaderAlpha"
     )
 
+    // Экран настроек — единственный, который стабильно падал на устройстве. Нативные падения
+    // GPU (RuntimeShader/RenderEffect) Java-обработчиком не перехватываются, поэтому здесь
+    // оптика движка выключена целиком: стекло остаётся материалом, но без линз и преломления.
+    CompositionLocalProvider(LocalGlassOpticsDisabled provides true) {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -266,6 +271,7 @@ fun SettingsScaffold(
             state = menuState,
             backdrop = effectiveSceneBackdrop
         )
+    }
     }
 }
 
