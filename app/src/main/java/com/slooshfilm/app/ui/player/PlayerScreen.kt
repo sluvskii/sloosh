@@ -11,7 +11,6 @@ import android.os.Looper
 import android.util.Rational
 import android.view.LayoutInflater
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -33,10 +32,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import com.slooshfilm.app.data.alloha.LanguageFlag
 import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.LocalGlassBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.kyant.shapes.Capsule
-import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.ui.components.SlooshFloatingButton
 import com.slooshfilm.app.ui.components.SlooshMultiButton
 import com.slooshfilm.app.ui.components.SlooshGlassMenuOverlay
@@ -1815,6 +1814,7 @@ fun PlayerScreen(
                         Spacer(modifier = Modifier.height(20.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             SlooshFloatingButton(
+                                backdrop = LocalGlassBackdrop.current,
                                 onClick = {
                                     silentRetryCount = 0
                                     sessionReloadKey++
@@ -1825,6 +1825,7 @@ fun PlayerScreen(
                                 Text("Повторить", color = Color.White, fontWeight = FontWeight.SemiBold)
                             }
                             SlooshFloatingButton(
+                                backdrop = LocalGlassBackdrop.current,
                                 onClick = onBack,
                                 shape = Capsule(),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
@@ -1945,6 +1946,7 @@ fun PlayerScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 SlooshFloatingButton(
+                                    backdrop = LocalGlassBackdrop.current,
                                     onClick = onBack,
                                     shape = CircleShape,
                                     modifier = Modifier.size(44.dp)
@@ -1960,6 +1962,7 @@ fun PlayerScreen(
 
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     SlooshFloatingButton(
+                                        backdrop = LocalGlassBackdrop.current,
                                         onClick = {
                                             try {
                                                 val aspectRatio = Rational(16, 9)
@@ -1987,6 +1990,7 @@ fun PlayerScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 SlooshFloatingButton(
+                                    backdrop = LocalGlassBackdrop.current,
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         isInterfaceLocked = true
@@ -2098,6 +2102,7 @@ fun PlayerScreen(
                     ) {
                         if (isTvSeries) {
                             SlooshFloatingButton(
+                                backdrop = LocalGlassBackdrop.current,
                                 onClick = { if (hasPreviousEpisode) playPreviousEpisode() },
                                 shape = CircleShape,
                                 modifier = Modifier.size(56.dp)
@@ -2118,6 +2123,7 @@ fun PlayerScreen(
 
                         if (isTvSeries) {
                             SlooshFloatingButton(
+                                backdrop = LocalGlassBackdrop.current,
                                 onClick = { if (hasNextEpisode) playNextEpisode() },
                                 shape = CircleShape,
                                 modifier = Modifier.size(56.dp)
@@ -2389,6 +2395,7 @@ fun PlayerScreen(
                                     val isOutro = duration > 0L && (range.first * 1000L) > (duration * 0.70f)
                                     val skipLabel = if (isOutro) "Пропустить титры" else "Пропустить заставку"
                                     SlooshFloatingButton(
+                                        backdrop = LocalGlassBackdrop.current,
                                         onClick = { exoPlayer.seekTo((range.last + 1) * 1000L) },
                                         shape = Capsule(),
                                         modifier = Modifier
@@ -2418,6 +2425,7 @@ fun PlayerScreen(
 
                                 // Нижняя капсула справа: Скорость | Качество (iOS BottomRowView)
                                 SlooshMultiButton(
+                                    backdrop = LocalGlassBackdrop.current,
                                     modifier = Modifier
                                         .height(44.dp)
                                         .graphicsLayer { alpha = multiCapsuleAlpha.value }
@@ -2606,6 +2614,7 @@ fun PlayerScreen(
                             )
                     ) {
                         SlooshFloatingButton(
+                            backdrop = LocalGlassBackdrop.current,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isInterfaceLocked = false
@@ -2628,9 +2637,11 @@ fun PlayerScreen(
                 }
             }
 
-            // LIQUID GLASS MENU OVERLAY (Speed, Quality, Voiceover, Episodes)
+            // Контекстное меню плеера: бэкдроп видео передаём явно (вне провайдера
+            // LocalBlurBackdrop у glasmio нет значения по умолчанию — он падает).
             SlooshGlassMenuOverlay(
-                state = playerMenuState
+                state = playerMenuState,
+                backdrop = playerBackdrop
             )
         }
     }
@@ -3015,6 +3026,7 @@ private fun PlayerPlayPauseButton(
     val playbackState by player.playbackStateAsState()
 
     SlooshFloatingButton(
+        backdrop = LocalGlassBackdrop.current,
         onClick = { if (player.isPlaying) player.pause() else player.play() },
         shape = CircleShape,
         modifier = Modifier.size(80.dp)

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import com.kyant.shapes.RoundedRectangle
 import com.kyant.shapes.UnevenRoundedRectangle
-import androidx.compose.ui.res.painterResource
 import com.slooshfilm.app.ui.sficons.SfIcon
 import com.slooshfilm.app.R
 import androidx.compose.material3.*
@@ -23,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCanvasBackdrop
 import com.slooshfilm.app.ui.components.SlooshFloatingButton
-import com.slooshfilm.app.ui.theme.SlooshGlassScrimDark
 import com.slooshfilm.app.ui.theme.SurfaceDark
 import com.slooshfilm.app.ui.theme.TextPrimaryDark
 import com.slooshfilm.app.ui.theme.TextSecondaryDark
@@ -82,7 +80,6 @@ fun TrailerPlayerSheet(
                     onClick = onDismiss,
                     backdrop = glassBackdrop,
                     shape = CircleShape,
-                    tint = SlooshGlassScrimDark,
                     modifier = Modifier.size(34.dp)
                 ) {
                     SfIcon(

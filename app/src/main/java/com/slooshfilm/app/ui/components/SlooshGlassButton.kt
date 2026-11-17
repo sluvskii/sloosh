@@ -43,8 +43,10 @@ import io.github.neoruaa.glasmio.glass.render.Backdrop
  * что у нижней панели. Раньше это были кнопки самописного `ui/components/LiquidGlass.kt`
  * (файл удалён вместе с движком).
  *
- * [blurRadius] — «морозность» материала (апстримный `frostRadius`);
- * [borderAlpha] — интенсивность кромочного блика (`emphasis`: ≥ 0.75 → `Prominent`).
+ * Кнопка передаёт в движок ровно тот же набор параметров, что нижний навбар (форма,
+ * `GlassSurfaceStyle.Navigation`, бэкдроп сцены) — поэтому её стекло пиксельно совпадает
+ * с навбаром. [blurRadius] оставлен для совместимости: `null` = «морозность» берётся из
+ * материала движка, как у навбара; [borderAlpha] — кромочный блик (≥ 0.75 → `Prominent`).
  */
 @Composable
 fun SlooshFloatingButton(
@@ -52,7 +54,7 @@ fun SlooshFloatingButton(
     modifier: Modifier = Modifier,
     backdrop: Backdrop? = null,
     shape: Shape = CircleShape,
-    blurRadius: Dp = 20.dp,
+    blurRadius: Dp? = null,
     tint: Color? = null,
     borderAlpha: Float = 0.68f,
     elevation: Dp = 4.dp,
@@ -65,10 +67,17 @@ fun SlooshFloatingButton(
         backdrop = backdrop ?: LocalGlassBackdrop.current,
         shape = shape,
         style = GlassSurfaceStyle.Navigation,
+        // `navigationSurfaceColor = null` — это и есть материал навбара: движок сэмплирует бэкдроп
+        // и накладывает нейтральное стекло. В glasmio ненулевой `navigationSurfaceColor` ВЫКЛЮЧАЕТ
+        // navigationMaterial (`navigationMaterial = ... || navigationSurfaceColor == null`) и
+        // рисует упрощённую заливку — именно поэтому кнопки выглядели «не тем стеклом».
+        // Поэтому тинт передаём только когда он задан явно (например, выбранное состояние),
+        // а дефолтный «скрим» — нет: он возвращал упрощённую заливку вместо стекла.
         navigationSurfaceColor = tint,
         emphasis = emphasis,
         onClick = onClick,
         contentAlignment = Alignment.Center,
+        // `null` — материал берёт «морозность» движка, как навбар (никакой своей оптики)
         frostRadius = blurRadius,
     ) {
         Box(
@@ -92,7 +101,7 @@ fun SlooshDualButton(
     modifier: Modifier = Modifier,
     backdrop: Backdrop? = null,
     shape: Shape = SlooshCapsule,
-    blurRadius: Dp = 20.dp,
+    blurRadius: Dp? = null,
     tint: Color? = null,
     borderAlpha: Float = 0.68f,
     elevation: Dp = 4.dp,
@@ -152,7 +161,7 @@ fun SlooshMultiButton(
     modifier: Modifier = Modifier,
     backdrop: Backdrop? = null,
     shape: Shape = SlooshCapsule,
-    blurRadius: Dp = 20.dp,
+    blurRadius: Dp? = null,
     tint: Color? = null,
     borderAlpha: Float = 0.68f,
     elevation: Dp = 4.dp,

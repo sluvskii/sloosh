@@ -18,6 +18,7 @@ import com.slooshfilm.app.ui.theme.LocalSlooshColors
 import io.github.neoruaa.glasmio.core.GlassAppearance
 import io.github.neoruaa.glasmio.glass.navigationGlassBackground
 import io.github.neoruaa.glasmio.core.LocalGlassAppearance
+import io.github.neoruaa.glasmio.glass.LocalBlurBackdrop
 import io.github.neoruaa.glasmio.glass.LocalGlassBackdrop
 import io.github.neoruaa.glasmio.glass.render.Backdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.emptyBackdrop
@@ -83,6 +84,16 @@ val LocalProgressiveBlur = staticCompositionLocalOf { true }
 val LocalGlassBlurMultiplier = staticCompositionLocalOf { 0.70f }
 
 /**
+ * Бэкдроп для контента, который движок glasmio не прокидывает сам.
+ *
+ * Вендоренный `GlasmioGroupedList` (и обычные `Column`-секции) собирают строки настроек вне
+ * `CompositionLocalProvider(LocalGlassBackdrop)`, поэтому `LocalGlassBackdrop.current` внутри
+ * такой строки — это `staticCompositionLocalOf { error(...) }`, то есть падение.
+ * Настройки кладут бэкдроп экрана в этот local, и все контролы строк берут его явно.
+ */
+val LocalSettingsBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+/**
  * Провайдер настроек стекла: переводит настройки sloosh в термины движка glasmio
  * (`GlassAppearance.liquidGlassEnabled` / `reduceTransparency`), чтобы материал нaвбара,
  * кнопок и диалогов реагировал на «Режим без стекла» и «Размытие стекла».
@@ -109,6 +120,36 @@ fun SlooshGlassSettingsProvider(
         LocalGlassAppearance provides appearance,
         content = content
     )
+}
+
+/**
+ * Провайдер настроек стекла + бэкдроп экрана для строк внутри `GlasmioGroupedList`.
+ *
+ * Нужен там, где контент экрана — это «сырые» строки настроек: вендоренный групповой список
+ * не прокидывает `LocalGlassBackdrop`, а его дефолт — `error(...)`. Провайдер выставляет и
+ * `LocalGlassBackdrop`, и `LocalBlurBackdrop` (его требуют модальные поверхности glasmio),
+ * и `LocalSettingsBackdrop` для обёрток sloosh.
+ */
+@Composable
+fun SlooshGlassSettingsProvider(
+    backdrop: Backdrop,
+    glassEnabled: Boolean,
+    progressiveBlurEnabled: Boolean,
+    blurMultiplier: Float,
+    content: @Composable () -> Unit
+) {
+    SlooshGlassSettingsProvider(
+        glassEnabled = glassEnabled,
+        progressiveBlurEnabled = progressiveBlurEnabled,
+        blurMultiplier = blurMultiplier,
+    ) {
+        CompositionLocalProvider(
+            LocalGlassBackdrop provides backdrop,
+            LocalBlurBackdrop provides backdrop,
+            LocalSettingsBackdrop provides backdrop,
+            content = content
+        )
+    }
 }
 
 /**
@@ -165,7 +206,10 @@ fun Modifier.slooshGlass(
     Modifier.navigationGlassBackground(
         backdrop = backdrop ?: LocalGlassBackdrop.current,
         shape = { shape },
-        containerColor = tint ?: MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+        // containerColor — это ЦВЕТ материала внутри движка, а не заливка поверх стекла.
+        // Дефолт берём нейтральный (surface как есть), а не полупрозрачную «плёнку»:
+        // иначе стекло выглядит мутным и не совпадает с навбаром.
+        containerColor = tint ?: MaterialTheme.colorScheme.surface,
         navigationMaterial = tint == null,
         innerShadows = null,
         isDark = LocalSlooshColors.current.isDark,
@@ -193,7 +237,8 @@ fun Modifier.slooshGlassSurface(
     return this.navigationGlassBackground(
         backdrop = if (isGlassEnabled) (backdrop ?: LocalGlassBackdrop.current) else emptyBackdrop(),
         shape = { shape },
-        containerColor = containerColor ?: MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+        // См. комментарий в `slooshGlass`: это цвет материала glasmio, а не заливка.
+        containerColor = containerColor ?: MaterialTheme.colorScheme.surface,
         navigationMaterial = true,
         innerShadows = null,
         isDark = LocalSlooshColors.current.isDark,

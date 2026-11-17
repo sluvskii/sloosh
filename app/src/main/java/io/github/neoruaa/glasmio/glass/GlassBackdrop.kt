@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.neoruaa.glasmio.glass.render.Backdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.emptyBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.hasBuiltInLayerBlockIndependentSource
 import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
@@ -46,14 +47,15 @@ import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import kotlin.math.ceil
 
-val LocalGlassBackdrop = staticCompositionLocalOf<Backdrop> {
-    error("Glass controls must be hosted by GlasmioBackdropHost or GlasmioBackdropProvider")
-}
+// VENDOR-PATCH(sloosh): апстрим бросал здесь исключение, и любой контрол, оказавшийся вне
+// хоста (строка внутри GlasmioGroupedList, диалог, экран без своего провайдера), ронял
+// приложение в рантайме. Пустой бэкдроп даёт то же поведение, что у glasmio при выключенном
+// сэмплировании: стекло остаётся материалом, но без преломления. Все наши экраны всё равно
+// передают реальный бэкдроп явно.
+val LocalGlassBackdrop = staticCompositionLocalOf<Backdrop> { emptyBackdrop() }
 
 /** Backdrop source reserved for modal surfaces that sample the rendered page. */
-val LocalBlurBackdrop = staticCompositionLocalOf<Backdrop> {
-    error("Blur glass must be hosted by the app backdrop provider")
-}
+val LocalBlurBackdrop = staticCompositionLocalOf<Backdrop> { emptyBackdrop() }
 
 @Composable
 fun GlasmioBackdropProvider(
