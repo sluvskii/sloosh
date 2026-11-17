@@ -495,7 +495,7 @@ fun SlooshApp() {
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen(
+                SettingsScreenGuarded(
                     navController = navController,
                     onGlassEnabledChange = { currentGlassEnabled = it },
                     onProgressiveBlurChange = { currentProgressiveBlur = it }
@@ -503,7 +503,7 @@ fun SlooshApp() {
             }
 
             composable(Screen.SettingsAppearance.route) {
-                SettingsScreen(
+                SettingsScreenGuarded(
                     navController = navController,
                     onGlassEnabledChange = { currentGlassEnabled = it },
                     onProgressiveBlurChange = { currentProgressiveBlur = it }
@@ -511,7 +511,7 @@ fun SlooshApp() {
             }
 
             composable(Screen.SettingsGeneral.route) {
-                SettingsScreen(
+                SettingsScreenGuarded(
                     navController = navController,
                     onGlassEnabledChange = { currentGlassEnabled = it },
                     onProgressiveBlurChange = { currentProgressiveBlur = it }
@@ -519,7 +519,7 @@ fun SlooshApp() {
             }
 
             composable(Screen.SettingsPlayer.route) {
-                SettingsScreen(
+                SettingsScreenGuarded(
                     navController = navController,
                     onGlassEnabledChange = { currentGlassEnabled = it },
                     onProgressiveBlurChange = { currentProgressiveBlur = it }
@@ -527,7 +527,7 @@ fun SlooshApp() {
             }
 
             composable(Screen.SettingsAbout.route) {
-                SettingsScreen(
+                SettingsScreenGuarded(
                     navController = navController,
                     onGlassEnabledChange = { currentGlassEnabled = it },
                     onProgressiveBlurChange = { currentProgressiveBlur = it }

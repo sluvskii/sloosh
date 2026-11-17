@@ -329,12 +329,13 @@ internal class NativeGlassAtlasPasses(private val context: GraphicsContext) {
         sourceBlock: DrawScope.() -> Unit,
     ) {
         recordedPyramid = null
-        val plane = requireNotNull(atlas.controlBlurPlane)
+        val plane = atlas.controlBlurPlane ?: return
         if (atlas.controlUnwarpedBlurSource) {
             recordControlUnwarpedBlur(atlas, record, sourceBlock)
             return
         }
-        check(atlas.producerStages.size in 3..4)
+        // VENDOR-PATCH(sloosh): проверка топологии больше не роняет кадр.
+        if (atlas.producerStages.size !in 3..4) return
         val stages = configureLayers(atlas.composeProducerStages)
         // Keep the original extract's raw and portal pixels. Its two Gaussian successors
         // consume only the third plane, retaining the same independent texture barriers.
@@ -374,8 +375,9 @@ internal class NativeGlassAtlasPasses(private val context: GraphicsContext) {
         record: (GraphicsLayer, IntSize, DrawScope.() -> Unit) -> Unit,
         sourceBlock: DrawScope.() -> Unit,
     ) {
-        check(!atlas.colorManaged && atlas.producerStages.size == 2)
-        val plane = requireNotNull(atlas.controlBlurPlane)
+        // VENDOR-PATCH(sloosh): несовпадение топологии — пропускаем кадр, а не падаем.
+        if (atlas.colorManaged || atlas.producerStages.size != 2) return
+        val plane = atlas.controlBlurPlane ?: return
         val stages = configureLayers(atlas.composeProducerStages)
         val raw = controlSource ?: context.createGraphicsLayer().also { controlSource = it }
         raw.clip = true
@@ -404,18 +406,24 @@ internal class NativeGlassAtlasPasses(private val context: GraphicsContext) {
     }
 
     fun drawControlBlurAtlas(scope: DrawScope, atlas: NativeGlassMipAtlas) = with(scope) {
-        check(retained.size == atlas.composeProducerStages.size &&
-            (if (atlas.controlUnwarpedBlurSource) retained.size == 2 else retained.size in 3..4))
+        // VENDOR-PATCH(sloosh): апстрим падал на этом инварианте при гонке перезаписи слоёв
+        // (быстрое открытие/закрытие меню). Вместо падения просто не рисуем оптику.
+        val consistent = retained.size == atlas.composeProducerStages.size &&
+            (if (atlas.controlUnwarpedBlurSource) retained.size == 2 else retained.size in 3..4)
+        if (!consistent) return@with
         if (retained.size == 4) drawLayer(retained[3])
         else drawControlBlurPlanes(this, atlas)
     }
 
     private fun drawControlBlurPlanes(scope: DrawScope, atlas: NativeGlassMipAtlas) = with(scope) {
-        val plane = requireNotNull(atlas.controlBlurPlane)
+        // VENDOR-PATCH(sloosh): отсутствие плана или слоя не должно ронять кадр.
+        val plane = atlas.controlBlurPlane ?: return@with
         // Compose into the existing consumer or scene input recording. No additional
         // packed offscreen layer or second source callback is introduced.
-        val raw = if (atlas.controlUnwarpedBlurSource) requireNotNull(controlSource) else retained[0]
-        val blurred = if (atlas.controlUnwarpedBlurSource) retained[1] else retained[2]
+        val raw = (if (atlas.controlUnwarpedBlurSource) controlSource else retained.getOrNull(0))
+            ?: return@with
+        val blurred = (if (atlas.controlUnwarpedBlurSource) retained.getOrNull(1)
+            else retained.getOrNull(2)) ?: return@with
         clipRect(0f, 0f, atlas.baseSize.width.toFloat(), plane.top.toFloat()) { drawLayer(raw) }
         translate(plane.left.toFloat(), plane.top.toFloat()) {
             clipRect(0f, 0f, plane.width.toFloat(), plane.height.toFloat()) { drawLayer(blurred) }

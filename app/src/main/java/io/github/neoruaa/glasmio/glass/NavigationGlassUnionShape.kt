@@ -29,16 +29,24 @@ class NavigationGlassUnionShape(
     }
 
     init {
-        require(capsules.size <= 16 && smoothness.isFinite() && smoothness >= 0f)
-        require(minimumDimension.isFinite() && minimumDimension > 0f)
-        require(capsules.all { c ->
-            c.size.width > 0f && c.size.height > 0f && c.bounds.width > 0f && c.bounds.height > 0f &&
-                c.size.width.isFinite() && c.size.height.isFinite() && c.bounds.left.isFinite() &&
-                c.bounds.top.isFinite() && c.bounds.right.isFinite() && c.bounds.bottom.isFinite()
-        })
+        // VENDOR-PATCH(sloosh): форма строится в момент первого замера, когда объединённые
+        // капсулы навбара/меню ещё нулевого размера. Апстрим падал здесь; теперь такая форма
+        // просто считается непригодной (см. [isUsable]) и оптику не рисует.
+        usable = capsules.size <= 16 && smoothness.isFinite() && smoothness >= 0f &&
+            minimumDimension.isFinite() && minimumDimension > 0f &&
+            capsules.all { c ->
+                c.size.width > 0f && c.size.height > 0f && c.bounds.width > 0f && c.bounds.height > 0f &&
+                    c.size.width.isFinite() && c.size.height.isFinite() && c.bounds.left.isFinite() &&
+                    c.bounds.top.isFinite() && c.bounds.right.isFinite() && c.bounds.bottom.isFinite()
+            }
     }
 
-    private val elements = capsules.map(::Element)
+    /** Ложь — геометрия ещё не готова; вызывающий рисует поверхность без объединённой оптики. */
+    val isUsable: Boolean
+
+    // Элементы и поле считаются только для пригодной геометрии: обращение к нулевому размеру
+    // даёт NaN в радиусах и мусор в шейдере.
+    private val elements = if (isUsable) capsules.map(::Element) else emptyList()
     private val packedBounds = FloatArray(16 * 4)
     private val packedRadii = FloatArray(16 * 2)
     private val opticalField = NativeGlassFilterField(NavigationGlassUnionFieldShader) { shader ->

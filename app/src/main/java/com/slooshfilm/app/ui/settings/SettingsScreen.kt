@@ -17,6 +17,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -650,6 +653,121 @@ fun SettingsScreen(
                 availableUpdate = null
                 AppUpdater(context).downloadAndInstall(url)
             }
+        )
+    }
+}
+
+/**
+ * Ограждение экрана настроек: любой неизвестный сбой внутри списка показывает текст ошибки
+ * прямо на экране вместо вылета приложения и падения всего навигационного стека.
+ *
+ * Это не замена исправлению: пока плашка видна, её текст нужно прислать разработчику.
+ */
+@Composable
+fun SettingsScreenGuarded(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    onGlassEnabledChange: (Boolean) -> Unit = {},
+    onProgressiveBlurChange: (Boolean) -> Unit = {}
+) {
+    var failure by remember { mutableStateOf<String?>(null) }
+    if (failure == null) {
+        try {
+            SettingsScreen(
+                navController = navController,
+                modifier = modifier,
+                onGlassEnabledChange = onGlassEnabledChange,
+                onProgressiveBlurChange = onProgressiveBlurChange
+            )
+        } catch (t: Throwable) {
+            // setState внутри композиции запрещён, поэтому сообщение фиксируем после кадра.
+            val text = t.stackTraceToString()
+            androidx.compose.runtime.SideEffect { failure = text }
+        }
+    }
+    failure?.let { text ->
+        SettingsFailurePane(
+            text = text,
+            onBack = { navController.popBackStack() }
+        )
+    }
+}
+
+/** Плашка с текстом сбоя: без стекла, чтобы она не зависела от того, что сломалось. */
+@Composable
+private fun SettingsFailurePane(text: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(20.dp)
+            .then(Modifier)
+    ) {
+        Text(
+            text = "Экран настроек не открылся",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = "Скопируйте текст ниже и пришлите разработчику.",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(top = 12.dp)
+                .clip(RoundedRectangle(14.dp))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp)
+        ) {
+            Text(
+                text = text,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SettingsFailureAction("Назад", Modifier.weight(1f), onClick = onBack)
+            SettingsFailureAction("Скопировать", Modifier.weight(1f), onClick = {
+                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as? android.content.ClipboardManager
+                clipboard?.setPrimaryClip(
+                    android.content.ClipData.newPlainText("sloosh settings failure", text)
+                )
+                Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
+            })
+        }
+    }
+}
+
+@Composable
+private fun SettingsFailureAction(text: String, modifier: Modifier, onClick: () -> Unit) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .clip(RoundedRectangle(50))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+            .clickable(interactionSource = null, indication = null, onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

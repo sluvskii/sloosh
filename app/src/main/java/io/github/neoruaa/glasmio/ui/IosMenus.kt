@@ -94,6 +94,7 @@ import io.github.neoruaa.glasmio.glass.InteractiveHighlight
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 
 internal val LocalIosPopupMenuInteractive = staticCompositionLocalOf { true }
@@ -495,23 +496,42 @@ fun GlasmioMenu(
                 measuredMorphTarget = null
                 positionAnchorBounds = externalAnchorBounds
                 if (usesAnchorMorph) {
-                    val source = snapshotFlow { sourceAnchor.bounds?.takeUnless { it.isEmpty } }.first { it != null }!!
-                    val screen = IntArray(2)
-                    val window = IntArray(2)
-                    hostView.getLocationOnScreen(screen)
-                    hostView.getLocationInWindow(window)
-                    windowScreenOffset = Offset((screen[0] - window[0]).toFloat(), (screen[1] - window[1]).toFloat())
-                    morphSourceBounds = source.translate(windowScreenOffset)
+                    // VENDOR-PATCH(sloosh): апстрим падал на `first { it != null }!!`, если якорь
+                    // исчезал до открытия меню (строка настроек ушла из композиции/проскроллилась).
+                    // Таймаут возвращает обычное появление без морфа.
+                    val source = withTimeoutOrNull(500) {
+                        snapshotFlow { sourceAnchor.bounds?.takeUnless { it.isEmpty } }.first { it != null }
+                    }
+                    if (source == null) {
+                        // Якорь так и не появился — меню открывается обычным появлением.
+                        morphSourceBounds = null
+                    } else {
+                        val screen = IntArray(2)
+                        val window = IntArray(2)
+                        hostView.getLocationOnScreen(screen)
+                        hostView.getLocationInWindow(window)
+                        windowScreenOffset = Offset((screen[0] - window[0]).toFloat(), (screen[1] - window[1]).toFloat())
+                        morphSourceBounds = source.translate(windowScreenOffset)
+                    }
                 }
             }
             popupAlive = true
             if (morphSourceBounds != null) {
-                snapshotFlow { surfaceReady }.first { it }
+                val ready = withTimeoutOrNull(500) {
+                    snapshotFlow { surfaceReady }.first { it }
+                    true
+                }
+                if (ready == null) morphSourceBounds = null
+            }
+            // VENDOR-PATCH(sloosh): цель морфа может быть ещё не измерена (апстрим падал на
+            // `requireNotNull(measuredMorphTarget)`). Без цели показываем меню без морфа.
+            val morphTarget = measuredMorphTarget
+            if (morphSourceBounds != null && morphTarget != null) {
                 if (!sourceAnchor.isAcquired || !liquidMotion.initialized) {
                     morphSourceBounds = sourceAnchor.acquire()?.translate(windowScreenOffset) ?: morphSourceBounds
                     liquidMotion.initialize(
                         morphSourceBounds!!,
-                        requireNotNull(measuredMorphTarget),
+                        morphTarget,
                         with(density) { 34.dp.toPx() },
                         density.density,
                         through = sourceAnchor.previewBounds?.translate(windowScreenOffset) ?: morphSourceBounds!!,
@@ -519,7 +539,9 @@ fun GlasmioMenu(
                 }
                 // Reopening during collapse retains the live contour and every velocity.
                 // Its content may have changed while the source lease remained acquired.
-                liquidMotion.updateTarget(requireNotNull(measuredMorphTarget), with(density) { 34.dp.toPx() })
+                liquidMotion.updateTarget(morphTarget, with(density) { 34.dp.toPx() })
+            } else {
+                morphSourceBounds = null
             }
             coroutineScope {
                 if (morphSourceBounds != null) launch {
