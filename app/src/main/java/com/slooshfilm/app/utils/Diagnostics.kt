@@ -2,7 +2,6 @@ package com.slooshfilm.app.utils
 
 import android.content.Context
 import android.os.Build
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,8 +63,7 @@ object Diagnostics {
 
     /** Удалить сохранённые краш-логи (например, после успешной отправки). */
     fun clearCrashLogs(context: Context) {
-        context.filesDir
-            .listFiles { f -> f.name.startsWith("crash_") && f.name.endsWith(".txt") }
-            ?.forEach { runCatching { it.delete() } }
+        // Единая точка удаления: она же сбрасывает отметку «отчёт уже показан».
+        CrashLogs.clear(context)
     }
 }

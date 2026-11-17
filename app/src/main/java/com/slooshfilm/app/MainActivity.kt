@@ -82,6 +82,10 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemDark
             }
 
+            // `key(isDark)`: при смене темы всё дерево (включая состояние диалога логов)
+            // пересоздаётся. Без этого непросмотренный отчёт мог всплыть повторно ровно
+            // в момент переключения системной темы.
+            androidx.compose.runtime.key(isDark) {
             SlooshTheme(darkTheme = isDark) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     SlooshApp()
@@ -93,11 +97,21 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Отчёт о последнем падении: текст ошибки показываем прямо в приложении,
-                    // чтобы его можно было скопировать без подключения к компьютеру.
-                    // Рисуем поверх сплэша, чтобы диалог не перекрывался им.
-                    var crashReport by remember {
-                        mutableStateOf(com.slooshfilm.app.utils.CrashLogs.pending(applicationContext))
+                    // Отчёт о падении показываем один раз и только когда он действительно новый:
+                    // — отчёт помечается просмотренным сразу при показе (в SharedPreferences),
+                    //   поэтому смена системной темы и любое пересоздание Activity окно не
+                    //   открывают повторно;
+                    // — ждём окончания сплэша, чтобы не накладывать диалог на анимацию запуска;
+                    // — показать старые логи можно вручную: Настройки → Диагностика.
+                    var crashReport by remember { mutableStateOf<com.slooshfilm.app.utils.CrashLogs.Report?>(null) }
+                    androidx.compose.runtime.LaunchedEffect(isSplashActive) {
+                        if (isSplashActive) return@LaunchedEffect
+                        val appContext = applicationContext
+                        val report = com.slooshfilm.app.utils.CrashLogs.pendingUnseen(appContext)
+                        if (report != null) {
+                            com.slooshfilm.app.utils.CrashLogs.markSeen(appContext, report)
+                            crashReport = report
+                        }
                     }
                     crashReport?.let { report ->
                         com.slooshfilm.app.ui.components.CrashReportDialog(
@@ -116,6 +130,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+            }
             }
         }
     }
