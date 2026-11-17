@@ -31,13 +31,16 @@ fun SlooshGroupedList(
     val resolvedBackdrop = backdrop
         ?: LocalSettingsBackdrop.current
         ?: LocalGlassBackdrop.current
+    // Если стекло группы уже нарисовано снаружи (`GlassSurface` в `SettingsSection`),
+    // внутренняя заливка GlasmioGroupedList не нужна — иначе получается двойная плашка.
+    val frameDrawnOutside = backdrop != null
     CompositionLocalProvider(
         LocalGlassBackdrop provides resolvedBackdrop,
         LocalBlurBackdrop provides resolvedBackdrop
     ) {
         GlasmioGroupedList(
             modifier = modifier.fillMaxWidth(),
-            framed = true,
+            framed = !frameDrawnOutside,
             content = content
         )
     }

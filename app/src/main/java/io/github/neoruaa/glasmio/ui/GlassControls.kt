@@ -663,7 +663,12 @@ fun <T> GlasmioSegmentedControl(
                 .fillMaxSize()
                 .clip(Capsule())
                 .drawBehind {
-                    if (appearance.reduceTransparency && selectedIndex >= 0) {
+                    // VENDOR-PATCH(sloosh): капсулу выбранного сегмента рисовал ТОЛЬКО линзовый
+                    // каскад. Когда линзы выключены (падают нативно на Adreno 610), капсула
+                    // исчезала совсем. Теперь она рисуется и в этом случае — как в навбаре.
+                    if ((appearance.reduceTransparency || !appearance.controlLensesEnabled) &&
+                        selectedIndex >= 0
+                    ) {
                         val visualIndex = if (isLtr) animation.value else items.lastIndex - animation.value
                         val pillHeight = indicatorHeight.toPx()
                         drawRoundRect(

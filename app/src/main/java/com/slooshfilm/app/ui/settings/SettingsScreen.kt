@@ -41,9 +41,10 @@ import coil.Coil
 import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
 import com.slooshfilm.app.data.storage.LocalStorage
+import io.github.neoruaa.glasmio.ui.GlasmioSlider
+import io.github.neoruaa.glasmio.glass.LocalGlassBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import com.slooshfilm.app.ui.components.SlooshAlertDialog
-import com.slooshfilm.app.ui.components.SlooshSlider
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.LocalSettingsBackdrop
@@ -475,14 +476,17 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        SlooshSlider(
+                        // Вендоренный ползунок glasmio: та же капсула-бегунок, что в навбаре
+                        // и на остальных экранах. Самодельный `SlooshSlider` давал другое
+                        // стекло и другую форму — это и было «кнопки другие».
+                        GlasmioSlider(
                             value = glassBlur,
                             onValueChange = { newBlur ->
                                 glassBlur = newBlur
                                 localStorage.saveGlassBlur(newBlur)
                             },
                             valueRange = 0f..1f,
-                            backdrop = LocalSettingsBackdrop.current,
+                            backdrop = LocalSettingsBackdrop.current ?: LocalGlassBackdrop.current,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
