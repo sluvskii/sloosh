@@ -671,7 +671,9 @@ fun SettingsSegmentedRow(
             onSelected = onOptionSelected,
             modifier = Modifier.fillMaxWidth(),
             height = 36.dp,
-            backdrop = LocalSettingsBackdrop.current,
+            // У движка параметр не-null: если настройки ещё не поставили свой бэкдроп,
+            // берём унаследованный (внутри провайдера он всегда задан).
+            backdrop = LocalSettingsBackdrop.current ?: LocalGlassBackdrop.current,
         )
     }
 }
