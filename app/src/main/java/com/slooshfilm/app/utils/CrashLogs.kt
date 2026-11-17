@@ -14,10 +14,27 @@ object CrashLogs {
 
     data class Report(val fileName: String, val text: String)
 
-    /** Самый свежий отчёт о падении — показываем всегда, чтобы его точно можно было прислать. */
+    /**
+     * Самый свежий отчёт о падении **текущей** сборки.
+     *
+     * Отчёты прошлых версий удаляются: их номера строк относятся к другому коду, и такой
+     * отчёт выглядит как «всё ещё падает», хотя причина уже устранена.
+     */
     fun pending(context: Context): Report? {
+        val currentVersion = runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull()
         val file = newestFile(context) ?: return null
         val text = runCatching { file.readText() }.getOrNull() ?: return null
+        val reportVersion = text.lineSequence()
+            .firstOrNull { it.startsWith("Version:") }
+            ?.removePrefix("Version:")
+            ?.trim()
+        if (currentVersion == null || reportVersion != currentVersion) {
+            // Отчёт другой сборки (или без версии — совсем старый): он больше не актуален.
+            runCatching { file.delete() }
+            return pending(context)
+        }
         return Report(file.name, text.trim())
     }
 

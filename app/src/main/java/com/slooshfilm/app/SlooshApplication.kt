@@ -102,11 +102,21 @@ class SlooshApplication : Application(), ImageLoaderFactory {
                     val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
                     val timestamp = sdf.format(Date())
                     val crashFile = File(filesDir, "crash_$timestamp.txt")
+                    // Версия сборки — в тексте отчёта: по ней видно, к какому коду относятся
+                    // номера строк. Старые отчёты удаляем, чтобы не показывать чужой стектрейс.
+                    val versionName = runCatching {
+                        packageManager.getPackageInfo(packageName, 0).versionName
+                    }.getOrNull() ?: "unknown"
                     val content = StringBuilder()
+                    content.append("Version: ").append(versionName).append('\n')
                     content.append("Thread: ").append(thread.name).append('\n')
                     content.append("Time: ").append(timestamp).append('\n')
                     content.append('\n')
                     content.append(throwable.stackTraceToString())
+                    // Старые отчёты удаляем: их стектрейсы относятся к другому коду.
+                    filesDir.listFiles()
+                        ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
+                        ?.forEach { runCatching { it.delete() } }
                     crashFile.writeText(content.toString())
                 } catch (t: Throwable) {
                     Log.e("SlooshAppCrash", "Failed to write crash file", t)
