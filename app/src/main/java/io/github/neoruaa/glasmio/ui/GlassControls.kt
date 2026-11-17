@@ -218,7 +218,11 @@ fun GlasmioSwitch(
                 scaleY = 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
             },
             onDrawSurface = {
-                if (appearance.reduceTransparency) drawRect(Color.White)
+                // VENDOR-PATCH(sloosh): без линз (они падают нативно на Adreno 610)
+                // «тело» переключателя надо рисовать самому, иначе бегунок исчезает.
+                if (appearance.reduceTransparency || !appearance.controlLensesEnabled) {
+                    drawRect(Color.White)
+                }
             },
         )
     }
@@ -390,7 +394,10 @@ fun GlasmioSlider(
                     }
                 },
                 onDrawSurface = {
-                    if (appearance.reduceTransparency) drawRect(Color.White)
+                    // VENDOR-PATCH(sloosh): без линз рисуем бегунок сами — иначе он пропадает.
+                    if (appearance.reduceTransparency || !appearance.controlLensesEnabled) {
+                        drawRect(Color.White)
+                    }
                 },
             )
         }
@@ -635,6 +642,11 @@ fun <T> GlasmioSegmentedControl(
                     val velocity = animation.velocity / 10f
                     scaleX = 1f / (1f - (velocity * .75f).fastCoerceIn(-.18f, .18f))
                     scaleY = 1f - (velocity * .25f).fastCoerceIn(-.14f, .14f)
+                },
+                onDrawSurface = {
+                    // VENDOR-PATCH(sloosh): без линз подложка выбранного сегмента была пустой —
+                    // рисуем её сами, иначе не видно, какой пункт выбран.
+                    if (!appearance.controlLensesEnabled) drawRect(indicatorColor)
                 },
             )
         }

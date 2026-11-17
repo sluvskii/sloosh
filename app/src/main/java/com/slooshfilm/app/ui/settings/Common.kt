@@ -82,6 +82,10 @@ fun SettingsScaffold(
     sceneBackdrop: LayerBackdrop? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    // Экран настроек — единственный, который падал **и с размытием** (подтверждено на
+    // Redmi Pad SE / Adreno 610): строк и контролов слишком много для GPU-пути. Поэтому
+    // в его поддереве оптика выключена целиком (оба провайдера ниже получают
+    // `backdropEnabled = false`), а остальное приложение остаётся со стеклом.
     val screenBg = MaterialTheme.colorScheme.background
     val effectiveSceneBackdrop = sceneBackdrop ?: rememberLayerBackdrop {
         drawRect(screenBg)
@@ -155,7 +159,9 @@ fun SettingsScaffold(
                             backdrop = contentBackdrop,
                             glassEnabled = LocalGlassEnabled.current,
                             progressiveBlurEnabled = LocalProgressiveBlur.current,
-                            blurMultiplier = LocalGlassBlurMultiplier.current
+                            blurMultiplier = LocalGlassBlurMultiplier.current,
+                            lensesEnabled = false,
+                            backdropEnabled = false
                         ) {
                             CompositionLocalProvider(
                                 LocalSlooshMenuHostState provides menuState
@@ -220,7 +226,9 @@ fun SettingsScaffold(
             backdrop = effectiveSceneBackdrop,
             glassEnabled = LocalGlassEnabled.current,
             progressiveBlurEnabled = LocalProgressiveBlur.current,
-            blurMultiplier = LocalGlassBlurMultiplier.current
+            blurMultiplier = LocalGlassBlurMultiplier.current,
+            lensesEnabled = false,
+            backdropEnabled = false
         ) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(

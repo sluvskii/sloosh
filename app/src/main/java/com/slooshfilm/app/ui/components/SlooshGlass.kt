@@ -106,11 +106,6 @@ val LocalSettingsBackdrop = staticCompositionLocalOf<Backdrop?> { null }
  */
 val LocalGlassOpticsDisabled = staticCompositionLocalOf { false }
 
-/**
- * Размытие стекла разрешено (уровень деградации не «без оптики целиком»).
- * По умолчанию true: безопасный режим трогает только линзы, размытие остаётся.
- */
-val LocalGlassBackdropDisabled = staticCompositionLocalOf { false }
 
 /**
  * Живое состояние уровня деградации оптики (см. `GlassOptics`). Настройки пишут в него
@@ -168,12 +163,16 @@ fun SlooshGlassSettingsProvider(
     glassEnabled: Boolean,
     progressiveBlurEnabled: Boolean,
     blurMultiplier: Float,
+    lensesEnabled: Boolean = false,
+    backdropEnabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     SlooshGlassSettingsProvider(
         glassEnabled = glassEnabled,
         progressiveBlurEnabled = progressiveBlurEnabled,
         blurMultiplier = blurMultiplier,
+        lensesEnabled = lensesEnabled,
+        backdropEnabled = backdropEnabled,
     ) {
         CompositionLocalProvider(
             LocalGlassBackdrop provides backdrop,

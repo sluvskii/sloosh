@@ -831,7 +831,10 @@ fun <T> GlasmioNavigationBar(
                         },
                         layerBlock = indicatorBackdropLayerBlock,
                         onDrawSurface = {
-                            if (!appearance.usesBackdrop) {
+                            // VENDOR-PATCH(sloosh): капсулу активной вкладки рисовали линзы.
+                            // Если линзы выключены (они падают нативно на Adreno 610), её надо
+                            // нарисовать самим — иначе «ползунок» в навбаре просто исчезает.
+                            if (!appearance.usesBackdrop || !appearance.controlLensesEnabled) {
                                 val indicatorBaseColor = if (isLight) {
                                     Color.Black.copy(alpha = 0.10f)
                                 } else {
