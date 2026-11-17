@@ -52,6 +52,10 @@ class MainActivity : ComponentActivity() {
         }
         enableHighRefreshRate()
 
+        // Запоминаем условия запуска: на планшете приложение могло падать нативно (GPU),
+        // и тогда Java-обработчик не получает управление — в отчёте это будет видно.
+        com.slooshfilm.app.utils.CrashLogs.logEnvironment(this)
+
         try {
             val authRepo = com.slooshfilm.app.data.repository.AuthRepository.getInstance(this)
             if (authRepo.isAuthenticated) {

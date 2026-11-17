@@ -60,6 +60,37 @@ object CrashLogs {
     /** Самый свежий отчёт без учёта «просмотрено» — для ручного просмотра из настроек. */
     fun newest(context: Context): Report? = all(context).firstOrNull()
 
+    /**
+     * Пишет короткий отчёт о запуске: сборка, устройство, версия Android, GPU-рендеринг.
+     *
+     * Нужен потому, что часть падений происходит **нативно** (в HWUI/шейдерах): Java-обработчик
+     * таких исключений не видит, файла о падении не появляется. Такой «отчёт о запуске» рядом
+     * с отсутствием файла о падении показывает, что последний запуск не дошёл до Java-краша.
+     */
+    fun logEnvironment(context: Context) {
+        runCatching {
+            val versionName = versionName(context) ?: "?"
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.US)
+            val timestamp = sdf.format(java.util.Date())
+            val file = File(context.filesDir, "crash_boot_$timestamp.txt")
+            val text = buildString {
+                appendLine("Version: $versionName")
+                appendLine("Thread: main")
+                appendLine("Time: $timestamp")
+                appendLine()
+                appendLine("Это отчёт о запуске, а не о падении.")
+                appendLine("Устройство: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+                appendLine("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+                appendLine("ABI: ${android.os.Build.SUPPORTED_ABIS.joinToString()}")
+                appendLine("HWUI: ${runCatching { android.os.Build.HARDWARE }.getOrNull()}")
+                appendLine("Оптика движка на этом экране: выключена (reduceTransparency)")
+                appendLine("UI-поток: ${runCatching { android.os.Looper.getMainLooper().thread.name }.getOrNull()}")
+            }
+            file.writeText(text)
+            trim(context)
+        }
+    }
+
     /** Удаляет все файлы отчётов — после отправки они больше не нужны. */
     fun clear(context: Context) {
         crashFiles(context).forEach { runCatching { it.delete() } }
@@ -93,10 +124,24 @@ object CrashLogs {
         .filter { it.isFile && it.length() > 0 }
         .maxByOrNull { it.lastModified() }
 
+    /**
+     * Файлы отчётов. `crash_boot_*` — это отметки о запуске, а не падения: они нужны, чтобы
+     * отличить «нативное падение без Java-обработчика» от «падения не было».
+     */
     private fun crashFiles(context: Context): List<File> =
         runCatching {
             (context.filesDir?.listFiles() ?: emptyArray())
-                .filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
+                .filter {
+                    it.name.startsWith("crash_") && it.name.endsWith(".txt") &&
+                        !it.name.startsWith("crash_boot_")
+                }
                 .toList()
         }.getOrDefault(emptyList())
+
+    /** Есть ли отметка о запуске текущей сборки (значит, приложение стартовало). */
+    fun hasBootRecord(context: Context): Boolean = runCatching {
+        context.filesDir?.listFiles()?.any {
+            it.name.startsWith("crash_boot_") && it.name.endsWith(".txt")
+        } == true
+    }.getOrDefault(false)
 }
