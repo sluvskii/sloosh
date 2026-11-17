@@ -118,6 +118,13 @@ class SlooshApplication : Application(), ImageLoaderFactory {
                         ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
                         ?.forEach { runCatching { it.delete() } }
                     crashFile.writeText(content.toString())
+                    // Новый отчёт должен снова считаться непросмотренным, поэтому отметку
+                    // «показан» снимаем, а хвост старых файлов подрезаем.
+                    getSharedPreferences("sloosh_prefs", MODE_PRIVATE)
+                        .edit()
+                        .remove(com.slooshfilm.app.utils.CrashLogs.KEY_SEEN)
+                        .apply()
+                    com.slooshfilm.app.utils.CrashLogs.trim(applicationContext)
                 } catch (t: Throwable) {
                     Log.e("SlooshAppCrash", "Failed to write crash file", t)
                 } finally {

@@ -98,6 +98,8 @@ fun SettingsScreen(
 
     var availableUpdate by remember { mutableStateOf<AppUpdateInfo?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
+    // Ручной просмотр логов падений (автоматический показ бывает только один раз на отчёт).
+    var showCrashLogs by remember { mutableStateOf(false) }
 
     // Package info for version display
     val pm = context.packageManager
@@ -564,6 +566,16 @@ fun SettingsScreen(
 
         // 6. ДИАГНОСТИКА (iOS Section("Диагностика"))
         SettingsSection(title = "Диагностика") {
+            val crashCount = remember { com.slooshfilm.app.utils.CrashLogs.all(context).size }
+            SettingsNavigationItem(
+                text = "Логи падений",
+                iconSfName = "exclamationmark.triangle.fill",
+                detailText = if (crashCount > 0) "$crashCount" else "нет",
+                onClick = { showCrashLogs = true }
+            )
+
+            SettingsDivider()
+
             SettingsNavigationItem(
                 text = "Поделиться логами",
                 iconSfName = "doc.text.fill",
@@ -610,6 +622,13 @@ fun SettingsScreen(
     }
 
     // --- Dialogs ---
+
+    // Логи падений: ручной просмотр (автоматический показ — только для нового отчёта).
+    if (showCrashLogs) {
+        com.slooshfilm.app.ui.components.CrashReportDialog(
+            onDismiss = { showCrashLogs = false }
+        )
+    }
 
     // Clear Cache Confirmation Dialog
     if (showClearCacheDialog) {
