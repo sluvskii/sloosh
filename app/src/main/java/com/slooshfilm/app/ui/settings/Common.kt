@@ -82,10 +82,9 @@ fun SettingsScaffold(
     sceneBackdrop: LayerBackdrop? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // Стекло на настройках раньше падало не из-за количества контролов, а из-за петли:
-    // содержимое сэмплировало `contentBackdrop`, в который само же и записывалось.
-    // Теперь провайдер строк ведёт на сценический бэкдроп, поэтому стекло можно включить,
-    // сохранив безопасный режим для линз (`lensesEnabled = false`).
+    // Настройки — единственный экран, который стабильно роняет процесс нативно при любом
+    // включённом GPU-пути (размытие и/или линзы). Пока нет нативного трейса, экран живёт
+    // без оптики: материал плоский, но форма, шрифты и контролы — те же, что везде.
     val screenBg = MaterialTheme.colorScheme.background
     val effectiveSceneBackdrop = sceneBackdrop ?: rememberLayerBackdrop {
         drawRect(screenBg)
@@ -155,18 +154,18 @@ fun SettingsScaffold(
                             .padding(horizontal = cutoutPadding)
                             .padding(top = headerBlurHeight + (if (isLandscape) 4.dp else 12.dp), bottom = bottomTotalPadding)
                     ) {
-                        // Бэкдроп для строк настроек — СЦЕНИЧЕСКИЙ (фон без содержимого
-                        // этого же слоя), а не `contentBackdrop`. Раньше строки сэмплировали
-                        // слой, внутри которого находятся сами: стекло сэмплирует стекло,
-                        // и запись слоя замыкается сама на себя. На Adreno 610 это роняло
-                        // процесс нативно — отсюда «вылетает с настроек» и «нет логов».
+                        // Экран настроек работает БЕЗ GPU-оптики. Это проверенное состояние
+                        // (v2.0.59, v2.0.67): с ним на Adreno 610 экран стабилен. Гипотеза о
+                        // петле захвата слоя не подтвердилась — включение размытия снова
+                        // роняло процесс, поэтому никаких экспериментов здесь до получения
+                        // нативного трейса (adb logcat) не будет.
                         SlooshGlassSettingsProvider(
                             backdrop = effectiveSceneBackdrop,
                             glassEnabled = LocalGlassEnabled.current,
                             progressiveBlurEnabled = LocalProgressiveBlur.current,
                             blurMultiplier = LocalGlassBlurMultiplier.current,
                             lensesEnabled = false,
-                            backdropEnabled = true
+                            backdropEnabled = false
                         ) {
                             CompositionLocalProvider(
                                 LocalSlooshMenuHostState provides menuState
@@ -233,7 +232,7 @@ fun SettingsScaffold(
             progressiveBlurEnabled = LocalProgressiveBlur.current,
             blurMultiplier = LocalGlassBlurMultiplier.current,
             lensesEnabled = false,
-            backdropEnabled = true
+            backdropEnabled = false
         ) {
             val cutoutPadding = rememberCutoutHorizontalPadding()
             Box(
@@ -386,12 +385,16 @@ fun SettingsSection(
         }
         // Стекло группы: та же поверхность glasmio, что у карточек на других экранах.
         // Раньше группа была плоской заливкой `elevatedBackground`, из-за чего настройки
-        // выглядели «другими кнопками». Форму и материал рисует движок, строки — сверху.
+        // выглядели «другими кнопками». Важно: `sampleBackdrop = false` — форма, материал,
+        // подсветка и тени рисуются движком, но ВЫБОРКА фона отключена. На этом экране
+        // выборка фона под большим списком и роняла драйвер; без неё нет ни захвата слоя,
+        // ни шейдерного сэмплинга.
         GlassSurface(
             modifier = Modifier.fillMaxWidth(),
             backdrop = LocalSettingsBackdrop.current ?: LocalGlassBackdrop.current,
             shape = shape,
             style = GlassSurfaceStyle.Navigation,
+            sampleBackdrop = false,
             // Тинт не передаём: не-null `navigationSurfaceColor` выключает материал движка
             // и возвращает простую заливку (см. комментарий в `SlooshFloatingButton`).
             contentAlignment = Alignment.TopStart,
