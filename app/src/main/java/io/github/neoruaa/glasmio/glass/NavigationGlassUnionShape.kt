@@ -28,21 +28,19 @@ class NavigationGlassUnionShape(
         val field = RoundedMenuField(bounds, radii, normalMix = 0f)
     }
 
-    init {
-        // VENDOR-PATCH(sloosh): форма строится в момент первого замера, когда объединённые
-        // капсулы навбара/меню ещё нулевого размера. Апстрим падал здесь; теперь такая форма
-        // просто считается непригодной (см. [isUsable]) и оптику не рисует.
-        usable = capsules.size <= 16 && smoothness.isFinite() && smoothness >= 0f &&
+    /**
+     * VENDOR-PATCH(sloosh): форма строится в момент первого замера, когда объединённые
+     * капсулы навбара/меню ещё нулевого размера. Апстрим падал здесь на require(); теперь
+     * такая форма просто считается непригодной и оптику не рисует.
+     */
+    val isUsable: Boolean =
+        capsules.size <= 16 && smoothness.isFinite() && smoothness >= 0f &&
             minimumDimension.isFinite() && minimumDimension > 0f &&
             capsules.all { c ->
                 c.size.width > 0f && c.size.height > 0f && c.bounds.width > 0f && c.bounds.height > 0f &&
                     c.size.width.isFinite() && c.size.height.isFinite() && c.bounds.left.isFinite() &&
                     c.bounds.top.isFinite() && c.bounds.right.isFinite() && c.bounds.bottom.isFinite()
             }
-    }
-
-    /** Ложь — геометрия ещё не готова; вызывающий рисует поверхность без объединённой оптики. */
-    val isUsable: Boolean
 
     // Элементы и поле считаются только для пригодной геометрии: обращение к нулевому размеру
     // даёт NaN в радиусах и мусор в шейдере.
