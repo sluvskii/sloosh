@@ -163,12 +163,16 @@ fun SlooshGlassSettingsProvider(
     glassEnabled: Boolean,
     progressiveBlurEnabled: Boolean,
     blurMultiplier: Float,
+    lensesEnabled: Boolean = false,
+    backdropEnabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     SlooshGlassSettingsProvider(
         glassEnabled = glassEnabled,
         progressiveBlurEnabled = progressiveBlurEnabled,
         blurMultiplier = blurMultiplier,
+        lensesEnabled = lensesEnabled,
+        backdropEnabled = backdropEnabled,
     ) {
         CompositionLocalProvider(
             LocalGlassBackdrop provides backdrop,
