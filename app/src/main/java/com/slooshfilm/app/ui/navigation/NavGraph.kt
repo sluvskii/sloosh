@@ -176,10 +176,22 @@ fun SlooshApp() {
     com.slooshfilm.app.ui.sficons.GlasmioIconProvider(symbolTypeface = symbolTypeface) {
     // Настройки стекла переводим в термины движка glasmio: «Режим без стекла» и
     // «Размытие стекла» управляют материалом navbara, кнопок и диалогов.
+    // Уровень деградации оптики: меняется переключателем в настройках и действует сразу,
+    // без перезапуска. Настройки пишут в эту же ячейку через LocalGlassOpticsLevelState.
+    val opticsLevelState = remember {
+        androidx.compose.runtime.mutableIntStateOf(
+            com.slooshfilm.app.utils.GlassOptics.level(context)
+        )
+    }
     com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider(
         glassEnabled = currentGlassEnabled,
         progressiveBlurEnabled = currentProgressiveBlur,
-        blurMultiplier = currentGlassBlurMultiplier
+        blurMultiplier = currentGlassBlurMultiplier,
+        lensesEnabled = opticsLevelState.intValue == com.slooshfilm.app.utils.GlassOptics.LEVEL_FULL,
+        backdropEnabled = opticsLevelState.intValue != com.slooshfilm.app.utils.GlassOptics.LEVEL_NO_OPTICS
+    ) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.slooshfilm.app.ui.components.LocalGlassOpticsLevelState provides opticsLevelState
     ) {
     CompositionLocalProvider(
         LocalCardStyle provides currentCardStyle,
@@ -569,6 +581,7 @@ fun SlooshApp() {
         )
     }
 }
+    } // LocalGlassOpticsLevelState
+    } // com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider
 } // com.slooshfilm.app.ui.sficons.GlasmioIconProvider
-} // com.slooshfilm.app.ui.components.SlooshGlassSettingsProvider
 }

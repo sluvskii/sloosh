@@ -18,6 +18,16 @@ data class GlassAppearance(
     val reduceTransparency: Boolean = false,
     /** Resolve an individual glass surface from its sampled backdrop, with hysteresis. */
     val adaptiveColorScheme: Boolean = false,
+    /**
+     * VENDOR-PATCH(sloosh): ступенчатая деградация оптики.
+     *
+     * false — управляющие линзы (`nativeControlLens`: каскад из 5-7 `RuntimeShader`) не
+     * создаются вовсе, но размытие backdrop остаётся. На части драйверов (например
+     * Adreno 610 на Xiaomi 23043RP34G) этот каскад валит процесс нативно, без Java-исключения:
+     * приложение умирает молча. Размытие при этом работает штатно, поэтому отключать
+     * всю оптику ради линз не нужно.
+     */
+    val controlLensesEnabled: Boolean = true,
 ) {
     val usesRefraction: Boolean
         get() = liquidGlassEnabled && !reduceTransparency

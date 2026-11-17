@@ -820,7 +820,7 @@ fun <T> GlasmioNavigationBar(
                         backdrop = if (appearance.usesBackdrop) sourceBackdrop else emptyBackdrop(),
                         shape = { Capsule() },
                         effects = {
-                            if (appearance.usesBackdrop) {
+                            if (appearance.usesBackdrop && appearance.controlLensesEnabled) {
                                 nativeControlLens(
                                     style = NativeControlLensStyle.TabBarIndicator,
                                     liftProgress = if (appearance.usesRefraction) selectionPressProgressState.value else 0f,

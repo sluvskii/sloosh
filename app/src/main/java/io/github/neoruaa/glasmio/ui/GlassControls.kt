@@ -202,7 +202,7 @@ fun GlasmioSwitch(
             backdrop = if (appearance.usesBackdrop) thumbBackdrop else emptyBackdrop(),
             shape = { Capsule() },
             effects = {
-                if (appearance.usesBackdrop) {
+                if (appearance.usesBackdrop && appearance.controlLensesEnabled) {
                     nativeControlLens(
                         style = NativeControlLensStyle.SwitchThumb,
                         liftProgress = if (appearance.usesRefraction) animation.pressProgress else 0f,
@@ -380,7 +380,7 @@ fun GlasmioSlider(
                 backdrop = if (appearance.usesBackdrop) thumbBackdrop else emptyBackdrop(),
                 shape = { Capsule() },
                 effects = {
-                    if (appearance.usesBackdrop) {
+                    if (appearance.usesBackdrop && appearance.controlLensesEnabled) {
                         nativeControlLens(
                             style = NativeControlLensStyle.SliderThumb,
                             liftProgress = if (appearance.usesRefraction) animation.pressProgress else 0f,
@@ -623,7 +623,7 @@ fun <T> GlasmioSegmentedControl(
                 backdrop = indicatorBackdrop,
                 shape = { Capsule() },
                 effects = {
-                    nativeControlLens(
+                    if (appearance.controlLensesEnabled) nativeControlLens(
                         style = NativeControlLensStyle.SegmentedIndicator,
                         liftProgress = if (appearance.usesRefraction) animation.pressProgress else 0f,
                         isDark = !isLight,

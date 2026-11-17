@@ -94,17 +94,29 @@ val LocalGlassBlurMultiplier = staticCompositionLocalOf { 0.70f }
 val LocalSettingsBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 /**
- * Аварийный режим оптики: полностью выключает GPU-путь движка (`reduceTransparency`).
+ * Аварийный режим **управляющих линз** (`nativeControlLens`).
  *
- * Зачем: на части устройств/драйверов `RuntimeShader`/`RenderEffect` падают **нативно**
- * (SIGSEGV в HWUI). Такой сбой не перехватывается Java-обработчиком, поэтому приложение
- * умирает без записи отчёта и без диалога — ровно то, что видно на планшете.
+ * Зачем: на части драйверов каскад `RuntimeShader` для линз переключателя, ползунка и
+ * сегмент-контрола падает **нативно** (SIGSEGV в HWUI). Java-обработчик такое не видит,
+ * поэтому приложение умирает молча — без отчёта и без диалога. Подтверждено на
+ * Xiaomi 23043RP34G (Redmi Pad SE, Snapdragon 680 / Adreno 610, Android 14).
  *
- * Экран настроек выставляет этот флаг на время своей композиции: там много строк и
- * контролов, и именно этот экран падал. Стекло остаётся (материал навбара, кнопок,
- * переключателей), но без преломления и линз.
+ * При включённом флаге линзы не создаются вовсе, а **размытие стекла продолжает
+ * работать**: навбар, кнопки и диалоги остаются стеклянными, без преломления на контролах.
  */
 val LocalGlassOpticsDisabled = staticCompositionLocalOf { false }
+
+/**
+ * Размытие стекла разрешено (уровень деградации не «без оптики целиком»).
+ * По умолчанию true: безопасный режим трогает только линзы, размытие остаётся.
+ */
+val LocalGlassBackdropDisabled = staticCompositionLocalOf { false }
+
+/**
+ * Живое состояние уровня деградации оптики (см. `GlassOptics`). Настройки пишут в него
+ * напрямую, поэтому переключатель действует сразу, без перезапуска приложения.
+ */
+val LocalGlassOpticsLevelState = staticCompositionLocalOf<androidx.compose.runtime.MutableIntState?> { null }
 
 /**
  * Провайдер настроек стекла: переводит настройки sloosh в термины движка glasmio
@@ -116,6 +128,10 @@ fun SlooshGlassSettingsProvider(
     glassEnabled: Boolean,
     progressiveBlurEnabled: Boolean,
     blurMultiplier: Float,
+    /** Управляющие линзы (`nativeControlLens`). false — только размытие, без преломления. */
+    lensesEnabled: Boolean = false,
+    /** Размытие и материалы стекла. false — оптика выключена целиком. */
+    backdropEnabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val base = LocalGlassAppearance.current
@@ -123,8 +139,11 @@ fun SlooshGlassSettingsProvider(
         // Ползунок «Размытие стекла» на 0% = полностью прозрачное стекло; ниже 8% считаем,
         // что оптику надо отключать целиком — так же вёл себя прежний движок.
         liquidGlassEnabled = glassEnabled && blurMultiplier > 0.08f,
-        reduceTransparency = !glassEnabled || LocalGlassOpticsDisabled.current,
+        reduceTransparency = !glassEnabled || !backdropEnabled,
         adaptiveColorScheme = base.adaptiveColorScheme,
+        // Линзы — единственный путь, который падал нативно на Adreno 610. Выключаются
+        // отдельно от размытия: стекло остаётся, преломление на контролах уходит.
+        controlLensesEnabled = glassEnabled && lensesEnabled && backdropEnabled,
     )
     CompositionLocalProvider(
         LocalGlassEnabled provides glassEnabled,

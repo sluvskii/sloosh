@@ -111,6 +111,16 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.runtime.LaunchedEffect(isSplashActive) {
                         if (isSplashActive) return@LaunchedEffect
                         val appContext = applicationContext
+                        // Предохранитель сработал на прошлом запуске: объясняем это один раз,
+                        // чтобы выключенное преломление не выглядело поломкой интерфейса.
+                        if (com.slooshfilm.app.utils.GlassOptics.wasAutoDowngraded(appContext)) {
+                            com.slooshfilm.app.utils.GlassOptics.clearAutoDowngrade(appContext)
+                            android.widget.Toast.makeText(
+                                appContext,
+                                "Преломление стекла выключено: на этом устройстве оно вызывало вылеты",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                         val report = com.slooshfilm.app.utils.CrashLogs.pendingUnseen(appContext)
                         if (report != null) {
                             com.slooshfilm.app.utils.CrashLogs.markSeen(appContext, report)
