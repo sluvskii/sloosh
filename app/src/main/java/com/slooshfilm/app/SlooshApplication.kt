@@ -18,6 +18,10 @@ class SlooshApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // Если прошлая попытка работать с включённым преломлением закончилась нативным
+        // падением, здесь включится безопасный режим и появится отчёт — раньше такой
+        // сбой оставлял приложение без логов вообще.
+        com.slooshfilm.app.utils.GlassOptics.onStartup(this)
         setupGlobalCrashHandler()
         MoviesApi.init(this)
         com.slooshfilm.app.utils.NetworkMonitor.start(this)

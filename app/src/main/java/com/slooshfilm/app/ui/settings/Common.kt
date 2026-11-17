@@ -81,6 +81,12 @@ fun SettingsScaffold(
     onBackClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     sceneBackdrop: LayerBackdrop? = null,
+    /**
+     * Аварийный режим оптики. true — шейдерные линзы и преломление выключены (стекло
+     * остаётся материалом). По умолчанию включён: экран настроек падал нативно именно
+     * на GPU-пути, а нативное падение Java-обработчиком не перехватывается.
+     */
+    glassOpticsDisabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val screenBg = MaterialTheme.colorScheme.background
@@ -113,10 +119,7 @@ fun SettingsScaffold(
         label = "settingsHeaderAlpha"
     )
 
-    // Экран настроек — единственный, который стабильно падал на устройстве. Нативные падения
-    // GPU (RuntimeShader/RenderEffect) Java-обработчиком не перехватываются, поэтому здесь
-    // оптика движка выключена целиком: стекло остаётся материалом, но без линз и преломления.
-    CompositionLocalProvider(LocalGlassOpticsDisabled provides true) {
+    CompositionLocalProvider(LocalGlassOpticsDisabled provides glassOpticsDisabled) {
     Box(
         modifier = modifier
             .fillMaxSize()
