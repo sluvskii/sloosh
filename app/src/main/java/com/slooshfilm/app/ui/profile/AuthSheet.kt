@@ -100,6 +100,7 @@ fun AuthSheet(
     val isProgressiveBlurEnabled = LocalProgressiveBlur.current
     val glassBlurMultiplier = LocalGlassBlurMultiplier.current
     val slooshColors = LocalSlooshColors.current
+    val dialogContext = LocalContext.current
 
     if (canDismiss && onDismissRequest != null) {
         Dialog(
@@ -122,10 +123,15 @@ fun AuthSheet(
             }
             // То же стекло, что и в основном окне: настройки прокидываем в движок glasmio
             // (диалог живёт в отдельном окне и не наследует CompositionLocal родителя).
+            // Окно авторизации подчиняется тому же уровню оптики, что и остальное
+            // приложение: иначе на устройстве, где падают линзы, оно падало бы отдельно.
+            val opticsLevel = remember { com.slooshfilm.app.utils.GlassOptics.level(dialogContext) }
             SlooshGlassSettingsProvider(
                 glassEnabled = isGlassEnabled,
                 progressiveBlurEnabled = isProgressiveBlurEnabled,
-                blurMultiplier = glassBlurMultiplier
+                blurMultiplier = glassBlurMultiplier,
+                lensesEnabled = opticsLevel == com.slooshfilm.app.utils.GlassOptics.LEVEL_FULL,
+                backdropEnabled = opticsLevel != com.slooshfilm.app.utils.GlassOptics.LEVEL_NO_OPTICS
             ) {
                 CompositionLocalProvider(LocalSlooshColors provides slooshColors) {
                     AuthContent(

@@ -43,7 +43,6 @@ import com.kyant.shapes.RoundedRectangle
 import com.slooshfilm.app.R
 import com.slooshfilm.app.ui.components.LocalGlassBlurMultiplier
 import com.slooshfilm.app.ui.components.LocalGlassEnabled
-import com.slooshfilm.app.ui.components.LocalGlassOpticsDisabled
 import com.slooshfilm.app.ui.components.LocalProgressiveBlur
 import com.slooshfilm.app.ui.components.LocalSettingsBackdrop
 import com.slooshfilm.app.ui.components.LocalSlooshMenuHostState
@@ -81,12 +80,6 @@ fun SettingsScaffold(
     onBackClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     sceneBackdrop: LayerBackdrop? = null,
-    /**
-     * Аварийный режим оптики. true — шейдерные линзы и преломление выключены (стекло
-     * остаётся материалом). По умолчанию включён: экран настроек падал нативно именно
-     * на GPU-пути, а нативное падение Java-обработчиком не перехватывается.
-     */
-    glassOpticsDisabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val screenBg = MaterialTheme.colorScheme.background
@@ -119,7 +112,6 @@ fun SettingsScaffold(
         label = "settingsHeaderAlpha"
     )
 
-    CompositionLocalProvider(LocalGlassOpticsDisabled provides glassOpticsDisabled) {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -274,7 +266,6 @@ fun SettingsScaffold(
             state = menuState,
             backdrop = effectiveSceneBackdrop
         )
-    }
     }
 }
 

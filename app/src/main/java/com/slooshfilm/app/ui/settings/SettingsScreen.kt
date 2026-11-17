@@ -77,14 +77,21 @@ fun SettingsScreen(
     // --- State variables ---
     var currentThemeMode by remember { mutableIntStateOf(localStorage.getThemeMode()) }
     var glassBlur by remember { mutableFloatStateOf(localStorage.getGlassBlur()) }
+    // Уровень деградации оптики: 0 — всё включено, 1 — без линз (по умолчанию),
+    // 2 — без оптики целиком. Живёт в общем состоянии, чтобы действовать без перезапуска.
+    val opticsLevelState = com.slooshfilm.app.ui.components.LocalGlassOpticsLevelState.current
+    val opticsLevelOptions = listOf(
+        "Включено",
+        "Без линз (по умолчанию)",
+        "Без оптики совсем"
+    )
     var glassOpticsDisabled by remember {
-        mutableStateOf(com.slooshfilm.app.utils.GlassOptics.isDisabled(context))
+        mutableIntStateOf(com.slooshfilm.app.utils.GlassOptics.level(context))
     }
 
-    // Экран отрисовался с тем режимом оптики, который выбран. Если преломление включено —
-    // взведённая попытка считается удачной и откатываться больше не нужно.
+    // Экран отрисовался с включённым преломлением — попытка удалась, откат не нужен.
     LaunchedEffect(glassOpticsDisabled) {
-        if (!glassOpticsDisabled) {
+        if (glassOpticsDisabled == com.slooshfilm.app.utils.GlassOptics.LEVEL_FULL) {
             com.slooshfilm.app.utils.GlassOptics.confirmHealthy(context)
         }
     }
@@ -390,19 +397,26 @@ fun SettingsScreen(
 
             SettingsDivider()
 
-            // Предохранитель: включается сам, если приложение упало нативно на стекле,
-            // и доступен вручную — так видно, ломается ли GPU-оптика на конкретном устройстве.
-            SettingsSwitchItem(
-                title = "Без преломления (если вылетает)",
-                subtitle = "Оставляет стекло, но убирает шейдерные линзы и преломление",
+            // Предохранитель переключает уровень сам, если приложение упало нативно,
+            // и доступен вручную — так видно, какая ступень оптики ломает устройство.
+            SettingsMenuItem(
+                title = "Преломление на контролах",
+                selectedValue = opticsLevelOptions[glassOpticsDisabled],
+                options = opticsLevelOptions,
                 iconSfName = "exclamationmark.shield.fill",
-                checked = glassOpticsDisabled,
-                onCheckedChange = { disabled ->
-                    com.slooshfilm.app.utils.GlassOptics.setDisabled(context, disabled)
-                    glassOpticsDisabled = disabled
+                onOptionSelected = { option ->
+                    val level = opticsLevelOptions.indexOf(option).coerceAtLeast(0)
+                    com.slooshfilm.app.utils.GlassOptics.setLevel(context, level)
+                    opticsLevelState?.intValue = level
+                    glassOpticsDisabled = level
                     Toast.makeText(
                         context,
-                        if (disabled) "Преломление выключено" else "Преломление включено",
+                        when (level) {
+                            com.slooshfilm.app.utils.GlassOptics.LEVEL_FULL -> "Преломление включено"
+                            com.slooshfilm.app.utils.GlassOptics.LEVEL_NO_LENSES ->
+                                "Линзы выключены, размытие работает"
+                            else -> "Оптика стекла выключена"
+                        },
                         Toast.LENGTH_SHORT
                     ).show()
                 }
