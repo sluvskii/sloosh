@@ -197,7 +197,6 @@ fun SettingsScreen(
 
     SettingsScaffold(
         title = "Настройки",
-        glassOpticsDisabled = glassOpticsDisabled,
         onBackClick = { navController.popBackStack() },
         modifier = modifier,
         sceneBackdrop = sceneBackdrop
