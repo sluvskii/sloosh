@@ -91,6 +91,37 @@ object CrashLogs {
         }
     }
 
+    /**
+     * Отчёт о падении, которое Java-обработчик перехватить не мог (нативный GPU-сбой).
+     *
+     * Пишется, когда предохранитель оптики откатился: файл создаётся с `Version:` текущей
+     * сборки, поэтому диалог на запуске покажет его один раз — как обычный отчёт.
+     */
+    fun writeNativeSuspect(context: Context, details: String) {
+        runCatching {
+            val versionName = versionName(context) ?: "?"
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.US)
+            val timestamp = sdf.format(java.util.Date())
+            val file = File(context.filesDir, "crash_native_$timestamp.txt")
+            val text = buildString {
+                appendLine("Version: $versionName")
+                appendLine("Thread: main")
+                appendLine("Time: $timestamp")
+                appendLine()
+                appendLine("Причина: нативное падение (Java-исключения нет, отчёт о нём невозможен).")
+                appendLine(details)
+                appendLine()
+                appendLine("Устройство: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+                appendLine("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+                appendLine("ABI: ${android.os.Build.SUPPORTED_ABIS.joinToString()}")
+            }
+            file.writeText(text)
+            // Новый отчёт должен быть непросмотренным — иначе диалог его не покажет.
+            prefs(context).edit().remove(KEY_SEEN).apply()
+            trim(context)
+        }
+    }
+
     /** Удаляет все файлы отчётов — после отправки они больше не нужны. */
     fun clear(context: Context) {
         crashFiles(context).forEach { runCatching { it.delete() } }

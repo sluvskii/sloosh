@@ -77,6 +77,17 @@ fun SettingsScreen(
     // --- State variables ---
     var currentThemeMode by remember { mutableIntStateOf(localStorage.getThemeMode()) }
     var glassBlur by remember { mutableFloatStateOf(localStorage.getGlassBlur()) }
+    var glassOpticsDisabled by remember {
+        mutableStateOf(com.slooshfilm.app.utils.GlassOptics.isDisabled(context))
+    }
+
+    // Экран отрисовался с тем режимом оптики, который выбран. Если преломление включено —
+    // взведённая попытка считается удачной и откатываться больше не нужно.
+    LaunchedEffect(glassOpticsDisabled) {
+        if (!glassOpticsDisabled) {
+            com.slooshfilm.app.utils.GlassOptics.confirmHealthy(context)
+        }
+    }
     val globalGlassEnabled = LocalGlassEnabled.current
     var isGlassEnabled by remember(globalGlassEnabled) { mutableStateOf(globalGlassEnabled) }
     val globalProgressiveBlur = LocalProgressiveBlur.current
@@ -179,6 +190,7 @@ fun SettingsScreen(
 
     SettingsScaffold(
         title = "Настройки",
+        glassOpticsDisabled = glassOpticsDisabled,
         onBackClick = { navController.popBackStack() },
         modifier = modifier,
         sceneBackdrop = sceneBackdrop
@@ -371,6 +383,28 @@ fun SettingsScreen(
                     localStorage.saveGlassEnabled(enabled)
                     isGlassEnabled = enabled
                     onGlassEnabledChange(enabled)
+                }
+            )
+
+            SettingsDivider()
+
+            SettingsDivider()
+
+            // Предохранитель: включается сам, если приложение упало нативно на стекле,
+            // и доступен вручную — так видно, ломается ли GPU-оптика на конкретном устройстве.
+            SettingsSwitchItem(
+                title = "Без преломления (если вылетает)",
+                subtitle = "Оставляет стекло, но убирает шейдерные линзы и преломление",
+                iconSfName = "exclamationmark.shield.fill",
+                checked = glassOpticsDisabled,
+                onCheckedChange = { disabled ->
+                    com.slooshfilm.app.utils.GlassOptics.setDisabled(context, disabled)
+                    glassOpticsDisabled = disabled
+                    Toast.makeText(
+                        context,
+                        if (disabled) "Преломление выключено" else "Преломление включено",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             )
 
